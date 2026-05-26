@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    remotePatterns: [],
+    localPatterns: [{ pathname: "/uploads/**" }, { pathname: "/logo.png" }],
+  },
 };
 
 export default nextConfig;
