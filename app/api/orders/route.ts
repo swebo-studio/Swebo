@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { notifyAdmin, notifyCustomerEmail } from "@/lib/notify";
 import { validateCoupon } from "@/lib/coupon";
+import { createHFDShipment } from "@/lib/hfd";
 
 export async function GET() {
   const session = await auth();
@@ -76,6 +77,31 @@ export async function POST(req: NextRequest) {
       }
     }
     await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
+  }
+
+  // Create HFD shipment (only for home delivery, fire and forget)
+  if (delivery > 0) {
+    createHFDShipment({
+      id: order.id,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      customerEmail: customer.email,
+      address: customer.address,
+      city: customer.city,
+      total,
+    }).then(async (result) => {
+      if (result && result.errorCode === "0" && result.shipmentNumber) {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            shipmentNumber: String(result.shipmentNumber),
+            shipmentRandId: result.randNumber,
+          },
+        });
+      } else if (result) {
+        console.error("[HFD] Shipment creation failed:", result.errorCode, result.errorMessage);
+      }
+    }).catch((err) => console.error("[HFD] Error:", err));
   }
 
   // Notifications — fire and forget
