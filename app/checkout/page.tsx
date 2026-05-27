@@ -10,6 +10,29 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [wantsDelivery, setWantsDelivery] = useState(true);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
+  async function applyCoupon() {
+    if (!couponInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError("");
+    const res = await fetch("/api/coupons/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: couponInput.trim().toUpperCase() }),
+    });
+    const data = await res.json();
+    setValidatingCoupon(false);
+    if (data.valid) {
+      setCouponDiscount(data.discountPct);
+    } else {
+      setCouponError(data.error || "קוד לא תקין");
+      setCouponDiscount(0);
+    }
+  }
 
   const [form, setForm] = useState({
     name: "",
@@ -20,7 +43,8 @@ export default function CheckoutPage() {
   });
 
   const delivery = wantsDelivery ? 40 : 0;
-  const total = totalPrice + delivery;
+  const discount = couponDiscount > 0 ? Math.round(totalPrice * couponDiscount / 100) : 0;
+  const total = totalPrice - discount + delivery;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -37,6 +61,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          couponCode: couponDiscount > 0 ? couponInput.trim().toUpperCase() : undefined,
           customer: {
             name: form.name,
             email: form.email,
@@ -173,6 +198,30 @@ export default function CheckoutPage() {
               ))}
             </>
           )}
+
+          {/* Coupon */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={applyCoupon}
+              disabled={validatingCoupon || couponDiscount > 0}
+              className="px-4 py-3 rounded-xl border font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
+              style={{ borderColor: "var(--border)", color: "var(--text)" }}
+            >
+              {validatingCoupon ? "..." : couponDiscount > 0 ? "✓" : "הפעל"}
+            </button>
+            <input
+              type="text"
+              value={couponInput}
+              onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponError(""); }}
+              placeholder="קוד קופון (אופציונלי)"
+              disabled={couponDiscount > 0}
+              className="flex-1 px-4 py-3 rounded-xl border text-right outline-none text-sm"
+              style={{ background: "var(--cream-dark)", borderColor: couponDiscount > 0 ? "var(--green)" : "var(--border)", color: "var(--text)" }}
+            />
+          </div>
+          {couponError && <p className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
+          {couponDiscount > 0 && <p className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>✓ קופון פעיל – {couponDiscount}% הנחה (חיסכון ₪{discount})</p>}
 
           {/* Order summary */}
           <div

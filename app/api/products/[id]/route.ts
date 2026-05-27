@@ -10,7 +10,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     where: { id },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
-      colors: { orderBy: { sortOrder: "asc" } },
+      colors: {
+        orderBy: { sortOrder: "asc" },
+        include: { images: { orderBy: { sortOrder: "asc" } } },
+      },
     },
   });
   if (!product) return Response.json({ error: "Not found" }, { status: 404 });
@@ -32,6 +35,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       stock: body.stock,
       image: body.image,
       active: body.active,
+      categoryId: body.categoryId ?? null,
     },
   });
   return Response.json(product);

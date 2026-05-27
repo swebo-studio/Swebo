@@ -30,6 +30,8 @@ export default async function AdminLayout({
           { href: "/admin", label: "📊 לוח בקרה" },
           { href: "/admin/products", label: "👕 מוצרים" },
           { href: "/admin/orders", label: "📦 הזמנות" },
+          { href: "/admin/coupons", label: "🎟️ קופונים" },
+          { href: "/admin/config", label: "⚙️ הגדרות" },
           { href: "/", label: "🏪 החנות" },
         ].map((item) => (
           <Link

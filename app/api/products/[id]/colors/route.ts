@@ -23,6 +23,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const count = await prisma.productColor.count({ where: { productId: id } });
   const color = await prisma.productColor.create({
     data: { productId: id, nameHe, hex: hex ?? "#000000", stock: stock ?? 0, sortOrder: count, imageUrl: imageUrl ?? null },
+    include: { images: { orderBy: { sortOrder: "asc" } } },
   });
   return Response.json(color, { status: 201 });
 }

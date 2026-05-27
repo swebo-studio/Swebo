@@ -1,9 +1,22 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import ImageCropModal from "@/components/ImageCropModal";
 
-interface ProductImage { id: string; url: string; sortOrder: number }
-interface ProductColor { id: string; nameHe: string; hex: string; stock: number; imageUrl?: string | null }
+interface Category { id: string; nameHe: string }
+
+interface ColorImage { id: string; url: string; sortOrder: number }
+interface SizeStock { size: string; stock: number }
+
+interface ProductColor {
+  id: string;
+  nameHe: string;
+  hex: string;
+  stock: number;
+  images: ColorImage[];
+}
+
+const SIZES = ["S", "M", "L", "XL"];
 
 interface Product {
   id: string;
@@ -13,43 +26,54 @@ interface Product {
   stock: number;
   image: string;
   active: boolean;
-  images: ProductImage[];
+  categoryId: string | null;
   colors: ProductColor[];
 }
 
-const EMPTY: Omit<Product, "id" | "images" | "colors"> = {
-  nameHe: "", descriptionHe: "", price: 150, stock: 0, image: "", active: true,
-};
-
-type Tab = "details" | "images" | "colors";
+const EMPTY_FORM = { nameHe: "", descriptionHe: "", price: 150, stock: 0, active: true, categoryId: "" as string };
 
 export default function ProductsManager({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState(initialProducts);
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<Omit<Product, "id" | "images" | "colors">>(EMPTY);
-  const [tab, setTab] = useState<Tab>("details");
-  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [tab, setTab] = useState<"details" | "colors">("details");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const galleryFileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
-  // Color form state
-  const [colorForm, setColorForm] = useState({ nameHe: "", hex: "#000000", stock: 0, imageUrl: "" });
+  useEffect(() => {
+    fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
+  }, []);
+
+  // Color form
+  const [colorForm, setColorForm] = useState({ nameHe: "", hex: "#000000", stock: 0 });
   const [addingColor, setAddingColor] = useState(false);
   const [editingColor, setEditingColor] = useState<ProductColor | null>(null);
-  const colorImageRef = useRef<HTMLInputElement>(null);
-  const editColorImageRef = useRef<HTMLInputElement>(null);
+
+  // Size stocks per color: colorId → SizeStock[]
+  const [sizeStocks, setSizeStocks] = useState<Record<string, SizeStock[]>>({});
+  const [savingSizes, setSavingSizes] = useState<Record<string, boolean>>({});
+
+  // Which color's "add photo" input is active
+  const colorImageRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Crop modal
+  type CropContext = { type: "colorImage"; colorId: string };
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropContext, setCropContext] = useState<CropContext | null>(null);
+
+  const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
 
   function openCreate() {
-    setForm(EMPTY);
+    setForm(EMPTY_FORM);
     setEditing(null);
     setCreating(true);
     setTab("details");
   }
 
   function openEdit(p: Product) {
-    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, price: p.price, stock: p.stock, image: p.image, active: p.active });
+    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, price: p.price, stock: p.stock, active: p.active, categoryId: p.categoryId ?? "" });
     setEditing(p);
     setCreating(false);
     setTab("details");
@@ -58,61 +82,127 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   function closeForm() {
     setEditing(null);
     setCreating(false);
-    setAddingColor(false);
     setEditingColor(null);
+    setColorForm({ nameHe: "", hex: "#000000", stock: 0 });
   }
 
-  async function uploadImage(file: File): Promise<string> {
+  async function loadSizeStocks(colorId: string) {
+    if (!editing) return;
+    const res = await fetch(`/api/products/${editing.id}/colors/${colorId}/sizes`);
+    const data: SizeStock[] = await res.json();
+    setSizeStocks((prev) => ({ ...prev, [colorId]: data }));
+  }
+
+  async function saveSizeStocks(colorId: string) {
+    if (!editing) return;
+    setSavingSizes((prev) => ({ ...prev, [colorId]: true }));
+    const stocks = sizeStocks[colorId] ?? SIZES.map((size) => ({ size, stock: 0 }));
+    await fetch(`/api/products/${editing.id}/colors/${colorId}/sizes`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stocks),
+    });
+    // Update color total stock locally
+    const total = stocks.reduce((s, r) => s + r.stock, 0);
+    const updatedColors = editing.colors.map((c) => c.id === colorId ? { ...c, stock: total } : c);
+    setEditing((p) => p ? { ...p, colors: updatedColors } : p);
+    setProducts((list) => list.map((p) => p.id === editing.id ? { ...p, colors: updatedColors } : p));
+    setSavingSizes((prev) => ({ ...prev, [colorId]: false }));
+  }
+
+  async function uploadBlob(blob: Blob): Promise<string> {
     setUploading(true);
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", new File([blob], "image.jpg", { type: "image/jpeg" }));
     const res = await fetch("/api/upload", { method: "POST", body: fd });
     const data = await res.json();
     setUploading(false);
     return data.url as string;
   }
 
-  async function handlePrimaryImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = await uploadImage(file);
-    setForm((f) => ({ ...f, image: url }));
-  }
+  async function handleCropConfirm(blob: Blob) {
+    const ctx = cropContext;
+    setCropFile(null);
+    setCropContext(null);
+    if (!ctx || !editing) return;
 
-  async function handleGalleryImageAdd(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !editing) return;
-    const url = await uploadImage(file);
-    const res = await fetch(`/api/products/${editing.id}/images`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
-    const newImg = await res.json();
-    setEditing((p) => p ? { ...p, images: [...p.images, newImg] } : p);
-    setProducts((list) => list.map((p) => p.id === editing.id ? { ...p, images: [...p.images, newImg] } : p));
-    if (galleryFileRef.current) galleryFileRef.current.value = "";
-  }
+    const url = await uploadBlob(blob);
 
-  async function handleDeleteImage(imageId: string) {
-    if (!editing) return;
-    await fetch(`/api/products/${editing.id}/images/${imageId}`, { method: "DELETE" });
-    setEditing((p) => p ? { ...p, images: p.images.filter((i) => i.id !== imageId) } : p);
-    setProducts((list) => list.map((p) => p.id === editing.id ? { ...p, images: p.images.filter((i) => i.id !== imageId) } : p));
-  }
-
-  async function handleColorImageUpload(
-    e: React.ChangeEvent<HTMLInputElement>,
-    target: "form" | "edit"
-  ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = await uploadImage(file);
-    if (target === "form") {
-      setColorForm((f) => ({ ...f, imageUrl: url }));
-    } else {
-      setEditingColor((c) => c ? { ...c, imageUrl: url } : c);
+    if (ctx.type === "colorImage") {
+      const res = await fetch(`/api/products/${editing.id}/colors/${ctx.colorId}/images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const newImg: ColorImage = await res.json();
+      // Update local state
+      const updatedColors = editing.colors.map((c) =>
+        c.id === ctx.colorId ? { ...c, images: [...c.images, newImg] } : c
+      );
+      const updatedProduct = { ...editing, colors: updatedColors };
+      // If this is the first image of the first color, update display image too
+      if (updatedColors[0]?.id === ctx.colorId && updatedColors[0].images.length === 1) {
+        updatedProduct.image = url;
+      }
+      setEditing(updatedProduct);
+      setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
+      // Reset file input
+      if (colorImageRefs.current[ctx.colorId]) colorImageRefs.current[ctx.colorId]!.value = "";
     }
+  }
+
+  function handleCropCancel() {
+    setCropFile(null);
+    setCropContext(null);
+    Object.values(colorImageRefs.current).forEach((ref) => { if (ref) ref.value = ""; });
+  }
+
+  function handleColorImagePick(e: React.ChangeEvent<HTMLInputElement>, colorId: string) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCropContext({ type: "colorImage", colorId });
+    setCropFile(file);
+  }
+
+  async function handleDeleteColorImage(colorId: string, imageId: string) {
+    if (!editing) return;
+    await fetch(`/api/products/${editing.id}/colors/${colorId}/images/${imageId}`, { method: "DELETE" });
+    const updatedColors = editing.colors.map((c) =>
+      c.id === colorId ? { ...c, images: c.images.filter((i) => i.id !== imageId) } : c
+    );
+    // Recalculate display image
+    const newDisplayImage = updatedColors[0]?.images[0]?.url ?? "";
+    const updatedProduct = { ...editing, colors: updatedColors, image: newDisplayImage };
+    setEditing(updatedProduct);
+    setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    if (editing) {
+      const res = await fetch(`/api/products/${editing.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, image: editing.image, categoryId: form.categoryId || null }),
+      });
+      const updated = await res.json();
+      const updatedProduct = { ...editing, ...updated };
+      setProducts((p) => p.map((x) => x.id === editing.id ? updatedProduct : x));
+      setEditing(updatedProduct);
+    } else {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, categoryId: form.categoryId || null }),
+      });
+      const created = await res.json();
+      const full: Product = { ...created, colors: [], categoryId: created.categoryId ?? null };
+      setProducts((p) => [full, ...p]);
+      setEditing(full);
+      setCreating(false);
+      setTab("colors");
+    }
+    setSaving(false);
   }
 
   async function handleAddColor() {
@@ -121,13 +211,13 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     const res = await fetch(`/api/products/${editing.id}/colors`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...colorForm, imageUrl: colorForm.imageUrl || null }),
+      body: JSON.stringify(colorForm),
     });
-    const newColor = await res.json();
-    setEditing((p) => p ? { ...p, colors: [...p.colors, newColor] } : p);
-    setProducts((list) => list.map((p) => p.id === editing.id ? { ...p, colors: [...p.colors, newColor] } : p));
-    setColorForm({ nameHe: "", hex: "#000000", stock: 0, imageUrl: "" });
-    if (colorImageRef.current) colorImageRef.current.value = "";
+    const newColor: ProductColor = await res.json();
+    const updatedProduct = { ...editing, colors: [...editing.colors, newColor] };
+    setEditing(updatedProduct);
+    setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
+    setColorForm({ nameHe: "", hex: "#000000", stock: 0 });
     setAddingColor(false);
   }
 
@@ -136,44 +226,24 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     const res = await fetch(`/api/products/${editing.id}/colors/${color.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nameHe: color.nameHe, hex: color.hex, stock: color.stock, imageUrl: color.imageUrl ?? null }),
+      body: JSON.stringify({ nameHe: color.nameHe, hex: color.hex, stock: color.stock }),
     });
-    const updated = await res.json();
-    setEditing((p) => p ? { ...p, colors: p.colors.map((c) => c.id === updated.id ? updated : c) } : p);
-    setProducts((list) => list.map((p) => p.id === editing.id ? { ...p, colors: p.colors.map((c) => c.id === updated.id ? updated : c) } : p));
+    const updated: ProductColor = await res.json();
+    const updatedColors = editing.colors.map((c) => c.id === updated.id ? { ...updated, images: c.images } : c);
+    const updatedProduct = { ...editing, colors: updatedColors };
+    setEditing(updatedProduct);
+    setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
     setEditingColor(null);
   }
 
   async function handleDeleteColor(colorId: string) {
-    if (!editing) return;
+    if (!editing || !confirm("למחוק צבע זה?")) return;
     await fetch(`/api/products/${editing.id}/colors/${colorId}`, { method: "DELETE" });
-    setEditing((p) => p ? { ...p, colors: p.colors.filter((c) => c.id !== colorId) } : p);
-    setProducts((list) => list.map((p) => p.id === editing.id ? { ...p, colors: p.colors.filter((c) => c.id !== colorId) } : p));
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    if (editing) {
-      const res = await fetch(`/api/products/${editing.id}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const updated = await res.json();
-      setProducts((p) => p.map((x) => x.id === editing.id ? { ...x, ...updated } : x));
-      setEditing((p) => p ? { ...p, ...updated } : p);
-    } else {
-      const res = await fetch("/api/products", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const created = await res.json();
-      const full = { ...created, images: [], colors: [] };
-      setProducts((p) => [full, ...p]);
-      setEditing(full);
-      setCreating(false);
-      setTab("images");
-    }
-    setSaving(false);
+    const updatedColors = editing.colors.filter((c) => c.id !== colorId);
+    const newDisplayImage = updatedColors[0]?.images[0]?.url ?? "";
+    const updatedProduct = { ...editing, colors: updatedColors, image: newDisplayImage };
+    setEditing(updatedProduct);
+    setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
   }
 
   async function handleDelete(id: string) {
@@ -184,10 +254,6 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
   const showForm = creating || editing !== null;
   const isEdit = editing !== null;
-
-  const inputStyle = {
-    background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)",
-  };
 
   return (
     <div>
@@ -202,18 +268,20 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
         <h1 className="text-2xl font-extrabold" style={{ color: "var(--text)" }}>ניהול מוצרים</h1>
       </div>
 
+      {/* Crop modal */}
+      {cropFile && (
+        <ImageCropModal file={cropFile} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
+      )}
+
       {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div
-            className="w-full max-w-lg rounded-3xl overflow-hidden"
-            style={{ background: "var(--cream)" }}
-          >
+          <div className="w-full max-w-lg rounded-3xl overflow-hidden" style={{ background: "var(--cream)" }}>
             {/* Tab bar */}
             <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
-              {(["details", "images", "colors"] as Tab[]).map((t) => {
-                const labels: Record<Tab, string> = { details: "פרטים", images: "תמונות", colors: "צבעים" };
-                const disabled = !isEdit && t !== "details";
+              {(["details", "colors"] as const).map((t) => {
+                const labels = { details: "פרטים", colors: "צבעים" };
+                const disabled = !isEdit && t === "colors";
                 return (
                   <button
                     key={t}
@@ -236,31 +304,10 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
               {/* ── DETAILS TAB ── */}
               {tab === "details" && (
                 <div className="flex flex-col gap-4">
-                  {/* Primary image */}
-                  <div className="flex flex-col items-end gap-2">
-                    <label className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>תמונה ראשית</label>
-                    {form.image && (
-                      <div className="relative w-32 h-32 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-                        <Image src={form.image} alt="תצוגה מקדימה" fill className="object-cover" />
-                      </div>
-                    )}
-                    <input type="file" accept="image/*" ref={fileRef} onChange={handlePrimaryImageChange} className="hidden" />
-                    <button
-                      type="button"
-                      onClick={() => fileRef.current?.click()}
-                      disabled={uploading}
-                      className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
-                      style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                    >
-                      {uploading ? "מעלה..." : "בחר תמונה"}
-                    </button>
-                  </div>
-
                   {[
                     { key: "nameHe", label: "שם המוצר", type: "text" },
                     { key: "descriptionHe", label: "תיאור", type: "text" },
                     { key: "price", label: "מחיר (₪)", type: "number" },
-                    { key: "stock", label: "מלאי (ללא צבעים)", type: "number" },
                   ].map((field) => (
                     <div key={field.key} className="flex flex-col gap-1">
                       <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>{field.label}</label>
@@ -273,6 +320,24 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       />
                     </div>
                   ))}
+
+                  {/* Category selector */}
+                  {categories.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>קטגוריה</label>
+                      <select
+                        value={form.categoryId}
+                        onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
+                        className="px-4 py-3 rounded-xl border text-right outline-none"
+                        style={{ ...inputStyle, direction: "rtl" }}
+                      >
+                        <option value="">ללא קטגוריה</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>{cat.nameHe}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Active toggle */}
                   <label className="flex items-center justify-end gap-3 cursor-pointer">
@@ -291,133 +356,144 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
                   <div className="flex gap-3 mt-2">
                     <button onClick={closeForm} className="flex-1 py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
-                    <button onClick={handleSave} disabled={saving || uploading || !form.nameHe} className="flex-1 py-3 rounded-xl font-bold transition-opacity disabled:opacity-50" style={{ background: "var(--text)", color: "var(--cream)" }}>
-                      {saving ? "שומר..." : isEdit ? "שמור" : "צור מוצר ←"}
+                    <button onClick={handleSave} disabled={saving || !form.nameHe} className="flex-1 py-3 rounded-xl font-bold transition-opacity disabled:opacity-50" style={{ background: "var(--text)", color: "var(--cream)" }}>
+                      {saving ? "שומר..." : isEdit ? "שמור" : "המשך לצבעים ←"}
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* ── IMAGES TAB ── */}
-              {tab === "images" && editing && (
-                <div className="flex flex-col gap-4">
-                  <p className="text-sm text-right" style={{ color: "var(--text-muted)" }}>
-                    הוסף מספר תמונות למוצר — הראשונה תוצג בגלריה
-                  </p>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    {editing.images.map((img) => (
-                      <div key={img.id} className="relative group">
-                        <div className="relative w-full aspect-square rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-                          <Image src={img.url} alt="תמונה" fill className="object-cover" />
-                        </div>
-                        <button
-                          onClick={() => handleDeleteImage(img.id)}
-                          className="absolute top-1 left-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-
-                    {/* Add button */}
-                    <button
-                      onClick={() => galleryFileRef.current?.click()}
-                      disabled={uploading}
-                      className="aspect-square rounded-xl border-2 border-dashed flex items-center justify-center text-2xl transition-opacity hover:opacity-70 disabled:opacity-40"
-                      style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-                    >
-                      {uploading ? "⏳" : "+"}
-                    </button>
-                  </div>
-
-                  <input type="file" accept="image/*" ref={galleryFileRef} onChange={handleGalleryImageAdd} className="hidden" />
-
-                  <button onClick={closeForm} className="w-full py-3 rounded-xl border font-medium mt-2 transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>סגור</button>
                 </div>
               )}
 
               {/* ── COLORS TAB ── */}
               {tab === "colors" && editing && (
-                <div className="flex flex-col gap-4">
-                  <p className="text-sm text-right" style={{ color: "var(--text-muted)" }}>
-                    הוסף גרסאות צבע — כל צבע מנהל מלאי נפרד
-                  </p>
+                <div className="flex flex-col gap-5">
+                  {editing.colors.length === 0 && (
+                    <p className="text-sm text-right" style={{ color: "var(--text-muted)" }}>
+                      הוסף לפחות צבע אחד — תמונת הצבע הראשון תשמש כתמונת המוצר
+                    </p>
+                  )}
 
                   {/* Existing colors */}
-                  <div className="flex flex-col gap-2">
-                    {editing.colors.map((c) =>
-                      editingColor?.id === c.id ? (
-                        <div key={c.id} className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={editingColor.hex}
-                              onChange={(e) => setEditingColor({ ...editingColor, hex: e.target.value })}
-                              className="w-10 h-10 rounded-lg border cursor-pointer flex-shrink-0"
-                              style={{ borderColor: "var(--border)" }}
-                            />
-                            <input
-                              type="text"
-                              value={editingColor.nameHe}
-                              onChange={(e) => setEditingColor({ ...editingColor, nameHe: e.target.value })}
-                              placeholder="שם הצבע"
-                              className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                              style={inputStyle}
-                            />
-                            <input
-                              type="number"
-                              value={editingColor.stock}
-                              onChange={(e) => setEditingColor({ ...editingColor, stock: Number(e.target.value) })}
-                              placeholder="מלאי"
-                              className="w-20 px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                              style={inputStyle}
-                            />
-                          </div>
-                          {/* Color image */}
-                          <div className="flex items-center gap-3 justify-end">
-                            {editingColor.imageUrl && (
-                              <div className="relative w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-                                <Image src={editingColor.imageUrl} alt="תמונת צבע" fill className="object-cover" />
-                              </div>
-                            )}
-                            <input type="file" accept="image/*" ref={editColorImageRef} onChange={(e) => handleColorImageUpload(e, "edit")} className="hidden" />
-                            <button
-                              type="button"
-                              onClick={() => editColorImageRef.current?.click()}
-                              disabled={uploading}
-                              className="px-3 py-1.5 rounded-lg border text-xs transition-opacity hover:opacity-70 disabled:opacity-40"
-                              style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                            >
-                              {uploading ? "מעלה..." : editingColor.imageUrl ? "החלף תמונה" : "הוסף תמונה לצבע"}
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={() => handleSaveColor(editingColor)} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: "var(--text)", color: "var(--cream)" }}>שמור</button>
-                            <button onClick={() => setEditingColor(null)} className="flex-1 py-2 rounded-xl text-xs border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
-                          </div>
+                  {editing.colors.map((c) => (
+                    <div key={c.id} className="rounded-2xl border p-4 flex flex-col gap-3" style={{ borderColor: "var(--border)" }}>
+                      {/* Color header row */}
+                      {editingColor?.id === c.id ? (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleSaveColor(editingColor)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--text)", color: "var(--cream)" }}>שמור</button>
+                          <button onClick={() => setEditingColor(null)} className="px-3 py-1.5 rounded-lg text-xs border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
+                          <input
+                            type="number"
+                            value={editingColor.stock}
+                            onChange={(e) => setEditingColor({ ...editingColor, stock: Number(e.target.value) })}
+                            className="w-20 px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                            style={inputStyle}
+                            placeholder="מלאי"
+                          />
+                          <input
+                            type="text"
+                            value={editingColor.nameHe}
+                            onChange={(e) => setEditingColor({ ...editingColor, nameHe: e.target.value })}
+                            className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                            style={inputStyle}
+                          />
+                          <input
+                            type="color"
+                            value={editingColor.hex}
+                            onChange={(e) => setEditingColor({ ...editingColor, hex: e.target.value })}
+                            className="w-10 h-10 rounded-lg border cursor-pointer flex-shrink-0"
+                            style={{ borderColor: "var(--border)" }}
+                          />
                         </div>
                       ) : (
-                        <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                          {c.imageUrl ? (
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden border flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-                              <Image src={c.imageUrl} alt={c.nameHe} fill className="object-cover" />
-                            </div>
-                          ) : (
-                            <span className="w-10 h-10 rounded-full border flex-shrink-0" style={{ background: c.hex, borderColor: "var(--border)" }} />
-                          )}
-                          <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: c.hex, border: "1px solid var(--border)" }} />
-                          <span className="flex-1 font-medium text-right text-sm" style={{ color: "var(--text)" }}>{c.nameHe}</span>
-                          <span className="text-sm" style={{ color: c.stock <= 3 ? "var(--maroon)" : "var(--green)" }}>{c.stock} במלאי</span>
-                          <button onClick={() => setEditingColor(c)} className="px-2 py-1 rounded-lg text-xs border transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
-                          <button onClick={() => handleDeleteColor(c.id)} className="px-2 py-1 rounded-lg text-xs border transition-opacity hover:opacity-70" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleDeleteColor(c.id)} className="px-2 py-1 rounded-lg text-xs border mr-auto" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
+                          <button onClick={() => setEditingColor(c)} className="px-2 py-1 rounded-lg text-xs border" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
+                          <span className="text-sm font-medium" style={{ color: c.stock <= 3 ? "var(--maroon)" : "var(--green)" }}>{c.stock} במלאי</span>
+                          <span className="font-medium text-sm text-right" style={{ color: "var(--text)" }}>{c.nameHe}</span>
+                          <span className="w-8 h-8 rounded-full flex-shrink-0 border" style={{ background: c.hex, borderColor: "var(--border)" }} />
                         </div>
-                      )
-                    )}
-                  </div>
+                      )}
 
-                  {/* Add color form */}
-                  <div className="p-4 rounded-xl border flex flex-col gap-3" style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}>
+                      {/* Size stock grid */}
+                      <div className="mt-1">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <button
+                            onClick={() => saveSizeStocks(c.id)}
+                            disabled={savingSizes[c.id]}
+                            className="text-xs px-3 py-1 rounded-lg font-bold transition-opacity disabled:opacity-40"
+                            style={{ background: "var(--text)", color: "var(--cream)" }}
+                          >
+                            {savingSizes[c.id] ? "שומר..." : "שמור מלאי"}
+                          </button>
+                          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {SIZES.map((size) => {
+                            const current = sizeStocks[c.id]?.find((s) => s.size === size);
+                            return (
+                              <div key={size} className="flex flex-col items-center gap-1">
+                                <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{size}</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={current?.stock ?? 0}
+                                  onFocus={() => { if (!sizeStocks[c.id]) loadSizeStocks(c.id); }}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setSizeStocks((prev) => {
+                                      const existing = prev[c.id] ?? SIZES.map((s) => ({ size: s, stock: 0 }));
+                                      return { ...prev, [c.id]: existing.map((s) => s.size === size ? { ...s, stock: val } : s) };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
+                                  style={inputStyle}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Photo grid */}
+                      <div className="grid grid-cols-4 gap-2">
+                        {c.images.map((img, idx) => (
+                          <div key={img.id} className="relative group aspect-square">
+                            <div className="relative w-full h-full rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                              <Image src={img.url} alt={`תמונה ${idx + 1}`} fill className="object-cover" sizes="80px" />
+                            </div>
+                            {idx === 0 && editing.colors[0]?.id === c.id && (
+                              <div className="absolute top-1 right-1 text-[10px] px-1 rounded font-bold" style={{ background: "var(--text)", color: "var(--cream)" }}>ראשי</div>
+                            )}
+                            <button
+                              onClick={() => handleDeleteColorImage(c.id, img.id)}
+                              className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+
+                        {/* Add photo button */}
+                        <button
+                          onClick={() => colorImageRefs.current[c.id]?.click()}
+                          disabled={uploading}
+                          className="aspect-square rounded-xl border-2 border-dashed flex items-center justify-center text-xl transition-opacity hover:opacity-70 disabled:opacity-40"
+                          style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+                        >
+                          {uploading ? "⏳" : "+"}
+                        </button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={(el) => { colorImageRefs.current[c.id] = el; }}
+                          onChange={(e) => handleColorImagePick(e, c.id)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add new color */}
+                  <div className="rounded-2xl border p-4 flex flex-col gap-3" style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}>
                     <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>הוסף צבע חדש</p>
                     <div className="flex items-center gap-2">
                       <input
@@ -431,7 +507,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         type="text"
                         value={colorForm.nameHe}
                         onChange={(e) => setColorForm((f) => ({ ...f, nameHe: e.target.value }))}
-                        placeholder="שם הצבע (למשל: ירוק, אדום)"
+                        placeholder="שם הצבע"
                         className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
                         style={inputStyle}
                       />
@@ -444,24 +520,6 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         className="w-20 px-3 py-2 rounded-xl border text-right outline-none text-sm"
                         style={inputStyle}
                       />
-                    </div>
-                    {/* Color image upload */}
-                    <div className="flex items-center gap-3 justify-end">
-                      {colorForm.imageUrl && (
-                        <div className="relative w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-                          <Image src={colorForm.imageUrl} alt="תמונת צבע" fill className="object-cover" />
-                        </div>
-                      )}
-                      <input type="file" accept="image/*" ref={colorImageRef} onChange={(e) => handleColorImageUpload(e, "form")} className="hidden" />
-                      <button
-                        type="button"
-                        onClick={() => colorImageRef.current?.click()}
-                        disabled={uploading}
-                        className="px-3 py-1.5 rounded-lg border text-xs transition-opacity hover:opacity-70 disabled:opacity-40"
-                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                      >
-                        {uploading ? "מעלה..." : colorForm.imageUrl ? "החלף תמונה" : "הוסף תמונה לצבע (אופציונלי)"}
-                      </button>
                     </div>
                     <button
                       onClick={handleAddColor}
@@ -490,16 +548,15 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
             <table className="w-full text-sm text-right">
               <thead>
                 <tr style={{ borderBottom: `1px solid var(--border)`, background: "var(--cream-dark)" }}>
-                  {["תמונה", "שם", "מחיר", "מלאי", "צבעים", "סטטוס", "פעולות"].map((h) => (
+                  {["תמונה", "שם", "קטגוריה", "מחיר", "מלאי", "צבעים", "סטטוס", "פעולות"].map((h) => (
                     <th key={h} className="px-4 py-3 font-medium" style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {products.map((p) => {
-                  const displayImg = p.images[0]?.url || p.image;
-                  const hasColors = p.colors.length > 0;
-                  const stockDisplay = hasColors
+                  const displayImg = p.colors[0]?.images[0]?.url || p.image;
+                  const totalStock = p.colors.length > 0
                     ? p.colors.reduce((s, c) => s + c.stock, 0)
                     : p.stock;
                   return (
@@ -507,21 +564,22 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       <td className="px-4 py-3">
                         <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
                           {displayImg ? (
-                            <Image src={displayImg} alt={p.nameHe} fill className="object-cover" />
+                            <Image src={displayImg} alt={p.nameHe} fill className="object-cover" sizes="48px" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">👕</div>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>{p.nameHe}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>
+                        {categories.find((c) => c.id === p.categoryId)?.nameHe ?? "—"}
+                      </td>
                       <td className="px-4 py-3 font-bold" style={{ color: "var(--text)" }}>₪{p.price}</td>
                       <td className="px-4 py-3">
-                        <span style={{ color: stockDisplay <= 3 ? "var(--maroon)" : "var(--green)", fontWeight: "bold" }}>
-                          {stockDisplay}
-                        </span>
+                        <span style={{ color: totalStock <= 3 ? "var(--maroon)" : "var(--green)", fontWeight: "bold" }}>{totalStock}</span>
                       </td>
                       <td className="px-4 py-3">
-                        {hasColors ? (
+                        {p.colors.length > 0 ? (
                           <div className="flex gap-1 flex-wrap">
                             {p.colors.map((c) => (
                               <span key={c.id} title={c.nameHe} className="w-5 h-5 rounded-full border inline-block" style={{ background: c.hex, borderColor: "var(--border)" }} />

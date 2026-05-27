@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
       stock: body.stock ?? 0,
       image: body.image ?? "",
       active: body.active ?? true,
+      categoryId: body.categoryId ?? null,
     },
   });
   return Response.json(product, { status: 201 });

@@ -13,6 +13,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const color = await prisma.productColor.update({
     where: { id: colorId },
     data: { nameHe, hex, stock, imageUrl: imageUrl ?? null },
+    include: { images: { orderBy: { sortOrder: "asc" } } },
   });
   return Response.json(color);
 }
