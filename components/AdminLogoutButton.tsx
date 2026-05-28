@@ -8,7 +8,7 @@ export default function AdminLogoutButton() {
       className="w-full px-4 py-2.5 rounded-xl text-sm font-medium text-right transition-opacity hover:opacity-70"
       style={{ color: "var(--text-muted)" }}
     >
-      🚪 התנתק
+      התנתק
     </button>
   );
 }

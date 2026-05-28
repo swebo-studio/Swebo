@@ -19,11 +19,11 @@ export default async function HomePage({ searchParams }: Props) {
     prisma.product.findMany({
       where: {
         active: true,
-        ...(filterCategoryId ? { categoryId: filterCategoryId } : {}),
+        ...(filterCategoryId ? { categories: { some: { id: filterCategoryId } } } : {}),
       },
       orderBy: { createdAt: "asc" },
       include: {
-        category: true,
+        categories: true,
         colors: {
           orderBy: { sortOrder: "asc" },
           include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
@@ -46,12 +46,12 @@ export default async function HomePage({ searchParams }: Props) {
   } else if (allCategories.length === 0) {
     grouped.push({ id: null, nameHe: "", products });
   } else {
-    // Group: each category, then uncategorised
+    // Group: each category (product can appear in multiple groups), then uncategorised
     for (const cat of allCategories) {
-      const catProducts = products.filter((p) => p.categoryId === cat.id);
+      const catProducts = products.filter((p) => p.categories.some((c) => c.id === cat.id));
       if (catProducts.length > 0) grouped.push({ id: cat.id, nameHe: cat.nameHe, products: catProducts });
     }
-    const uncategorised = products.filter((p) => !p.categoryId);
+    const uncategorised = products.filter((p) => p.categories.length === 0);
     if (uncategorised.length > 0) grouped.push({ id: null, nameHe: "מוצרים נוספים", products: uncategorised });
   }
 
@@ -90,7 +90,7 @@ export default async function HomePage({ searchParams }: Props) {
         {/* Products (grouped) */}
         {products.length === 0 ? (
           <div className="text-center py-20" style={{ color: "var(--text-muted)" }}>
-            <div className="text-6xl mb-4">👕</div>
+            <div className="mb-4"></div>
             <p className="text-xl">מוצרים יגיעו בקרוב...</p>
           </div>
         ) : (
@@ -131,12 +131,11 @@ export default async function HomePage({ searchParams }: Props) {
           style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
         >
           {[
-            { icon: "🚚", title: "משלוח ₪40", sub: "לכל הארץ · או איסוף עצמי חינם" },
-            { icon: "📏", title: "מידות S–XL", sub: "בחר מידה בעמוד המוצר" },
-            { icon: "💳", title: "תשלום מאובטח", sub: "דרך GROW" },
+            { title: "משלוח ₪40", sub: "לכל הארץ · או איסוף עצמי חינם" },
+            { title: "מידות S–XL", sub: "בחר מידה בעמוד המוצר" },
+            { title: "תשלום מאובטח", sub: "דרך GROW" },
           ].map((item) => (
             <div key={item.title}>
-              <div className="text-3xl mb-2">{item.icon}</div>
               <div className="font-bold" style={{ color: "var(--text)" }}>{item.title}</div>
               <div className="text-sm" style={{ color: "var(--text-muted)" }}>{item.sub}</div>
             </div>
@@ -158,7 +157,7 @@ export default async function HomePage({ searchParams }: Props) {
           <div className="flex justify-center gap-6 flex-wrap">
             {(cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER) && (
               <a
-                href={`https://wa.me/${cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}`}
+                href={(() => { const v = cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ""; return v.startsWith("http") ? v : `https://wa.me/${v}`; })()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-white transition-opacity hover:opacity-80"

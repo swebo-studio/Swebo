@@ -19,8 +19,8 @@ export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await req.json();
-  // unlink products before deleting
-  await prisma.product.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
+  // disconnect all products from this category, then delete it
+  await prisma.category.update({ where: { id }, data: { products: { set: [] } } });
   await prisma.category.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

@@ -259,7 +259,7 @@ export default function AdminCouponsPage() {
                           style={{ color: "var(--text)" }}
                           title="לחץ להעתקה"
                         >
-                          {copied === c.code ? "✓" : "📋"} {c.code}
+                          {c.code}
                         </button>
                       </td>
 

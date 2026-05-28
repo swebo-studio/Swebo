@@ -20,9 +20,7 @@ export default async function OrderPage(
       <Header />
       <main className="max-w-xl mx-auto px-4 py-16 text-right">
         <div className="text-center mb-10">
-          <div className="text-6xl mb-4">
-            {order.status === "paid" ? "✅" : "📋"}
-          </div>
+          <div className="mb-4"></div>
           <h1 className="text-3xl font-extrabold mb-2" style={{ color: "var(--text)" }}>
             {order.status === "paid" ? "תודה על ההזמנה!" : "הזמנה התקבלה"}
           </h1>

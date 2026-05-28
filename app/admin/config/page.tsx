@@ -155,7 +155,7 @@ export default function AdminConfigPage() {
                 className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
                 style={{ borderColor: "var(--border)", color: "var(--text)" }}
               >
-                {uploading === "image" ? "מעלה..." : "📷 העלה תמונה"}
+                {uploading === "image" ? "מעלה..." : "העלה תמונה"}
               </button>
               <button
                 onClick={() => heroVideoRef.current?.click()}
@@ -163,7 +163,7 @@ export default function AdminConfigPage() {
                 className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
                 style={{ borderColor: "var(--border)", color: "var(--text)" }}
               >
-                {uploading === "video" ? "מעלה..." : "🎬 העלה וידאו"}
+                {uploading === "video" ? "מעלה..." : "העלה וידאו"}
               </button>
               {(hero.imagePath || hero.videoPath) && (
                 <button

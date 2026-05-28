@@ -13,7 +13,7 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath 
   return (
     <section
       className="relative w-full overflow-hidden flex items-end"
-      style={{ height: "100svh" }}
+      style={{ height: "50svh" }}
     >
       {/* Background: video or image */}
       {videoPath ? (

@@ -120,7 +120,7 @@ export default function ProductDetail({ product, sizeChart }: Props) {
           {mainImg ? (
             <Image src={mainImg} alt={product.nameHe} fill className="object-cover" priority sizes="(max-width:768px) 100vw, 50vw" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-8xl">👕</div>
+            <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
           )}
         </div>
 
@@ -257,8 +257,8 @@ export default function ProductDetail({ product, sizeChart }: Props) {
 
         {/* Shipping info */}
         <div className="mt-2 p-4 rounded-xl text-sm border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-          <div className="flex justify-between mb-2"><span>🚚 משלוח</span><span>₪40</span></div>
-          <div className="flex justify-between"><span>💳 תשלום</span><span>GROW – מאובטח</span></div>
+          <div className="flex justify-between mb-2"><span>משלוח</span><span>₪40</span></div>
+          <div className="flex justify-between"><span>תשלום</span><span>GROW – מאובטח</span></div>
         </div>
       </div>
     </div>

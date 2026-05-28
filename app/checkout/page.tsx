@@ -132,8 +132,8 @@ export default function CheckoutPage() {
             style={{ borderColor: "var(--border)" }}
           >
             {[
-              { val: true,  label: "🚚 משלוח עד הבית — ₪40" },
-              { val: false, label: "🏃 איסוף עצמי — חינם" },
+              { val: true,  label: "משלוח עד הבית — ₪40" },
+              { val: false, label: "איסוף עצמי — חינם" },
             ].map(({ val, label }) => (
               <button
                 key={String(val)}

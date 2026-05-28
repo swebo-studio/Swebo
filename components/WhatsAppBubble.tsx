@@ -1,14 +1,9 @@
 "use client";
 
 export default function WhatsAppBubble() {
-  const number = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "";
-  const href = number
-    ? `https://wa.me/${number}`
-    : "https://wa.me/";
-
   return (
     <a
-      href={href}
+      href="https://wa.me/message/ETORWEEXION5O1"
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp"

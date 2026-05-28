@@ -12,7 +12,7 @@ export default function CartPage() {
       <>
         <Header />
         <main className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <div className="text-7xl mb-6">🛒</div>
+          <div className="text-7xl mb-6"></div>
           <h1 className="text-2xl font-bold mb-4" style={{ color: "var(--text)" }}>
             העגלה שלך ריקה
           </h1>
@@ -51,7 +51,7 @@ export default function CartPage() {
                 {item.image ? (
                   <Image src={item.image} alt={item.nameHe} fill className="object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl">👕</div>
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: "var(--cream-dark)" }} />
                 )}
               </div>
 

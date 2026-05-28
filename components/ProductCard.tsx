@@ -28,11 +28,9 @@ export default function ProductCard({ id, nameHe, price, image, stock }: Props) 
             />
           ) : (
             <div
-              className="w-full h-full flex items-center justify-center text-6xl"
+              className="w-full h-full"
               style={{ background: "var(--cream-dark)" }}
-            >
-              👕
-            </div>
+            />
           )}
           {stock === 0 && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">

@@ -19,7 +19,7 @@ export default function ProductGallery({ images, alt }: Props) {
         {mainImg ? (
           <Image src={mainImg} alt={alt} fill className="object-cover" priority />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-8xl">👕</div>
+          <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
         )}
       </div>
 

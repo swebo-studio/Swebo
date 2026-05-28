@@ -124,7 +124,7 @@ export default function AdminOrdersPage() {
                     </span>
                     {order.shipmentNumber && (
                       <span className="text-xs px-2 py-0.5 rounded-lg font-mono" style={{ background: "#e8f5e9", color: "var(--green)" }}>
-                        📦 {order.shipmentNumber}
+                        {order.shipmentNumber}
                       </span>
                     )}
                   </div>
@@ -175,7 +175,7 @@ export default function AdminOrdersPage() {
                             className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-opacity hover:opacity-70"
                             style={{ borderColor: "var(--border)", color: "var(--text)" }}
                           >
-                            🖨️ הדפס תווית
+                            הדפס תווית
                           </a>
 
                           {/* Tracking */}
@@ -184,7 +184,7 @@ export default function AdminOrdersPage() {
                             className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-opacity hover:opacity-70"
                             style={{ borderColor: "var(--border)", color: "var(--text)" }}
                           >
-                            🔍 מעקב משלוח
+                            מעקב משלוח
                           </button>
 
                           {/* Cancel — only if not delivered/cancelled */}
@@ -195,7 +195,7 @@ export default function AdminOrdersPage() {
                               className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-opacity hover:opacity-70 disabled:opacity-40"
                               style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}
                             >
-                              {cancelling === order.id ? "מבטל..." : "❌ בטל משלוח"}
+                              {cancelling === order.id ? "מבטל..." : "בטל משלוח"}
                             </button>
                           )}
                         </div>
@@ -231,8 +231,8 @@ export default function AdminOrdersPage() {
                       order.delivery > 0 && (
                         <p className="text-sm text-center py-2" style={{ color: "var(--text-muted)" }}>
                           {!process.env.HFD_CLIENT_NUMBER
-                            ? "⚠️ HFD לא מוגדר — מלא את פרטי HFD ב-.env"
-                            : "⏳ משלוח לא נוצר עדיין ב-HFD"}
+                            ? "HFD לא מוגדר — מלא את פרטי HFD ב-.env"
+                            : "משלוח לא נוצר עדיין ב-HFD"}
                         </p>
                       )
                     )}

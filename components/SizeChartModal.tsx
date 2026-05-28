@@ -25,7 +25,7 @@ export default function SizeChartModal({ rows }: Props) {
         className="text-sm underline underline-offset-2 transition-opacity hover:opacity-70"
         style={{ color: "var(--text-muted)" }}
       >
-        📏 מדריך מידות
+        מדריך מידות
       </button>
 
       {open && (

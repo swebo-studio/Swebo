@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       customer.email,
       `SWEBO – אישור הזמנה #${order.id.slice(-6).toUpperCase()}`,
       `<div dir="rtl" style="font-family:sans-serif;max-width:480px;margin:auto">
-        <h2>תודה על הזמנתך! 🎉</h2>
+        <h2>תודה על הזמנתך!</h2>
         <p>מספר הזמנה: <strong>${order.id.slice(-6).toUpperCase()}</strong></p>
         <pre style="background:#F5F0E8;padding:12px;border-radius:8px;white-space:pre-wrap">${msg}</pre>
       </div>`

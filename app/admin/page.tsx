@@ -62,7 +62,7 @@ export default async function AdminDashboard() {
           style={{ background: "#fff3e0", borderColor: "#f59e0b" }}
         >
           <p className="font-bold mb-2" style={{ color: "#92400e" }}>
-            ⚠️ מלאי נמוך
+            מלאי נמוך
           </p>
           {lowStock.map((p) => (
             <p key={p.id} className="text-sm" style={{ color: "#92400e" }}>

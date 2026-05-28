@@ -27,12 +27,12 @@ export default async function AdminLayout({
           <Image src="/logo.png" alt="SWEBO" width={90} height={45} className="object-contain" />
         </div>
         {[
-          { href: "/admin", label: "📊 לוח בקרה" },
-          { href: "/admin/products", label: "👕 מוצרים" },
-          { href: "/admin/orders", label: "📦 הזמנות" },
-          { href: "/admin/coupons", label: "🎟️ קופונים" },
-          { href: "/admin/config", label: "⚙️ הגדרות" },
-          { href: "/", label: "🏪 החנות" },
+          { href: "/admin", label: "לוח בקרה" },
+          { href: "/admin/products", label: "מוצרים" },
+          { href: "/admin/orders", label: "הזמנות" },
+          { href: "/admin/coupons", label: "קופונים" },
+          { href: "/admin/config", label: "הגדרות" },
+          { href: "/", label: "החנות" },
         ].map((item) => (
           <Link
             key={item.href}

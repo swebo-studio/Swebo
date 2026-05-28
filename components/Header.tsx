@@ -116,20 +116,19 @@ export default function Header() {
         }}
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+        <div className="flex items-center px-5 py-4">
           <button onClick={() => setOpen(false)} aria-label="סגור תפריט" className="hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
             <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6"  y1="6" x2="18" y2="18" />
             </svg>
           </button>
-          <span className="font-extrabold text-base" style={{ color: "var(--text)" }}>תפריט</span>
         </div>
 
         {/* Nav links */}
         <nav className="flex flex-col px-5 py-6 gap-1 text-right flex-1 overflow-y-auto">
           <Link href="/" onClick={() => setOpen(false)} className="py-3 px-2 font-bold text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
-            🏠 דף הבית
+            דף הבית
           </Link>
 
           {categories.length > 0 && (
@@ -151,7 +150,7 @@ export default function Header() {
 
           <div className="mt-4 mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>עוד</div>
           <Link href="#contact" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
-            💬 צור קשר
+            צור קשר
           </Link>
           <Link href="/terms" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }}>
             תנאי שימוש

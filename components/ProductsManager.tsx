@@ -26,11 +26,11 @@ interface Product {
   stock: number;
   image: string;
   active: boolean;
-  categoryId: string | null;
+  categories: { id: string; nameHe: string }[];
   colors: ProductColor[];
 }
 
-const EMPTY_FORM = { nameHe: "", descriptionHe: "", price: 150, stock: 0, active: true, categoryId: "" as string };
+const EMPTY_FORM = { nameHe: "", descriptionHe: "", price: 150, stock: 0, active: true };
 
 export default function ProductsManager({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState(initialProducts);
@@ -39,6 +39,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [form, setForm] = useState(EMPTY_FORM);
   const [tab, setTab] = useState<"details" | "colors">("details");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -67,13 +68,15 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
   function openCreate() {
     setForm(EMPTY_FORM);
+    setSelectedCategoryIds([]);
     setEditing(null);
     setCreating(true);
     setTab("details");
   }
 
   function openEdit(p: Product) {
-    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, price: p.price, stock: p.stock, active: p.active, categoryId: p.categoryId ?? "" });
+    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, price: p.price, stock: p.stock, active: p.active });
+    setSelectedCategoryIds(p.categories.map((c) => c.id));
     setEditing(p);
     setCreating(false);
     setTab("details");
@@ -183,7 +186,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       const res = await fetch(`/api/products/${editing.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, image: editing.image, categoryId: form.categoryId || null }),
+        body: JSON.stringify({ ...form, image: editing.image, categoryIds: selectedCategoryIds }),
       });
       const updated = await res.json();
       const updatedProduct = { ...editing, ...updated };
@@ -193,10 +196,10 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, categoryId: form.categoryId || null }),
+        body: JSON.stringify({ ...form, categoryIds: selectedCategoryIds }),
       });
       const created = await res.json();
-      const full: Product = { ...created, colors: [], categoryId: created.categoryId ?? null };
+      const full: Product = { ...created, colors: [], categories: created.categories ?? [] };
       setProducts((p) => [full, ...p]);
       setEditing(full);
       setCreating(false);
@@ -248,7 +251,12 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
   async function handleDelete(id: string) {
     if (!confirm("למחוק מוצר זה?")) return;
-    await fetch(`/api/products/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "לא ניתן למחוק מוצר זה");
+      return;
+    }
     setProducts((p) => p.filter((x) => x.id !== id));
   }
 
@@ -321,21 +329,29 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                     </div>
                   ))}
 
-                  {/* Category selector */}
+                  {/* Category multi-select */}
                   {categories.length > 0 && (
-                    <div className="flex flex-col gap-1">
-                      <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>קטגוריה</label>
-                      <select
-                        value={form.categoryId}
-                        onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
-                        className="px-4 py-3 rounded-xl border text-right outline-none"
-                        style={{ ...inputStyle, direction: "rtl" }}
-                      >
-                        <option value="">ללא קטגוריה</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>{cat.nameHe}</option>
-                        ))}
-                      </select>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>קטגוריות (ניתן לבחור מספר)</label>
+                      <div className="flex flex-col gap-1.5 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+                        {categories.map((cat) => {
+                          const checked = selectedCategoryIds.includes(cat.id);
+                          return (
+                            <label key={cat.id} className="flex items-center justify-end gap-2 cursor-pointer select-none text-sm" style={{ color: "var(--text)" }}>
+                              {cat.nameHe}
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => setSelectedCategoryIds((prev) =>
+                                  checked ? prev.filter((id) => id !== cat.id) : [...prev, cat.id]
+                                )}
+                                className="w-4 h-4 rounded"
+                                style={{ accentColor: "var(--text)" }}
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
@@ -479,7 +495,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                           className="aspect-square rounded-xl border-2 border-dashed flex items-center justify-center text-xl transition-opacity hover:opacity-70 disabled:opacity-40"
                           style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
                         >
-                          {uploading ? "⏳" : "+"}
+                          {uploading ? "..." : "+"}
                         </button>
                         <input
                           type="file"
@@ -566,13 +582,13 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                           {displayImg ? (
                             <Image src={displayImg} alt={p.nameHe} fill className="object-cover" sizes="48px" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">👕</div>
+                            <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>{p.nameHe}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                        {categories.find((c) => c.id === p.categoryId)?.nameHe ?? "—"}
+                        {p.categories.length > 0 ? p.categories.map((c) => c.nameHe).join(", ") : "—"}
                       </td>
                       <td className="px-4 py-3 font-bold" style={{ color: "var(--text)" }}>₪{p.price}</td>
                       <td className="px-4 py-3">

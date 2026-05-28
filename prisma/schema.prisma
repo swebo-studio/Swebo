@@ -11,7 +11,7 @@ model Category {
   id        String    @id @default(cuid())
   nameHe    String
   sortOrder Int       @default(0)
-  products  Product[]
+  products  Product[] @relation("ProductCategories")
 }
 
 model Product {
@@ -22,8 +22,7 @@ model Product {
   stock         Int            @default(0)
   image         String         @default("")
   active        Boolean        @default(true)
-  categoryId    String?
-  category      Category?      @relation(fields: [categoryId], references: [id])
+  categories    Category[]     @relation("ProductCategories")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   orderItems    OrderItem[]

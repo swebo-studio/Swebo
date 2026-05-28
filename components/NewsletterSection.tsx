@@ -37,7 +37,7 @@ export default function NewsletterSection() {
   if (coupon) {
     return (
       <section className="rounded-2xl border p-8 text-center" style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}>
-        <div className="text-4xl mb-3">🎉</div>
+        <div className="mb-3"></div>
         <h3 className="text-xl font-extrabold mb-2" style={{ color: "var(--text)" }}>הקופון שלך מוכן!</h3>
         <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>השתמש בקוד הזה בעת התשלום לקבלת 5% הנחה:</p>
         <div
