@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   let couponId: string | null = null;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode);
-    if (coupon) { discountPct = coupon.discountPct; couponId = coupon.id; }
+    if (coupon) { discountPct = coupon.discountPct; couponId = coupon.singleUse ? coupon.id : null; }
   }
 
   const subtotal = cartItems.reduce(

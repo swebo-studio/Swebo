@@ -39,16 +39,17 @@ model ProductImage {
 }
 
 model ProductColor {
-  id        String              @id @default(cuid())
-  productId String
-  nameHe    String
-  hex       String              @default("#000000")
-  stock     Int                 @default(0)
-  sortOrder Int                 @default(0)
-  imageUrl  String?
-  product   Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
-  images    ProductColorImage[]
-  sizes     ProductColorSize[]
+  id         String              @id @default(cuid())
+  productId  String
+  nameHe     String
+  hex        String              @default("#000000")
+  stock      Int                 @default(0)
+  sortOrder  Int                 @default(0)
+  imageUrl   String?
+  linkedUrl  String?
+  product    Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  images     ProductColorImage[]
+  sizes      ProductColorSize[]
 }
 
 model ProductColorSize {
@@ -125,6 +126,7 @@ model Coupon {
   id           String    @id @default(cuid())
   code         String    @unique
   discountPct  Int       @default(5)
+  singleUse    Boolean   @default(true)
   usedByEmail  String?
   expiresAt    DateTime?
   createdAt    DateTime  @default(now())

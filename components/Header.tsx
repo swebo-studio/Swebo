@@ -159,7 +159,7 @@ export default function Header() {
           )}
 
           <div className="mt-4 mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>עוד</div>
-          <Link href="#contact" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
+          <Link href="/#contact" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
             צור קשר
           </Link>
           <Link href="/terms" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }}>

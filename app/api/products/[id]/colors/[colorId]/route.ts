@@ -9,10 +9,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { colorId } = await params;
-  const { nameHe, hex, stock, imageUrl } = await req.json();
+  const { nameHe, hex, stock, imageUrl, linkedUrl } = await req.json();
   const color = await prisma.productColor.update({
     where: { id: colorId },
-    data: { nameHe, hex, stock, imageUrl: imageUrl ?? null },
+    data: { nameHe, hex, stock, imageUrl: imageUrl ?? null, linkedUrl: linkedUrl ?? null },
     include: { images: { orderBy: { sortOrder: "asc" } } },
   });
   return Response.json(color);

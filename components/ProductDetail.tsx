@@ -16,6 +16,7 @@ interface ProductColor {
   hex: string;
   stock: number;
   images: ColorImage[];
+  linkedUrl?: string | null;
 }
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
@@ -148,6 +149,15 @@ export default function ProductDetail({ product, sizeChart }: Props) {
             <p className="text-sm font-medium mb-3" style={{ color: "var(--text-muted)" }}>
               {selectedColor ? `צבע: ${selectedColor.nameHe}` : "בחר צבע:"}
             </p>
+            {selectedColor?.linkedUrl && (
+              <a
+                href={selectedColor.linkedUrl}
+                className="text-xs underline text-right block mb-2 hover:opacity-70 transition-opacity"
+                style={{ color: "var(--text-muted)" }}
+              >
+                ← צפה במוצר קשור
+              </a>
+            )}
             <div className="flex gap-3 justify-end flex-wrap">
               {product.colors.map((c) => {
                 const thumb = c.images?.[0]?.url;
@@ -232,6 +242,19 @@ export default function ProductDetail({ product, sizeChart }: Props) {
                 );
               })}
             </div>
+            {sizeStocks.length > 0 && sizeStocks.some((s) => s.stock === 0) && (
+              <p className="text-xs text-right mt-1" style={{ color: "var(--text-muted)" }}>
+                * מידות חסרות במלאי —{" "}
+                <a
+                  href={`https://wa.me/972522770059?text=${encodeURIComponent("היי SWEBO, אני מעוניין להזמין מידה שאינה במלאי")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:opacity-70"
+                >
+                  פנו בוואטסאפ להזמנה
+                </a>
+              </p>
+            )}
           </div>
         )}
 

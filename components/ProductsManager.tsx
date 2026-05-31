@@ -14,6 +14,7 @@ interface ProductColor {
   hex: string;
   stock: number;
   images: ColorImage[];
+  linkedUrl?: string | null;
 }
 
 const SIZES = ["S", "M", "L", "XL"];
@@ -282,7 +283,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     const res = await fetch(`/api/products/${editing.id}/colors/${color.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nameHe: color.nameHe, hex: color.hex, stock: color.stock }),
+      body: JSON.stringify({ nameHe: color.nameHe, hex: color.hex, stock: color.stock, linkedUrl: color.linkedUrl ?? null }),
     });
     const updated: ProductColor = await res.json();
     const updatedColors = editing.colors.map((c) => c.id === updated.id ? { ...updated, images: c.images } : c);
@@ -446,30 +447,40 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                     <div key={c.id} className="rounded-2xl border p-4 flex flex-col gap-3" style={{ borderColor: "var(--border)" }}>
                       {/* Color header row */}
                       {editingColor?.id === c.id ? (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleSaveColor(editingColor)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--text)", color: "var(--cream)" }}>שמור</button>
-                          <button onClick={() => setEditingColor(null)} className="px-3 py-1.5 rounded-lg text-xs border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleSaveColor(editingColor)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: "var(--text)", color: "var(--cream)" }}>שמור</button>
+                            <button onClick={() => setEditingColor(null)} className="px-3 py-1.5 rounded-lg text-xs border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
+                            <input
+                              type="number"
+                              value={editingColor.stock}
+                              onChange={(e) => setEditingColor({ ...editingColor, stock: Number(e.target.value) })}
+                              className="w-20 px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                              style={inputStyle}
+                              placeholder="מלאי"
+                            />
+                            <input
+                              type="text"
+                              value={editingColor.nameHe}
+                              onChange={(e) => setEditingColor({ ...editingColor, nameHe: e.target.value })}
+                              className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                              style={inputStyle}
+                            />
+                            <input
+                              type="color"
+                              value={editingColor.hex}
+                              onChange={(e) => setEditingColor({ ...editingColor, hex: e.target.value })}
+                              className="w-10 h-10 rounded-lg border cursor-pointer flex-shrink-0"
+                              style={{ borderColor: "var(--border)" }}
+                            />
+                          </div>
                           <input
-                            type="number"
-                            value={editingColor.stock}
-                            onChange={(e) => setEditingColor({ ...editingColor, stock: Number(e.target.value) })}
-                            className="w-20 px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                            type="url"
+                            value={editingColor.linkedUrl ?? ""}
+                            onChange={(e) => setEditingColor({ ...editingColor, linkedUrl: e.target.value || null })}
+                            placeholder="קישור למוצר קשור (אופציונלי)"
+                            className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
                             style={inputStyle}
-                            placeholder="מלאי"
-                          />
-                          <input
-                            type="text"
-                            value={editingColor.nameHe}
-                            onChange={(e) => setEditingColor({ ...editingColor, nameHe: e.target.value })}
-                            className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                            style={inputStyle}
-                          />
-                          <input
-                            type="color"
-                            value={editingColor.hex}
-                            onChange={(e) => setEditingColor({ ...editingColor, hex: e.target.value })}
-                            className="w-10 h-10 rounded-lg border cursor-pointer flex-shrink-0"
-                            style={{ borderColor: "var(--border)" }}
                           />
                         </div>
                       ) : (

@@ -21,13 +21,14 @@ export async function POST(req: NextRequest) {
   const code = body.code?.trim().toUpperCase() || generateCode();
   const discountPct = Number(body.discountPct) || 10;
   const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
+  const singleUse = body.singleUse !== false;
 
   // Check for duplicate
   const existing = await prisma.coupon.findUnique({ where: { code } });
   if (existing) return Response.json({ error: "קוד כבר קיים" }, { status: 400 });
 
   const coupon = await prisma.coupon.create({
-    data: { code, discountPct, expiresAt },
+    data: { code, discountPct, expiresAt, singleUse },
   });
   return Response.json(coupon, { status: 201 });
 }
@@ -45,12 +46,13 @@ export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, discountPct, expiresAt, resetUsed } = await req.json();
+  const { id, discountPct, expiresAt, resetUsed, singleUse } = await req.json();
   const coupon = await prisma.coupon.update({
     where: { id },
     data: {
       ...(discountPct !== undefined ? { discountPct: Number(discountPct) } : {}),
       ...(expiresAt !== undefined ? { expiresAt: expiresAt ? new Date(expiresAt) : null } : {}),
+      ...(singleUse !== undefined ? { singleUse } : {}),
       ...(resetUsed ? { usedAt: null, usedByEmail: null } : {}),
     },
   });

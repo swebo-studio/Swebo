@@ -5,6 +5,7 @@ interface Coupon {
   id: string;
   code: string;
   discountPct: number;
+  singleUse: boolean;
   expiresAt: string | null;
   usedAt: string | null;
   usedByEmail: string | null;
@@ -12,7 +13,7 @@ interface Coupon {
 }
 
 function statusLabel(c: Coupon): { label: string; color: string; bg: string } {
-  if (c.usedAt) return { label: "נוצל", color: "var(--maroon)", bg: "#f5e8e8" };
+  if (c.singleUse && c.usedAt) return { label: "נוצל", color: "var(--maroon)", bg: "#f5e8e8" };
   if (c.expiresAt && new Date(c.expiresAt) < new Date()) return { label: "פג תוקף", color: "#888", bg: "#f0f0f0" };
   return { label: "פעיל", color: "var(--green)", bg: "#e8f5e9" };
 }
@@ -30,7 +31,7 @@ export default function AdminCouponsPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   // Create form
-  const [form, setForm] = useState({ code: "", discountPct: "10", expiresAt: "" });
+  const [form, setForm] = useState({ code: "", discountPct: "10", expiresAt: "", singleUse: true });
   // Edit form
   const [editForm, setEditForm] = useState({ discountPct: "", expiresAt: "" });
 
@@ -57,11 +58,12 @@ export default function AdminCouponsPage() {
         code: form.code || undefined,
         discountPct: Number(form.discountPct),
         expiresAt: form.expiresAt || null,
+        singleUse: form.singleUse,
       }),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error || "שגיאה"); setSaving(false); return; }
-    setForm({ code: "", discountPct: "10", expiresAt: "" });
+    setForm({ code: "", discountPct: "10", expiresAt: "", singleUse: true });
     setCreating(false);
     setSaving(false);
     load();
@@ -119,8 +121,8 @@ export default function AdminCouponsPage() {
 
   const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
 
-  const active = coupons.filter((c) => !c.usedAt && (!c.expiresAt || new Date(c.expiresAt) >= new Date())).length;
-  const used   = coupons.filter((c) => c.usedAt).length;
+  const active = coupons.filter((c) => !(c.singleUse && c.usedAt) && (!c.expiresAt || new Date(c.expiresAt) >= new Date())).length;
+  const used   = coupons.filter((c) => c.singleUse && c.usedAt).length;
   const expired = coupons.filter((c) => !c.usedAt && c.expiresAt && new Date(c.expiresAt) < new Date()).length;
 
   return (
@@ -217,6 +219,23 @@ export default function AdminCouponsPage() {
               />
             </div>
 
+            {/* Single use toggle */}
+            <label className="flex items-center justify-end gap-3 cursor-pointer select-none">
+              <span className="text-sm text-right" style={{ color: "var(--text-muted)" }}>
+                {form.singleUse ? "חד-פעמי" : "רב-פעמי"}
+              </span>
+              <div
+                className="relative w-12 h-6 rounded-full transition-colors"
+                style={{ background: form.singleUse ? "var(--text)" : "var(--green)" }}
+                onClick={() => setForm((f) => ({ ...f, singleUse: !f.singleUse }))}
+              >
+                <div
+                  className="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow"
+                  style={{ transform: form.singleUse ? "translateX(-28px)" : "translateX(-4px)" }}
+                />
+              </div>
+            </label>
+
             {error && <p className="text-sm text-center" style={{ color: "var(--maroon)" }}>{error}</p>}
 
             <div className="flex gap-3 mt-2">
@@ -240,7 +259,7 @@ export default function AdminCouponsPage() {
             <table className="w-full text-sm text-right">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream-dark)" }}>
-                  {["קוד", "הנחה", "תפוגה", "נוצל על ידי", "סטטוס", "פעולות"].map((h) => (
+                  {["קוד", "הנחה", "סוג", "תפוגה", "נוצל על ידי", "סטטוס", "פעולות"].map((h) => (
                     <th key={h} className="px-4 py-3 font-medium" style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
                 </tr>
@@ -276,6 +295,13 @@ export default function AdminCouponsPage() {
                         ) : (
                           <span className="font-bold" style={{ color: "var(--text)" }}>{c.discountPct}%</span>
                         )}
+                      </td>
+
+                      {/* Single/Multi use */}
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ background: c.singleUse ? "#f0f0f0" : "#e8f5e9", color: c.singleUse ? "#888" : "var(--green)" }}>
+                          {c.singleUse ? "חד-פעמי" : "רב-פעמי"}
+                        </span>
                       </td>
 
                       {/* Expiry */}
