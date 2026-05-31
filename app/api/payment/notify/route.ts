@@ -1,20 +1,36 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { verifyHypayTransaction } from "@/lib/hypay";
 
-// GROW webhook — called by GROW when payment completes
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { order_id, transaction_id, status } = body;
+/**
+ * HYPay redirects the customer's browser to this URL after payment.
+ * All transaction params are appended as query string by HYPay.
+ * We verify the transaction, update the order, then redirect the user.
+ */
+export async function GET(req: NextRequest) {
+  const params = Object.fromEntries(req.nextUrl.searchParams.entries());
+  const orderId = params["orderId"];
+  const transactionId = params["Id"];
+  const origin = req.nextUrl.origin;
 
-  if (!order_id) return Response.json({ ok: false });
+  if (!orderId) {
+    return Response.redirect(`${origin}/checkout?status=failed`);
+  }
+
+  // Verify with HYPay's APISign endpoint
+  const verified = await verifyHypayTransaction(params);
 
   await prisma.order.update({
-    where: { id: order_id },
+    where: { id: orderId },
     data: {
-      status: status === "approved" ? "paid" : "failed",
-      paymentId: transaction_id ?? null,
+      status:    verified ? "paid" : "failed",
+      paymentId: transactionId ?? null,
     },
   });
 
-  return Response.json({ ok: true });
+  if (verified) {
+    return Response.redirect(`${origin}/order/${orderId}?status=success`);
+  } else {
+    return Response.redirect(`${origin}/checkout?status=failed`);
+  }
 }
