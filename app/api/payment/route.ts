@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { createHypayUrl } from "@/lib/hypay";
+import { createHypayParams, HYPAY_BASE } from "@/lib/hypay";
 
 export async function POST(req: NextRequest) {
   const { orderId } = await req.json();
@@ -9,20 +9,20 @@ export async function POST(req: NextRequest) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
 
-  const paymentUrl = createHypayUrl({
-    orderId:      order.id,
-    amount:       order.total,
-    customerName: order.customerName,
+  const fields = createHypayParams({
+    orderId:       order.id,
+    amount:        order.total,
+    customerName:  order.customerName,
     customerEmail: order.customerEmail,
     customerPhone: order.customerPhone,
-    // HYPay will append its transaction params to these URLs
-    successUrl: `${origin}/api/payment/notify?orderId=${order.id}`,
-    failureUrl: `${origin}/checkout?status=failed`,
+    successUrl:    `${origin}/api/payment/notify?orderId=${order.id}`,
+    failureUrl:    `${origin}/checkout?status=failed`,
   });
 
-  if (!paymentUrl) {
+  if (!fields) {
     return Response.json({ error: "HYPay credentials not configured" }, { status: 500 });
   }
 
-  return Response.json({ paymentUrl });
+  // Return fields + endpoint so frontend can build a form POST
+  return Response.json({ endpoint: HYPAY_BASE, fields });
 }

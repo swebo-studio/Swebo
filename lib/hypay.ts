@@ -15,9 +15,10 @@ function creds() {
 }
 
 /**
- * Build the URL to redirect the customer to HYPay's hosted payment page.
+ * Build the parameters for HYPay's hosted payment page.
+ * The frontend must POST these as a form to BASE.
  */
-export function createHypayUrl(params: {
+export function createHypayParams(params: {
   orderId: string;
   amount: number;
   customerName: string;
@@ -25,11 +26,15 @@ export function createHypayUrl(params: {
   customerPhone: string;
   successUrl: string;
   failureUrl: string;
-}): string | null {
+}): Record<string, string> | null {
   const { Masof, KEY, PassP } = creds();
   if (!Masof || !KEY || !PassP) return null;
 
-  const p = new URLSearchParams({
+  const nameParts = params.customerName.trim().split(" ");
+  const ClientName  = nameParts[0] ?? params.customerName;
+  const ClientLName = nameParts.slice(1).join(" ") || ClientName;
+
+  return {
     action:     "pay",
     Masof,
     KEY,
@@ -37,23 +42,25 @@ export function createHypayUrl(params: {
     Amount:     String(Math.round(params.amount)),
     Info:       `הזמנה #${params.orderId.slice(-6).toUpperCase()}`,
     Order:      params.orderId,
-    ClientName: params.customerName,
+    ClientName,
+    ClientLName,
     email:      params.customerEmail,
     phone:      params.customerPhone,
     UserId:     "000000000",
     SuccessUrl: params.successUrl,
     ErrorUrl:   params.failureUrl,
-    Coin:       "1",        // ILS
+    Coin:       "1",       // ILS
     Sign:       "True",
     UTF8:       "True",
     UTF8out:    "True",
     PageLang:   "HEB",
     MoreData:   "True",
-    sendemail:  "False",    // we send our own confirmation email
-  });
-
-  return `${BASE}?${p.toString()}`;
+    sendemail:  "False",   // we send our own confirmation email
+    Tash:       "1",
+  };
 }
+
+export const HYPAY_BASE = BASE;
 
 /**
  * Verify a completed transaction with HYPay's APISign endpoint.
