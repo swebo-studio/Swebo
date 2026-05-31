@@ -92,6 +92,8 @@ export default function CheckoutPage() {
 
       clearCart();
 
+      if (payData.error) throw new Error(`שגיאת תשלום: ${payData.error}`);
+
       if (payData.endpoint && payData.fields) {
         // Build a hidden form and auto-submit it to HYPay
         const form = document.createElement("form");
