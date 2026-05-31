@@ -149,41 +149,57 @@ export default function ProductDetail({ product, sizeChart }: Props) {
               {selectedColor ? `צבע: ${selectedColor.nameHe}` : "בחר צבע:"}
             </p>
             <div className="flex gap-3 justify-end flex-wrap">
-              {product.colors.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => handleColorSelect(c)}
-                  disabled={c.stock === 0}
-                  title={c.nameHe}
-                  className="flex flex-col items-center gap-1.5 transition-opacity disabled:opacity-35"
-                >
-                  <span
-                    className="w-10 h-10 rounded-full block border-2 transition-all"
-                    style={{
-                      background: c.hex,
-                      borderColor: "transparent",
-                      outline: selectedColor?.id === c.id ? "3px solid var(--text)" : "3px solid transparent",
-                      outlineOffset: "2px",
-                      transform: selectedColor?.id === c.id ? "scale(1.15)" : "scale(1)",
-                    }}
-                  />
-                  <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{c.nameHe}</span>
-                </button>
-              ))}
+              {product.colors.map((c) => {
+                const thumb = c.images?.[0]?.url;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => handleColorSelect(c)}
+                    disabled={c.stock === 0}
+                    title={c.nameHe}
+                    className="flex flex-col items-center gap-1.5 transition-opacity disabled:opacity-35"
+                  >
+                    {thumb ? (
+                      <span
+                        className="w-12 h-12 rounded-xl overflow-hidden block border-2 transition-all relative"
+                        style={{
+                          borderColor: selectedColor?.id === c.id ? "var(--text)" : "var(--border)",
+                          transform: selectedColor?.id === c.id ? "scale(1.1)" : "scale(1)",
+                        }}
+                      >
+                        <Image src={thumb} alt={c.nameHe} fill className="object-cover" sizes="48px" />
+                      </span>
+                    ) : (
+                      <span
+                        className="w-10 h-10 rounded-full block border-2 transition-all"
+                        style={{
+                          background: c.hex,
+                          borderColor: "transparent",
+                          outline: selectedColor?.id === c.id ? "3px solid var(--text)" : "3px solid transparent",
+                          outlineOffset: "2px",
+                          transform: selectedColor?.id === c.id ? "scale(1.15)" : "scale(1)",
+                        }}
+                      />
+                    )}
+                    <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{c.nameHe}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Stock badge */}
-        <div
-          className="text-sm px-3 py-1.5 rounded-full self-end"
-          style={{
-            background: effectiveStock > 0 ? "#e8f5e9" : "#f5e8e8",
-            color: effectiveStock > 0 ? "var(--green)" : "var(--maroon)",
-          }}
-        >
-          {effectiveStock > 0 ? `${effectiveStock} יחידות במלאי` : "אזל מהמלאי"}
-        </div>
+        {effectiveStock === 0 && (
+          <div className="text-sm px-3 py-1.5 rounded-full self-end" style={{ background: "#f5e8e8", color: "var(--maroon)" }}>
+            אזל מהמלאי
+          </div>
+        )}
+        {effectiveStock > 0 && effectiveStock <= 3 && (
+          <div className="text-sm px-3 py-1.5 rounded-full self-end bg-orange-400 text-white font-bold">
+            אחרונים במלאי
+          </div>
+        )}
 
         {/* Size picker with per-size stock */}
         {selectedColor && (
@@ -210,7 +226,7 @@ export default function ProductDetail({ product, sizeChart }: Props) {
                   >
                     {s}
                     {sizeStocks.length > 0 && stock <= 3 && stock > 0 && (
-                      <span className="absolute -top-1.5 -left-1.5 text-[9px] bg-orange-400 text-white rounded-full px-1 font-bold">{stock}</span>
+                      <span className="absolute -top-1.5 -left-1.5 text-[9px] bg-orange-400 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">!</span>
                     )}
                   </button>
                 );

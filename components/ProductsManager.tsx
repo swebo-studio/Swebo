@@ -41,6 +41,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -206,6 +207,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       setTab("colors");
     }
     setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   async function handleAddColor() {
@@ -372,8 +375,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
                   <div className="flex gap-3 mt-2">
                     <button onClick={closeForm} className="flex-1 py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
-                    <button onClick={handleSave} disabled={saving || !form.nameHe} className="flex-1 py-3 rounded-xl font-bold transition-opacity disabled:opacity-50" style={{ background: "var(--text)", color: "var(--cream)" }}>
-                      {saving ? "שומר..." : isEdit ? "שמור" : "המשך לצבעים ←"}
+                    <button onClick={handleSave} disabled={saving || !form.nameHe} className="flex-1 py-3 rounded-xl font-bold transition-all disabled:opacity-50" style={{ background: saved ? "var(--green)" : "var(--text)", color: "var(--cream)" }}>
+                      {saving ? "שומר..." : saved ? "✓ נשמר!" : isEdit ? "שמור" : "המשך לצבעים ←"}
                     </button>
                   </div>
                 </div>

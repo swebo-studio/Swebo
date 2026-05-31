@@ -28,9 +28,6 @@ export default function CartPage() {
     );
   }
 
-  const delivery = 40;
-  const total = totalPrice + delivery;
-
   return (
     <>
       <Header />
@@ -112,21 +109,16 @@ export default function CartPage() {
           className="mt-8 p-6 rounded-2xl border"
           style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
         >
-          <div className="flex justify-between mb-2 text-right" style={{ color: "var(--text-muted)" }}>
-            <span>₪{totalPrice}</span>
-            <span>סכום ביניים</span>
-          </div>
-          <div className="flex justify-between mb-4 text-right" style={{ color: "var(--text-muted)" }}>
-            <span>₪{delivery}</span>
-            <span>משלוח</span>
-          </div>
           <div
-            className="flex justify-between pt-4 border-t font-extrabold text-xl"
-            style={{ borderColor: "var(--border)", color: "var(--text)" }}
+            className="flex justify-between font-extrabold text-xl"
+            style={{ color: "var(--text)" }}
           >
-            <span>₪{total}</span>
+            <span>₪{totalPrice}</span>
             <span>סה&quot;כ</span>
           </div>
+          <p className="text-xs text-right mt-2" style={{ color: "var(--text-muted)" }}>
+            עלות המשלוח תחושב בשלב התשלום
+          </p>
         </div>
 
         <div className="mt-6 flex flex-col gap-3">

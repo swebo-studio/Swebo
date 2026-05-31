@@ -27,10 +27,7 @@ export default function ProductCard({ id, nameHe, price, image, stock }: Props) 
               sizes="(max-width: 640px) 50vw, 33vw"
             />
           ) : (
-            <div
-              className="w-full h-full"
-              style={{ background: "var(--cream-dark)" }}
-            />
+            <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
           )}
           {stock === 0 && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -39,21 +36,19 @@ export default function ProductCard({ id, nameHe, price, image, stock }: Props) 
               </span>
             </div>
           )}
+          {stock > 0 && stock <= 3 && (
+            <div className="absolute top-2 right-2">
+              <span className="text-xs font-bold px-2 py-1 rounded-full bg-orange-400 text-white">
+                אחרונים במלאי
+              </span>
+            </div>
+          )}
         </div>
         <div className="p-4">
           <h3 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>
             {nameHe}
           </h3>
-          <div className="flex items-center justify-between">
-            <span
-              className="text-sm font-medium px-2 py-1 rounded-full"
-              style={{
-                background: stock > 0 ? "#e8f5e9" : "#f5e8e8",
-                color: stock > 0 ? "var(--green)" : "var(--maroon)",
-              }}
-            >
-              {stock > 0 ? `${stock} במלאי` : "אזל"}
-            </span>
+          <div className="flex items-center justify-end">
             <span className="font-extrabold text-xl" style={{ color: "var(--text)" }}>
               ₪{price}
             </span>
