@@ -147,7 +147,7 @@ export default function AdminConfigPage() {
 
             <div className="flex gap-2 flex-wrap justify-end">
               <input type="file" accept="image/*" ref={heroImageRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "image"); }} />
-              <input type="file" accept="video/*" ref={heroVideoRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "video"); }} />
+              <input type="file" accept="video/mp4,video/webm" ref={heroVideoRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "video"); }} />
 
               <button
                 onClick={() => heroImageRef.current?.click()}
@@ -157,14 +157,17 @@ export default function AdminConfigPage() {
               >
                 {uploading === "image" ? "מעלה..." : "העלה תמונה"}
               </button>
-              <button
-                onClick={() => heroVideoRef.current?.click()}
-                disabled={uploading !== null}
-                className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
-                style={{ borderColor: "var(--border)", color: "var(--text)" }}
-              >
-                {uploading === "video" ? "מעלה..." : "העלה וידאו"}
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  onClick={() => heroVideoRef.current?.click()}
+                  disabled={uploading !== null}
+                  className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  {uploading === "video" ? "מעלה..." : "העלה וידאו"}
+                </button>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>MP4 בלבד (לא MOV)</span>
+              </div>
               {(hero.imagePath || hero.videoPath) && (
                 <button
                   onClick={() => setHero((h) => ({ ...h, imagePath: "", videoPath: "" }))}

@@ -1,4 +1,6 @@
+"use client";
 import Image from "next/image";
+import { useState } from "react";
 
 interface Props {
   slogan?: string;
@@ -8,7 +10,9 @@ interface Props {
 }
 
 export default function HeroSection({ slogan, catalogName, imagePath, videoPath }: Props) {
-  const hasMedia = videoPath || imagePath;
+  const [videoError, setVideoError] = useState(false);
+  const effectiveVideo = videoError ? undefined : videoPath;
+  const hasMedia = effectiveVideo || imagePath;
 
   return (
     <section
@@ -16,13 +20,14 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath 
       style={{ height: "50svh" }}
     >
       {/* Background: video or image */}
-      {videoPath ? (
+      {effectiveVideo ? (
         <video
-          src={videoPath}
+          src={effectiveVideo}
           autoPlay
           muted
           loop
           playsInline
+          onError={() => setVideoError(true)}
           className="absolute inset-0 w-full h-full object-cover"
         />
       ) : imagePath ? (
