@@ -60,8 +60,13 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   // Which color's "add photo" input is active
   const colorImageRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // New color pending images (URLs already uploaded, awaiting color creation)
+  const [newColorImages, setNewColorImages] = useState<string[]>([]);
+  const [newColorSizes, setNewColorSizes] = useState<SizeStock[]>(SIZES.map((s) => ({ size: s, stock: 0 })));
+  const newColorImageRef = useRef<HTMLInputElement>(null);
+
   // Crop modal
-  type CropContext = { type: "colorImage"; colorId: string };
+  type CropContext = { type: "colorImage"; colorId: string } | { type: "newColorImage" };
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [cropContext, setCropContext] = useState<CropContext | null>(null);
 
@@ -88,6 +93,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setCreating(false);
     setEditingColor(null);
     setColorForm({ nameHe: "", hex: "#000000", stock: 0 });
+    setNewColorImages([]);
+    setNewColorSizes(SIZES.map((s) => ({ size: s, stock: 0 })));
   }
 
   async function loadSizeStocks(colorId: string) {
@@ -153,6 +160,11 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       // Reset file input
       if (colorImageRefs.current[ctx.colorId]) colorImageRefs.current[ctx.colorId]!.value = "";
     }
+
+    if (ctx.type === "newColorImage") {
+      setNewColorImages((prev) => [...prev, url]);
+      if (newColorImageRef.current) newColorImageRef.current.value = "";
+    }
   }
 
   function handleCropCancel() {
@@ -165,6 +177,13 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     const file = e.target.files?.[0];
     if (!file) return;
     setCropContext({ type: "colorImage", colorId });
+    setCropFile(file);
+  }
+
+  function handleNewColorImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCropContext({ type: "newColorImage" });
     setCropFile(file);
   }
 
@@ -220,10 +239,41 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       body: JSON.stringify(colorForm),
     });
     const newColor: ProductColor = await res.json();
-    const updatedProduct = { ...editing, colors: [...editing.colors, newColor] };
+
+    // Save pending images
+    const savedImages: ColorImage[] = [];
+    for (const url of newColorImages) {
+      const imgRes = await fetch(`/api/products/${editing.id}/colors/${newColor.id}/images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      savedImages.push(await imgRes.json());
+    }
+
+    // Save size stocks if any non-zero
+    const hasSizes = newColorSizes.some((s) => s.stock > 0);
+    if (hasSizes) {
+      await fetch(`/api/products/${editing.id}/colors/${newColor.id}/sizes`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newColorSizes),
+      });
+      setSizeStocks((prev) => ({ ...prev, [newColor.id]: newColorSizes }));
+    }
+    const totalStock = hasSizes ? newColorSizes.reduce((s, r) => s + r.stock, 0) : newColor.stock;
+    const colorWithImages = { ...newColor, images: savedImages, stock: totalStock };
+
+    let updatedProduct = { ...editing, colors: [...editing.colors, colorWithImages] };
+    // If first color and has images, set display image
+    if (editing.colors.length === 0 && savedImages.length > 0) {
+      updatedProduct = { ...updatedProduct, image: savedImages[0].url };
+    }
     setEditing(updatedProduct);
     setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
     setColorForm({ nameHe: "", hex: "#000000", stock: 0 });
+    setNewColorImages([]);
+    setNewColorSizes(SIZES.map((s) => ({ size: s, stock: 0 })));
     setAddingColor(false);
   }
 
@@ -484,7 +534,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                             )}
                             <button
                               onClick={() => handleDeleteColorImage(c.id, img.id)}
-                              className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                              className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center"
                             >
                               ✕
                             </button>
@@ -530,16 +580,69 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
                         style={inputStyle}
                       />
-                      <input
-                        type="number"
-                        value={colorForm.stock}
-                        onChange={(e) => setColorForm((f) => ({ ...f, stock: Number(e.target.value) }))}
-                        placeholder="מלאי"
-                        min={0}
-                        className="w-20 px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                        style={inputStyle}
-                      />
                     </div>
+
+                    {/* Size stocks for new color */}
+                    <div>
+                      <p className="text-xs font-medium text-right mb-1.5" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {SIZES.map((size) => {
+                          const current = newColorSizes.find((s) => s.size === size);
+                          return (
+                            <div key={size} className="flex flex-col items-center gap-1">
+                              <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{size}</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={current?.stock ?? 0}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setNewColorSizes((prev) => prev.map((s) => s.size === size ? { ...s, stock: val } : s));
+                                }}
+                                className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
+                                style={inputStyle}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Images for new color */}
+                    <div>
+                      <p className="text-xs font-medium text-right mb-1.5" style={{ color: "var(--text-muted)" }}>תמונות</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {newColorImages.map((url, idx) => (
+                          <div key={url} className="relative group aspect-square">
+                            <div className="relative w-full h-full rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                              <Image src={url} alt={`תמונה ${idx + 1}`} fill className="object-cover" sizes="80px" />
+                            </div>
+                            <button
+                              onClick={() => setNewColorImages((prev) => prev.filter((u) => u !== url))}
+                              className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => newColorImageRef.current?.click()}
+                          disabled={uploading}
+                          className="aspect-square rounded-xl border-2 border-dashed flex items-center justify-center text-xl transition-opacity hover:opacity-70 disabled:opacity-40"
+                          style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+                        >
+                          {uploading ? "..." : "+"}
+                        </button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={newColorImageRef}
+                          onChange={handleNewColorImagePick}
+                        />
+                      </div>
+                    </div>
+
                     <button
                       onClick={handleAddColor}
                       disabled={!colorForm.nameHe || addingColor}

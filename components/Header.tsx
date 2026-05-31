@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "./CartProvider";
 import { useState, useEffect, useRef } from "react";
+import AnnouncementBar from "./AnnouncementBar";
 
 interface Category { id: string; nameHe: string }
 
@@ -10,10 +11,16 @@ export default function Header() {
   const { totalItems } = useCart();
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [announcementItems, setAnnouncementItems] = useState<string[]>([]);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/categories").then((r) => r.json()).then(setCategories).catch(() => {});
+    fetch("/api/config").then((r) => r.json()).then((cfg: Record<string, string>) => {
+      const raw = cfg["announcement.items"] ?? "";
+      const items = raw.split("\n").map((s) => s.trim()).filter(Boolean);
+      setAnnouncementItems(items);
+    }).catch(() => {});
   }, []);
 
   // close on outside click
@@ -36,8 +43,10 @@ export default function Header() {
 
   return (
     <>
+      <div className="sticky top-0 z-50">
+        <AnnouncementBar items={announcementItems} />
       <header
-        className="sticky top-0 z-50 border-b"
+        className="border-b"
         style={{ background: "var(--cream)", borderColor: "var(--border)" }}
       >
         <div className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 items-center">
@@ -95,6 +104,7 @@ export default function Header() {
 
         </div>
       </header>
+      </div>
 
       {/* Overlay */}
       {open && (

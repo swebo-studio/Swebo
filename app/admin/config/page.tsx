@@ -18,6 +18,7 @@ export default function AdminConfigPage() {
   const [sizes, setSizes] = useState<SizeRow[]>(DEFAULT_SIZES);
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCatName, setNewCatName] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<"image" | "video" | null>(null);
@@ -41,6 +42,7 @@ export default function AdminConfigPage() {
       if (cfg["sizeChart"]) {
         try { setSizes(JSON.parse(cfg["sizeChart"])); } catch {}
       }
+      setAnnouncement(cfg["announcement.items"] || "");
     });
     fetchCategories();
   }, []);
@@ -75,6 +77,7 @@ export default function AdminConfigPage() {
         "contact.instagram": contact.instagram,
         "contact.tiktok": contact.tiktok,
         "contact.email": contact.email,
+        "announcement.items": announcement,
       }),
     });
     setSaving(false);
@@ -108,6 +111,21 @@ export default function AdminConfigPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-extrabold mb-8 text-right" style={{ color: "var(--text)" }}>הגדרות אתר</h1>
+
+      {/* ── Announcement bar ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>פס הודעות עליון</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>כל שורה = פריט נפרד בקרוסלה. השאר ריק כדי להסתיר את הפס.</p>
+        <textarea
+          value={announcement}
+          onChange={(e) => setAnnouncement(e.target.value)}
+          rows={4}
+          placeholder={"משלוח חינם מעל ₪300\nקולקציה חדשה הגיעה\nהנחה 10% עם קוד SWEBO10"}
+          className="w-full px-4 py-3 rounded-xl border text-right outline-none resize-none text-sm"
+          style={{ background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" }}
+          dir="rtl"
+        />
+      </section>
 
       {/* ── Hero section ── */}
       <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
