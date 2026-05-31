@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { put } from "@vercel/blob";
 import { writeFile } from "fs/promises";
 import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -14,11 +15,17 @@ export async function POST(req: NextRequest) {
 
   const ext = file.name.split(".").pop() ?? "jpg";
   const filename = `${uuidv4()}.${ext}`;
+
+  // Production: use Vercel Blob
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`uploads/${filename}`, file, { access: "public" });
+    return Response.json({ url: blob.url });
+  }
+
+  // Development: save to local public/uploads
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-
   const uploadDir = join(process.cwd(), "public", "uploads");
   await writeFile(join(uploadDir, filename), buffer);
-
   return Response.json({ url: `/uploads/${filename}` });
 }
