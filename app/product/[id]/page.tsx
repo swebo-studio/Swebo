@@ -7,6 +7,35 @@ import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: { colors: { orderBy: { sortOrder: "asc" }, include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } }, take: 1 } },
+  });
+  if (!product) return {};
+
+  const ogImage = product.colors[0]?.images[0]?.url || product.image || undefined;
+  const description = `${product.nameHe} – זמין במגוון צבעים ומידות. ₪${product.price} | BUILT ON UNIQUENESS`;
+
+  return {
+    title: product.nameHe,
+    description,
+    openGraph: {
+      title: `${product.nameHe} | SWEBO`,
+      description,
+      type: "website",
+      ...(ogImage ? { images: [{ url: ogImage, width: 800, height: 800, alt: product.nameHe }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.nameHe} | SWEBO`,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+  };
+}
+
 export default async function ProductPage(
   { params }: { params: Promise<{ id: string }> }
 ) {

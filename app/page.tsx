@@ -7,6 +7,16 @@ import NewsletterSection from "@/components/NewsletterSection";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = {
+  title: "SWEBO | קולקציית מונדיאל 2026",
+  description: "BUILT ON UNIQUENESS – קולקציית מונדיאל 2026. בגדים מעוצבים במידות S–XL, משלוח מהיר לכל הארץ, תשלום מאובטח.",
+  openGraph: {
+    title: "SWEBO | קולקציית מונדיאל 2026",
+    description: "BUILT ON UNIQUENESS – קולקציית מונדיאל 2026. בגדים מעוצבים במידות S–XL, משלוח מהיר לכל הארץ.",
+    type: "website",
+  },
+};
+
 interface Props {
   searchParams: Promise<{ category?: string }>;
 }
