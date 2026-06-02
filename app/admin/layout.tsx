@@ -9,8 +9,9 @@ const NAV_ITEMS = [
   { href: "/admin",          label: "לוח בקרה" },
   { href: "/admin/products", label: "מוצרים" },
   { href: "/admin/orders",   label: "הזמנות" },
-  { href: "/admin/coupons",  label: "קופונים" },
-  { href: "/admin/config",   label: "הגדרות" },
+  { href: "/admin/coupons",     label: "קופונים" },
+  { href: "/admin/promotions",  label: "מבצעים" },
+  { href: "/admin/config",      label: "הגדרות" },
   { href: "/",               label: "החנות" },
 ];
 

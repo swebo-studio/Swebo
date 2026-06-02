@@ -122,6 +122,33 @@ model Newsletter {
   createdAt  DateTime  @default(now())
 }
 
+model Promotion {
+  id         String               @id @default(cuid())
+  name       String
+  active     Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  conditions PromotionCondition[]
+  rewards    PromotionReward[]
+}
+
+model PromotionCondition {
+  id          String    @id @default(cuid())
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  type        String    // "min_cart_total" | "product_in_cart"
+  productId   String?
+  minTotal    Float?
+}
+
+model PromotionReward {
+  id          String    @id @default(cuid())
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  type        String    // "free_shipping" | "cart_discount" | "product_discount"
+  productId   String?
+  discountPct Int?
+}
+
 model Coupon {
   id           String    @id @default(cuid())
   code         String    @unique

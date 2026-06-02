@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { notifyAdmin, notifyCustomerEmail } from "@/lib/notify";
 import { validateCoupon } from "@/lib/coupon";
 import { createHFDShipment } from "@/lib/hfd";
+import { evaluatePromotions, applyRewards } from "@/lib/promotions";
 
 export async function GET() {
   const session = await auth();
@@ -28,12 +29,26 @@ export async function POST(req: NextRequest) {
     if (coupon) { discountPct = coupon.discountPct; couponId = coupon.singleUse ? coupon.id : null; }
   }
 
-  const subtotal = cartItems.reduce(
+  const rawSubtotal = cartItems.reduce(
     (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0
   );
-  const discount = Math.round(subtotal * discountPct / 100);
-  const delivery = requestedDelivery === 0 ? 0 : 40;
-  const total = subtotal - discount + delivery;
+
+  // Evaluate promotions server-side
+  const rewards = await evaluatePromotions(cartItems, rawSubtotal);
+  const baseDelivery = requestedDelivery === 0 ? 0 : 40;
+  const { subtotal: promoSubtotal, delivery: promoDelivery, itemPrices } = applyRewards(cartItems, rawSubtotal, baseDelivery, rewards);
+
+  // Apply coupon on top of promotion-adjusted subtotal
+  const couponSavings = Math.round(promoSubtotal * discountPct / 100);
+  const subtotal = promoSubtotal - couponSavings;
+  const delivery = promoDelivery;
+  const total = subtotal + delivery;
+
+  // Merge effective prices into cartItems
+  const effectiveItems = cartItems.map((item: { productId: string; price: number; quantity: number; size: string; color?: string }) => ({
+    ...item,
+    price: itemPrices[item.productId] ?? item.price,
+  }));
 
   const order = await prisma.order.create({
     data: {
@@ -46,7 +61,7 @@ export async function POST(req: NextRequest) {
       delivery,
       total,
       items: {
-        create: cartItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
+        create: effectiveItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
           productId: item.productId,
           quantity: item.quantity,
           size: item.size,
@@ -64,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Decrement stock
-  for (const item of cartItems) {
+  for (const item of effectiveItems) {
     if (item.color) {
       const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
       if (colorRow) {

@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "@/components/CartProvider";
 import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
+import type { AppliedReward } from "@/lib/promotions";
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
@@ -14,6 +15,17 @@ export default function CheckoutPage() {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError, setCouponError] = useState("");
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [promotionRewards, setPromotionRewards] = useState<AppliedReward[]>([]);
+
+  // Evaluate promotions whenever cart changes
+  useEffect(() => {
+    if (items.length === 0) { setPromotionRewards([]); return; }
+    fetch("/api/promotions/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cartItems: items.map((i) => ({ productId: i.productId, quantity: i.quantity, price: i.price })), subtotal: totalPrice }),
+    }).then((r) => r.json()).then(setPromotionRewards).catch(() => {});
+  }, [items, totalPrice]);
 
   async function applyCoupon() {
     if (!couponInput.trim()) return;
@@ -42,9 +54,30 @@ export default function CheckoutPage() {
     city: "",
   });
 
-  const delivery = wantsDelivery ? 40 : 0;
-  const discount = couponDiscount > 0 ? Math.round(totalPrice * couponDiscount / 100) : 0;
-  const total = totalPrice - discount + delivery;
+  const hasFreeShipping = promotionRewards.some((r) => r.type === "free_shipping");
+  const baseDelivery = wantsDelivery ? (hasFreeShipping ? 0 : 40) : 0;
+
+  // Apply product discounts from promotions
+  const itemDiscountMap: Record<string, number> = {};
+  promotionRewards.filter((r) => r.type === "product_discount" && r.productId && r.discountPct).forEach((r) => {
+    const prev = itemDiscountMap[r.productId!] ?? 0;
+    itemDiscountMap[r.productId!] = prev + r.discountPct! - (prev * r.discountPct!) / 100;
+  });
+  const promotionSubtotal = items.reduce((sum, item) => {
+    const disc = itemDiscountMap[item.productId] ?? 0;
+    const effectivePrice = disc ? Math.round(item.price * (1 - disc / 100)) : item.price;
+    return sum + effectivePrice * item.quantity;
+  }, 0);
+  // Apply cart_discount on top
+  const cartDiscountPct = promotionRewards.filter((r) => r.type === "cart_discount").reduce((sum, r) => sum + (r.discountPct ?? 0), 0);
+  const afterCartDiscount = cartDiscountPct > 0 ? Math.round(promotionSubtotal * (1 - Math.min(cartDiscountPct, 100) / 100)) : promotionSubtotal;
+
+  const couponSavings = couponDiscount > 0 ? Math.round(afterCartDiscount * couponDiscount / 100) : 0;
+  const finalSubtotal = afterCartDiscount - couponSavings;
+  const delivery = baseDelivery;
+  const total = finalSubtotal + delivery;
+  // Legacy alias for submit
+  const discount = couponSavings;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -236,7 +269,22 @@ export default function CheckoutPage() {
             />
           </div>
           {couponError && <p className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
-          {couponDiscount > 0 && <p className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>✓ קופון פעיל – {couponDiscount}% הנחה (חיסכון ₪{discount})</p>}
+          {couponDiscount > 0 && <p className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>✓ קופון פעיל – {couponDiscount}% הנחה (חיסכון ₪{couponSavings})</p>}
+
+          {/* Active promotions */}
+          {promotionRewards.length > 0 && (
+            <div className="rounded-xl border p-3 flex flex-col gap-1" style={{ borderColor: "var(--green)", background: "#e8f5e9" }}>
+              <p className="text-xs font-bold text-right mb-1" style={{ color: "var(--green)" }}>מבצעים פעילים 🎉</p>
+              {promotionRewards.map((r, i) => (
+                <p key={i} className="text-xs text-right" style={{ color: "var(--green)" }}>
+                  ✓ {r.promotionName}
+                  {r.type === "free_shipping" && " — משלוח חינם"}
+                  {r.type === "cart_discount" && ` — ${r.discountPct}% הנחה על הסל`}
+                  {r.type === "product_discount" && ` — ${r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`} על ${r.productName}`}
+                </p>
+              ))}
+            </div>
+          )}
 
           {/* Order summary */}
           <div
@@ -254,7 +302,9 @@ export default function CheckoutPage() {
               </div>
             ))}
             <div className="flex justify-between text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-              <span>{delivery === 0 ? "חינם" : `₪${delivery}`}</span>
+              <span style={{ color: hasFreeShipping && wantsDelivery ? "var(--green)" : "inherit" }}>
+                {!wantsDelivery ? "חינם" : hasFreeShipping ? "חינם 🎉" : "₪40"}
+              </span>
               <span>{wantsDelivery ? "משלוח" : "איסוף עצמי"}</span>
             </div>
             <div
