@@ -230,6 +230,7 @@ export default async function HomePage({ searchParams }: Props) {
         <div className="flex justify-center gap-6 mb-3">
           <a href="/terms" className="hover:underline">תנאי שימוש</a>
           <a href="/privacy" className="hover:underline">מדיניות פרטיות</a>
+          <a href="/admin-login" className="hover:underline opacity-40">Admin</a>
         </div>
         © {new Date().getFullYear()} · כל הזכויות שמורות
       </footer>
