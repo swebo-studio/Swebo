@@ -50,7 +50,7 @@ export function createHypayParams(params: {
     SuccessUrl: params.successUrl,
     ErrorUrl:   params.failureUrl,
     Coin:       "1",       // ILS
-    Sign:       "True",
+    Sign:       "False",
     UTF8:       "True",
     UTF8out:    "True",
     PageLang:   "HEB",
