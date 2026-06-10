@@ -38,7 +38,12 @@ export function createHypayParams(params: {
     action:     "pay",
     Masof,
     KEY,
-    PassP,
+    // NOTE: PassP is intentionally NOT sent on the "pay" (hosted page launch)
+    // request. Sending it here causes Hyp to short-circuit with a generic
+    // "שגיאת אימות / HTTP REFERER / REMOTE HOST" error (verified via direct
+    // testing - including PassP blanks out the Referer/RemoteHost shown in
+    // the error, indicating a different/earlier failure path). PassP is only
+    // used for the APISign verification call in verifyHypayTransaction below.
     Amount:     String(Math.round(params.amount)),
     Info:       `הזמנה #${params.orderId.slice(-6).toUpperCase()}`,
     Order:      params.orderId,

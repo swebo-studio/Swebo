@@ -114,12 +114,13 @@ model SiteConfig {
 }
 
 model Newsletter {
-  id         String    @id @default(cuid())
-  phone      String?
-  email      String?
-  couponCode String    @unique
-  usedAt     DateTime?
-  createdAt  DateTime  @default(now())
+  id             String    @id @default(cuid())
+  phone          String?   @unique
+  email          String?
+  couponCode     String    @unique
+  usedAt         DateTime?
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
 }
 
 model Promotion {

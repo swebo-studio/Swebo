@@ -76,6 +76,8 @@ export async function POST(req: NextRequest) {
   // Mark coupon used
   if (couponId) {
     await prisma.coupon.update({ where: { id: couponId }, data: { usedAt: new Date(), usedByEmail: customer.email } });
+    // Also mark the newsletter signup (if any) so the 24h reminder cron skips it
+    await prisma.newsletter.updateMany({ where: { couponCode: couponCode.toUpperCase() }, data: { usedAt: new Date() } });
   }
 
   // Decrement stock
