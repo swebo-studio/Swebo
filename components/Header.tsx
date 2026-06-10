@@ -11,7 +11,13 @@ export default function Header() {
   const { totalItems } = useCart();
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [announcementItems, setAnnouncementItems] = useState<string[]>([]);
+  const [announcementItems, setAnnouncementItems] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const cached = sessionStorage.getItem("swebo_announcement_items");
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -20,6 +26,7 @@ export default function Header() {
       const raw = cfg["announcement.items"] ?? "";
       const items = raw.split("\n").map((s) => s.trim()).filter(Boolean);
       setAnnouncementItems(items);
+      try { sessionStorage.setItem("swebo_announcement_items", JSON.stringify(items)); } catch {}
     }).catch(() => {});
   }, []);
 
