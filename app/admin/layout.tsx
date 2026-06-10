@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/orders",   label: "הזמנות" },
   { href: "/admin/coupons",     label: "קופונים" },
   { href: "/admin/promotions",  label: "מבצעים" },
+  { href: "/admin/sms",         label: "הודעות SMS" },
   { href: "/admin/config",      label: "הגדרות" },
   { href: "/",               label: "החנות" },
 ];

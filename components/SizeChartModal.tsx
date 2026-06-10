@@ -11,9 +11,10 @@ interface SizeRow {
 
 interface Props {
   rows: SizeRow[];
+  imagePath?: string;
 }
 
-export default function SizeChartModal({ rows }: Props) {
+export default function SizeChartModal({ rows, imagePath }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"guide" | "table">("guide");
 
@@ -73,7 +74,7 @@ export default function SizeChartModal({ rows }: Props) {
                 <div className="p-3">
                   <div className="relative w-full rounded-xl overflow-hidden" style={{ background: "#fff" }}>
                     <Image
-                      src="/size-guide.png"
+                      src={imagePath || "/size-guide.png"}
                       alt="מדריך מידות"
                       width={600}
                       height={900}

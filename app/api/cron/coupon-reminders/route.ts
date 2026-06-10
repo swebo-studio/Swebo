@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { sendSMS } from "@/lib/notify";
+import { sendSMS, getSmsTemplate, renderSmsTemplate } from "@/lib/notify";
 
 /**
  * Runs periodically (see vercel.json crons).
@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
   });
 
   let sent = 0;
+  const template = await getSmsTemplate("sms.couponReminder");
   for (const signup of candidates) {
     if (!signup.phone) continue;
 
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
 
     const ok = await sendSMS(
       signup.phone,
-      `תזכורת מ-SWEBO: עדיין לא ניצלת את קופון ה-5% שלך (${signup.couponCode})! הקופון בתוקף ל-36 שעות נוספות בלבד.`
+      renderSmsTemplate(template, { code: signup.couponCode })
     );
 
     await prisma.newsletter.update({ where: { id: signup.id }, data: { reminderSentAt: now } });

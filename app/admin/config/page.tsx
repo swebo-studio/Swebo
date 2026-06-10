@@ -19,11 +19,13 @@ export default function AdminConfigPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCatName, setNewCatName] = useState("");
   const [announcement, setAnnouncement] = useState("");
+  const [sizeGuideImage, setSizeGuideImage] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState<"image" | "video" | null>(null);
+  const [uploading, setUploading] = useState<"image" | "video" | "sizeGuide" | null>(null);
   const heroImageRef = useRef<HTMLInputElement>(null);
   const heroVideoRef = useRef<HTMLInputElement>(null);
+  const sizeGuideRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/config").then((r) => r.json()).then((cfg) => {
@@ -43,6 +45,7 @@ export default function AdminConfigPage() {
         try { setSizes(JSON.parse(cfg["sizeChart"])); } catch {}
       }
       setAnnouncement(cfg["announcement.items"] || "");
+      setSizeGuideImage(cfg["sizeGuide.imagePath"] || "");
     });
     fetchCategories();
   }, []);
@@ -51,14 +54,15 @@ export default function AdminConfigPage() {
     fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
   }
 
-  async function uploadFile(file: File, type: "image" | "video") {
+  async function uploadFile(file: File, type: "image" | "video" | "sizeGuide") {
     setUploading(type);
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/upload", { method: "POST", body: fd });
     const data = await res.json();
     if (type === "image") setHero((h) => ({ ...h, imagePath: data.url, videoPath: "" }));
-    else setHero((h) => ({ ...h, videoPath: data.url, imagePath: "" }));
+    else if (type === "video") setHero((h) => ({ ...h, videoPath: data.url, imagePath: "" }));
+    else setSizeGuideImage(data.url);
     setUploading(null);
   }
 
@@ -73,6 +77,7 @@ export default function AdminConfigPage() {
         "hero.imagePath": hero.imagePath,
         "hero.videoPath": hero.videoPath,
         "sizeChart": JSON.stringify(sizes),
+        "sizeGuide.imagePath": sizeGuideImage,
         "contact.whatsapp": contact.whatsapp,
         "contact.instagram": contact.instagram,
         "contact.tiktok": contact.tiktok,
@@ -265,6 +270,42 @@ export default function AdminConfigPage() {
         <p className="text-xs mt-3 text-right" style={{ color: "var(--text-muted)" }}>
           השאר ריק כדי להסתיר כפתור מסוים
         </p>
+      </section>
+
+      {/* ── Size guide image ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>תמונת מדריך מידות</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          התמונה שמוצגת בלשונית &quot;מדריך&quot; בחלון מדריך המידות בעמוד המוצר
+        </p>
+
+        {sizeGuideImage && (
+          <div className="relative w-full max-w-xs mx-auto mb-3 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)", background: "#fff" }}>
+            <Image src={sizeGuideImage} alt="מדריך מידות" width={400} height={600} className="w-full h-auto" />
+          </div>
+        )}
+
+        <input type="file" accept="image/*" ref={sizeGuideRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "sizeGuide"); }} />
+
+        <div className="flex gap-2 justify-end">
+          {sizeGuideImage && (
+            <button
+              onClick={() => setSizeGuideImage("")}
+              className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70"
+              style={{ borderColor: "var(--maroon)", color: "var(--maroon)" }}
+            >
+              הסר (חזרה לברירת מחדל)
+            </button>
+          )}
+          <button
+            onClick={() => sizeGuideRef.current?.click()}
+            disabled={uploading !== null}
+            className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+            style={{ borderColor: "var(--border)", color: "var(--text)" }}
+          >
+            {uploading === "sizeGuide" ? "מעלה..." : "העלה תמונה"}
+          </button>
+        </div>
       </section>
 
       {/* ── Size chart ── */}

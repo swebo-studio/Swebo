@@ -110,6 +110,7 @@ export default async function ProductPage(
               colors: product.colors,
             }}
             sizeChart={sizeChart}
+            sizeGuideImage={cfg["sizeGuide.imagePath"] || undefined}
           />
         </Suspense>
 

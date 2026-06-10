@@ -1,3 +1,14 @@
+import { prisma } from "./db";
+import { SMS_TEMPLATES, renderSmsTemplate } from "./smsTemplates";
+
+export { renderSmsTemplate };
+
+/** Fetch a (possibly admin-customized) SMS template, falling back to its default. */
+export async function getSmsTemplate(key: keyof typeof SMS_TEMPLATES): Promise<string> {
+  const row = await prisma.siteConfig.findUnique({ where: { key } });
+  return row?.value || SMS_TEMPLATES[key].default;
+}
+
 const AT_BASE = "https://webapi.mymarketing.co.il/api";
 
 function atHeaders() {
@@ -144,8 +155,14 @@ export async function notifyOrderConfirmation(order: {
     .map((item) => `${item.nameHe} (${item.size}) x${item.quantity}`)
     .join(", ");
 
+  const template = await getSmsTemplate("sms.orderConfirmation");
   await sendSMS(
     order.customerPhone,
-    `תודה ${order.customerName}! ההזמנה שלך ב-SWEBO התקבלה (#${order.id.slice(-6)}): ${itemsSummary}. סה"כ: ₪${order.total.toFixed(2)}. נעדכן כשתצא למשלוח.`
+    renderSmsTemplate(template, {
+      name: order.customerName,
+      orderId: order.id.slice(-6).toUpperCase(),
+      items: itemsSummary,
+      total: order.total.toFixed(2),
+    })
   );
 }

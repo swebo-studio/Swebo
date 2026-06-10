@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateCode } from "@/lib/coupon";
-import { sendSMS, addContact } from "@/lib/notify";
+import { sendSMS, addContact, getSmsTemplate, renderSmsTemplate } from "@/lib/notify";
 
 const COUPON_VALIDITY_HOURS = 60;
 
@@ -34,10 +34,8 @@ export async function POST(req: NextRequest) {
   addContact({ phone }).catch(() => {});
 
   // Send the coupon by SMS
-  await sendSMS(
-    phone,
-    `ברוך הבא למשפחת SWEBO! קוד הקופון שלך ל-5% הנחה על ההזמנה הראשונה: ${code}. בתוקף ל-60 שעות.`
-  );
+  const template = await getSmsTemplate("sms.couponSignup");
+  await sendSMS(phone, renderSmsTemplate(template, { code }));
 
   return Response.json({ code });
 }
