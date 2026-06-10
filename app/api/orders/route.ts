@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { notifyAdmin, notifyCustomerEmail } from "@/lib/notify";
+import { notifyAdmin } from "@/lib/notify";
 import { validateCoupon } from "@/lib/coupon";
 import { createHFDShipment } from "@/lib/hfd";
 import { evaluatePromotions, applyRewards } from "@/lib/promotions";
@@ -126,18 +126,6 @@ export async function POST(req: NextRequest) {
   const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${customer.name}\nטל: ${customer.phone}\nסה"כ: ₪${total}\n\n${itemLines}`;
 
   notifyAdmin("הזמנה חדשה", msg).catch(() => {});
-
-  if (customer.email) {
-    notifyCustomerEmail(
-      customer.email,
-      `SWEBO – אישור הזמנה #${order.id.slice(-6).toUpperCase()}`,
-      `<div dir="rtl" style="font-family:sans-serif;max-width:480px;margin:auto">
-        <h2>תודה על הזמנתך!</h2>
-        <p>מספר הזמנה: <strong>${order.id.slice(-6).toUpperCase()}</strong></p>
-        <pre style="background:#F5F0E8;padding:12px;border-radius:8px;white-space:pre-wrap">${msg}</pre>
-      </div>`
-    ).catch(() => {});
-  }
 
   return Response.json(order, { status: 201 });
 }

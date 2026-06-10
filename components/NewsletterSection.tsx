@@ -2,21 +2,21 @@
 import { useState } from "react";
 
 export default function NewsletterSection() {
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) { setError("נא להזין אימייל"); return; }
+    if (!phone) { setError("נא להזין מספר טלפון"); return; }
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ phone }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "שגיאה, נסה שנית"); return; }
@@ -40,7 +40,7 @@ export default function NewsletterSection() {
         >
           {coupon}
         </div>
-        <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>שלחנו גם אימייל ל-{email}</p>
+        <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>שלחנו גם הודעת SMS למספר {phone}</p>
       </section>
     );
   }
@@ -53,10 +53,10 @@ export default function NewsletterSection() {
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3 max-w-sm mx-auto">
         <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="אימייל"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="מספר טלפון (לקבלת הקופון ב-SMS)"
           required
           className="w-full px-4 py-3 rounded-xl border text-right outline-none text-sm"
           style={{ background: "var(--cream)", borderColor: "var(--border)", color: "var(--text)" }}

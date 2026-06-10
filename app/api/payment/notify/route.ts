@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         return notifyOrderConfirmation({
           id: order.id,
           customerName: order.customerName,
-          customerEmail: order.customerEmail,
+          customerPhone: order.customerPhone,
           total: order.total,
           items: order.items.map((it) => ({
             nameHe: it.product.nameHe,
