@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ProductDetail from "@/components/ProductDetail";
+import ProductCard from "@/components/ProductCard";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import { Suspense } from "react";
 
@@ -45,6 +46,7 @@ export default async function ProductPage(
       where: { id },
       include: {
         images: { orderBy: { sortOrder: "asc" } },
+        categories: true,
         colors: {
           orderBy: { sortOrder: "asc" },
           include: { images: { orderBy: { sortOrder: "asc" } } },
@@ -61,6 +63,26 @@ export default async function ProductPage(
 
   let sizeChart: { size: string; chest: number; waist: number; length: number }[] = [];
   try { if (cfg["sizeChart"]) sizeChart = JSON.parse(cfg["sizeChart"]); } catch {}
+
+  // Other products from the same catalog/categories
+  const categoryIds = product.categories.map((c) => c.id);
+  const relatedProducts = categoryIds.length > 0
+    ? await prisma.product.findMany({
+        where: {
+          active: true,
+          id: { not: product.id },
+          categories: { some: { id: { in: categoryIds } } },
+        },
+        orderBy: { createdAt: "asc" },
+        include: {
+          colors: {
+            orderBy: { sortOrder: "asc" },
+            include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+            take: 1,
+          },
+        },
+      })
+    : [];
 
   return (
     <>
@@ -90,6 +112,32 @@ export default async function ProductPage(
             sizeChart={sizeChart}
           />
         </Suspense>
+
+        {relatedProducts.length > 0 && (
+          <section className="mt-16">
+            <h2 className="text-xl font-extrabold mb-5 text-right" style={{ color: "var(--text)" }}>
+              עוד מהקטלוג
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+              {relatedProducts.map((p) => {
+                const displayImg = p.colors[0]?.images[0]?.url || p.image;
+                const totalStock = p.colors.length > 0
+                  ? p.colors.reduce((s, c) => s + c.stock, 0)
+                  : p.stock;
+                return (
+                  <ProductCard
+                    key={p.id}
+                    id={p.id}
+                    nameHe={p.nameHe}
+                    price={p.price}
+                    image={displayImg}
+                    stock={totalStock}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
       <WhatsAppBubble />
     </>
