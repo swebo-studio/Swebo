@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
+import NewsletterPopup from "@/components/NewsletterPopup";
 
 const heebo = Heebo({
   subsets: ["hebrew", "latin"],
@@ -38,7 +39,10 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" className={heebo.variable}>
       <body className="min-h-screen" style={{ fontFamily: "var(--font-heebo), sans-serif" }}>
-        <CartProvider>{children}</CartProvider>
+        <CartProvider>
+          {children}
+          <NewsletterPopup />
+        </CartProvider>
       </body>
     </html>
   );

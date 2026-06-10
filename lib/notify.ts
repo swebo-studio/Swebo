@@ -133,3 +133,39 @@ export async function notifyCustomerEmail(
 ): Promise<void> {
   await sendEmail(to, subject, html);
 }
+
+// ── notifyOrderConfirmation: "thank you for your order" email ────────────
+export async function notifyOrderConfirmation(order: {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  total: number;
+  items: { nameHe: string; quantity: number; size: string; color?: string | null; price: number }[];
+}): Promise<void> {
+  if (!order.customerEmail) return;
+
+  const itemsHtml = order.items
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #EDE8DF">${item.nameHe}${item.color ? ` (${item.color})` : ""} – מידה ${item.size}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #EDE8DF;text-align:left;white-space:nowrap">x${item.quantity}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #EDE8DF;text-align:left;white-space:nowrap">₪${(item.price * item.quantity).toFixed(2)}</td>
+        </tr>`
+    )
+    .join("");
+
+  await sendEmail(
+    order.customerEmail,
+    "תודה שקנית ב-SWEBO! ההזמנה שלך התקבלה",
+    `<div dir="rtl" style="font-family:sans-serif;max-width:480px;margin:auto;color:#1A1A1A">
+      <h2>תודה ${order.customerName}, ההזמנה שלך התקבלה!</h2>
+      <p style="color:#6B6B6B">מספר הזמנה: <strong>${order.id}</strong></p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        ${itemsHtml}
+      </table>
+      <p style="font-size:1.1rem;font-weight:bold;text-align:left">סה״כ לתשלום: ₪${order.total.toFixed(2)}</p>
+      <p style="color:#6B6B6B;font-size:0.9rem">נעדכן אותך כשההזמנה תצא למשלוח. תודה שבחרת ב-SWEBO!</p>
+    </div>`
+  );
+}
