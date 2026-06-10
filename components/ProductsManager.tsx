@@ -17,7 +17,7 @@ interface ProductColor {
   linkedUrl?: string | null;
 }
 
-const SIZES = ["S", "M", "L", "XL"];
+const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 interface Product {
   id: string;

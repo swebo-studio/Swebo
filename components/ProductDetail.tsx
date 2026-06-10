@@ -5,7 +5,7 @@ import { useCart } from "./CartProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import SizeChartModal from "./SizeChartModal";
 
-const SIZES = ["S", "M", "L", "XL"];
+const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 interface ColorImage { id: string; url: string }
 interface SizeStock { size: string; stock: number }
