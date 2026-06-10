@@ -1,27 +1,29 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+        phone: { label: "Phone", type: "text" },
+        code: { label: "Code", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) return null;
-        const admin = await prisma.admin.findUnique({
-          where: { username: credentials.username as string },
-        });
-        if (!admin) return null;
-        const valid = await bcrypt.compare(
-          credentials.password as string,
-          admin.password
-        );
-        if (!valid) return null;
-        return { id: admin.id, name: admin.username };
+        const phone = (credentials?.phone as string)?.replace(/\D/g, "").replace(/^972/, "0");
+        const code = credentials?.code as string;
+        if (!phone || !code) return null;
+
+        const allowed = await prisma.adminPhone.findUnique({ where: { phone } });
+        if (!allowed && phone !== process.env.ADMIN_PHONE?.replace(/\D/g, "").replace(/^972/, "0")) {
+          return null;
+        }
+
+        const otp = await prisma.adminOtp.findUnique({ where: { phone } });
+        if (!otp || otp.code !== code || otp.expiresAt < new Date()) return null;
+
+        await prisma.adminOtp.delete({ where: { phone } });
+        return { id: phone, name: phone };
       },
     }),
   ],

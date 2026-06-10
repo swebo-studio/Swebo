@@ -5,24 +5,43 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 export default function AdminLoginPage() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"phone" | "code">("phone");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const result = await signIn("credentials", {
-      username,
-      password,
-      redirect: false,
-    });
+    try {
+      const res = await fetch("/api/admin/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "שגיאה בשליחת הקוד");
+      } else {
+        setStep("code");
+      }
+    } catch {
+      setError("שגיאה בשליחת הקוד");
+    }
+    setLoading(false);
+  }
+
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const result = await signIn("credentials", { phone, code, redirect: false });
     setLoading(false);
     if (result?.error) {
-      setError("שם משתמש או סיסמה שגויים");
+      setError("קוד שגוי או שפג תוקפו");
     } else {
       router.push("/admin");
     }
@@ -44,49 +63,85 @@ export default function AdminLoginPage() {
           BUILT ON UNIQUENESS
         </p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="text"
-            placeholder="שם משתמש"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-xl border text-right outline-none"
-            style={{
-              background: "var(--cream)",
-              borderColor: "var(--border)",
-              color: "var(--text)",
-            }}
-          />
-          <input
-            type="password"
-            placeholder="סיסמה"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-xl border text-right outline-none"
-            style={{
-              background: "var(--cream)",
-              borderColor: "var(--border)",
-              color: "var(--text)",
-            }}
-          />
+        {step === "phone" && (
+          <form onSubmit={handleSendCode} className="flex flex-col gap-4">
+            <input
+              type="tel"
+              placeholder="מספר טלפון"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+              style={{
+                background: "var(--cream)",
+                borderColor: "var(--border)",
+                color: "var(--text)",
+              }}
+            />
 
-          {error && (
-            <p className="text-center text-sm" style={{ color: "var(--maroon)" }}>
-              {error}
+            {error && (
+              <p className="text-center text-sm" style={{ color: "var(--maroon)" }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-60"
+              style={{ background: "var(--text)", color: "var(--cream)" }}
+            >
+              {loading ? "שולח..." : "שלח קוד"}
+            </button>
+          </form>
+        )}
+
+        {step === "code" && (
+          <form onSubmit={handleVerify} className="flex flex-col gap-4">
+            <p className="text-center text-sm" style={{ color: "var(--text-muted)" }}>
+              נשלח קוד לטלפון {phone}
             </p>
-          )}
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="קוד אימות"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+              autoFocus
+              className="w-full px-4 py-3 rounded-xl border text-center text-lg tracking-widest outline-none"
+              style={{
+                background: "var(--cream)",
+                borderColor: "var(--border)",
+                color: "var(--text)",
+              }}
+            />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-60"
-            style={{ background: "var(--text)", color: "var(--cream)" }}
-          >
-            {loading ? "נכנס..." : "כניסה"}
-          </button>
-        </form>
+            {error && (
+              <p className="text-center text-sm" style={{ color: "var(--maroon)" }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-60"
+              style={{ background: "var(--text)", color: "var(--cream)" }}
+            >
+              {loading ? "בודק..." : "כניסה"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setStep("phone"); setCode(""); setError(""); }}
+              className="text-sm underline opacity-60 hover:opacity-100"
+              style={{ color: "var(--text)" }}
+            >
+              שינוי מספר טלפון
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

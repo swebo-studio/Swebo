@@ -4,6 +4,7 @@ import Image from "next/image";
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
 interface Category { id: string; nameHe: string; sortOrder: number }
+interface AdminPhone { id: string; phone: string; label: string | null }
 
 const DEFAULT_SIZES: SizeRow[] = [
   { size: "S",  chest: 96,  waist: 80,  length: 68 },
@@ -20,6 +21,10 @@ export default function AdminConfigPage() {
   const [newCatName, setNewCatName] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [sizeGuideImage, setSizeGuideImage] = useState("");
+  const [phones, setPhones] = useState<AdminPhone[]>([]);
+  const [newPhone, setNewPhone] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<"image" | "video" | "sizeGuide" | null>(null);
@@ -48,10 +53,43 @@ export default function AdminConfigPage() {
       setSizeGuideImage(cfg["sizeGuide.imagePath"] || "");
     });
     fetchCategories();
+    fetchPhones();
   }, []);
 
   function fetchCategories() {
     fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
+  }
+
+  function fetchPhones() {
+    fetch("/api/admin/phones").then((r) => r.json()).then(setPhones).catch(() => {});
+  }
+
+  async function addPhone() {
+    setPhoneError("");
+    if (!newPhone.trim()) return;
+    const res = await fetch("/api/admin/phones", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: newPhone.trim(), label: newLabel.trim() || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setPhoneError(data.error || "שגיאה בהוספת מספר");
+      return;
+    }
+    setNewPhone("");
+    setNewLabel("");
+    fetchPhones();
+  }
+
+  async function deletePhone(id: string) {
+    if (!confirm("להסיר את המספר הזה מרשימת המנהלים?")) return;
+    await fetch("/api/admin/phones", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    fetchPhones();
   }
 
   async function uploadFile(file: File, type: "image" | "video" | "sizeGuide") {
@@ -339,6 +377,59 @@ export default function AdminConfigPage() {
             ))}
           </tbody>
         </table>
+      </section>
+
+      {/* ── Admin phone numbers ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>מספרי טלפון למנהלים</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          מספרים אלו יכולים להתחבר לניהול האתר באמצעות קוד חד-פעמי שיישלח ב-SMS
+        </p>
+
+        <div className="flex flex-col gap-2 mb-4">
+          {phones.length === 0 && (
+            <p className="text-sm text-right" style={{ color: "var(--text-muted)" }}>אין מספרים נוספים עדיין</p>
+          )}
+          {phones.map((p) => (
+            <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+              <button onClick={() => deletePhone(p.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
+              <span className="font-medium text-right" style={{ color: "var(--text)" }}>
+                {p.phone}{p.label ? ` — ${p.label}` : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {phoneError && (
+          <p className="text-sm text-right mb-2" style={{ color: "var(--maroon)" }}>{phoneError}</p>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={addPhone}
+            className="px-4 py-2.5 rounded-xl font-medium text-sm transition-opacity hover:opacity-70 flex-shrink-0"
+            style={{ background: "var(--text)", color: "var(--cream)" }}
+          >
+            הוסף
+          </button>
+          <input
+            type="text"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder="תיאור (אופציונלי)"
+            className="w-32 px-4 py-2.5 rounded-xl border text-right outline-none text-sm"
+            style={inputStyle}
+          />
+          <input
+            type="tel"
+            value={newPhone}
+            onChange={(e) => setNewPhone(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addPhone(); }}
+            placeholder="מספר טלפון חדש..."
+            className="flex-1 px-4 py-2.5 rounded-xl border text-right outline-none text-sm"
+            style={inputStyle}
+          />
+        </div>
       </section>
 
       <button
