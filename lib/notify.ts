@@ -2,7 +2,7 @@ const AT_BASE = "https://webapi.mymarketing.co.il/api";
 
 function atHeaders() {
   return {
-    "Authorization": `Bearer ${process.env.ACTIVETRAIL_API_KEY ?? ""}`,
+    "Authorization": process.env.ACTIVETRAIL_API_KEY ?? "",
     "Content-Type": "application/json",
   };
 }
@@ -46,13 +46,18 @@ export async function sendSMS(phone: string, message: string): Promise<boolean> 
   const normalised = phone.replace(/\D/g, "").replace(/^0/, "972");
 
   try {
-    const res = await fetch(`${AT_BASE}/sms/SendSMS`, {
+    const res = await fetch(`${AT_BASE}/smscampaign/OperationalMessage`, {
       method: "POST",
       headers: atHeaders(),
       body: JSON.stringify({
-        phones: [normalised],
-        content: message,
-        sender_id: process.env.ACTIVETRAIL_SMS_SENDER ?? "SWEBO",
+        details: {
+          name: `SWEBO ${new Date().toISOString()}`,
+          from_name: process.env.ACTIVETRAIL_SMS_SENDER ?? "SWEBO",
+          content: message,
+          can_unsubscribe: false,
+        },
+        scheduling: { send_now: true },
+        mobiles: [{ phone_number: normalised }],
       }),
       signal: AbortSignal.timeout(10000),
     });
