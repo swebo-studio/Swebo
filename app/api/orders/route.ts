@@ -19,7 +19,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { customer, cartItems, delivery: requestedDelivery, couponCode } = body;
+  const { customer, cartItems, delivery: requestedDelivery, couponCode, pudoCodeDestination } = body;
 
   // Validate coupon
   let discountPct = 0;
@@ -96,8 +96,8 @@ export async function POST(req: NextRequest) {
     await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
   }
 
-  // Create HFD shipment (only for home delivery, fire and forget)
-  if (delivery > 0) {
+  // Create HFD shipment — for home delivery and EPOST pickup points
+  if (delivery > 0 || pudoCodeDestination) {
     createHFDShipment({
       id: order.id,
       customerName: customer.name,
@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
       address: customer.address,
       city: customer.city,
       total,
+      pudoCodeDestination: pudoCodeDestination ?? undefined,
     }).then(async (result) => {
       if (result && result.errorCode === "0" && result.shipmentNumber) {
         await prisma.order.update({

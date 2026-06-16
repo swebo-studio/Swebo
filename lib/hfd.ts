@@ -58,8 +58,11 @@ export async function createHFDShipment(order: {
   address: string;
   city: string;
   total: number;
+  pudoCodeDestination?: number;
 }): Promise<HFDShipmentResult | null> {
   if (!HFD_CLIENT_NUMBER) return null; // Not configured
+
+  const isEpost = !!order.pudoCodeDestination;
 
   // Parse address — street name and house number may be combined or separate
   const addressParts = order.address.split(",")[0].trim();
@@ -70,10 +73,10 @@ export async function createHFDShipment(order: {
   const payload = {
     clientNumber: HFD_CLIENT_NUMBER,
     mesiraIsuf: "מסירה",
-    shipmentTypeCode: HFD_SHIPMENT_TYPE_CODE,
+    shipmentTypeCode: isEpost ? 50 : HFD_SHIPMENT_TYPE_CODE,
     stageCode: HFD_STAGE_CODE,
     ordererName: HFD_ORDERER_NAME,
-    cargoTypeHaloch: HFD_CARGO_TYPE,
+    cargoTypeHaloch: isEpost ? 11 : HFD_CARGO_TYPE,
     cargoTypeHazor: 0,
     packsHaloch: "1",
     packsHazor: 0,
@@ -81,8 +84,8 @@ export async function createHFDShipment(order: {
     cityCode: "",
     cityName: order.city,
     streetCode: "",
-    streetName: streetName.slice(0, 30),
-    houseNum: houseNum.slice(0, 5),
+    streetName: isEpost ? "" : streetName.slice(0, 30),
+    houseNum: isEpost ? "" : houseNum.slice(0, 5),
     entrance: "",
     floor: "",
     apartment: "",
@@ -95,7 +98,7 @@ export async function createHFDShipment(order: {
     futureDate: "",
     futureTime: "",
     pudoCodeOrigin: 0,
-    pudoCodeDestination: 0,
+    pudoCodeDestination: order.pudoCodeDestination ?? 0,
     autoBindPudo: "N",
     email: order.customerEmail.slice(0, 100),
     productsPrice: order.total,
