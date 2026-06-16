@@ -2,6 +2,14 @@
  * HYPay (Hyp) payment gateway integration
  * Docs: https://hypay.docs.apiary.io/
  * Base: https://pay.hyp.co.il/p/
+ *
+ * Flow:
+ *   1. Server calls APISign&What=SIGN (server-to-server) → gets signed query string
+ *   2. Server builds redirect URL = BASE + signed query string → sends to frontend
+ *   3. Frontend redirects customer to that URL
+ *   4. Customer pays on HYPay's hosted page
+ *   5. HYPay redirects customer back to SuccessUrl with transaction params
+ *   6. Server calls APISign&What=VERIFY to confirm the transaction
  */
 
 const BASE = "https://pay.hyp.co.il/p/";
@@ -14,11 +22,20 @@ function creds() {
   };
 }
 
+function parseHypayResponse(text: string): Record<string, string> {
+  return Object.fromEntries(
+    text.split("&").map((part) => {
+      const idx = part.indexOf("=");
+      return [part.slice(0, idx), decodeURIComponent(part.slice(idx + 1))];
+    })
+  );
+}
+
 /**
- * Build the parameters for HYPay's hosted payment page.
- * The frontend must POST these as a form to BASE.
+ * Server-side: calls HYPay's APISign to get a signed redirect URL.
+ * Returns the URL to redirect the customer to, or null on failure.
  */
-export function createHypayParams(params: {
+export async function createHypayRedirectUrl(params: {
   orderId: string;
   amount: number;
   customerName: string;
@@ -26,7 +43,7 @@ export function createHypayParams(params: {
   customerPhone: string;
   successUrl: string;
   failureUrl: string;
-}): Record<string, string> | null {
+}): Promise<string | null> {
   const { Masof, KEY, PassP } = creds();
   if (!Masof || !KEY || !PassP) return null;
 
@@ -34,38 +51,53 @@ export function createHypayParams(params: {
   const ClientName  = nameParts[0] ?? params.customerName;
   const ClientLName = nameParts.slice(1).join(" ") || ClientName;
 
-  return {
-    action:     "pay",
-    Masof,
+  const p = new URLSearchParams({
+    action:     "APISign",
+    What:       "SIGN",
+    Sign:       "True",
     KEY,
-    // NOTE: PassP is intentionally NOT sent on the "pay" (hosted page launch)
-    // request. Sending it here causes Hyp to short-circuit with a generic
-    // "שגיאת אימות / HTTP REFERER / REMOTE HOST" error (verified via direct
-    // testing - including PassP blanks out the Referer/RemoteHost shown in
-    // the error, indicating a different/earlier failure path). PassP is only
-    // used for the APISign verification call in verifyHypayTransaction below.
+    PassP,
+    Masof,
     Amount:     String(Math.round(params.amount)),
-    Info:       `הזמנה #${params.orderId.slice(-6).toUpperCase()}`,
     Order:      params.orderId,
+    Info:       `הזמנה #${params.orderId.slice(-6).toUpperCase()}`,
     ClientName,
     ClientLName,
     email:      params.customerEmail,
-    phone:      params.customerPhone,
+    cell:       params.customerPhone,
     UserId:     "000000000",
     SuccessUrl: params.successUrl,
     ErrorUrl:   params.failureUrl,
-    Coin:       "1",       // ILS
-    Sign:       "False",
+    PageLang:   "HEB",
+    Coin:       "1",
     UTF8:       "True",
     UTF8out:    "True",
-    PageLang:   "HEB",
     MoreData:   "True",
-    sendemail:  "False",   // we send our own confirmation email
+    sendemail:  "False",
     Tash:       "1",
-  };
-}
+  });
 
-export const HYPAY_BASE = BASE;
+  try {
+    const res = await fetch(`${BASE}?${p.toString()}`);
+    const text = await res.text();
+
+    if (text.trim().startsWith("<")) {
+      console.error("[HYPay] HTML error from APISign:", text.slice(0, 300));
+      return null;
+    }
+
+    const parsed = parseHypayResponse(text);
+    if (parsed["CCode"] && parsed["CCode"] !== "0") {
+      console.error("[HYPay] APISign error CCode:", parsed["CCode"], text);
+      return null;
+    }
+
+    return `${BASE}?${text}`;
+  } catch (err) {
+    console.error("[HYPay] createHypayRedirectUrl error:", err);
+    return null;
+  }
+}
 
 /**
  * Verify a completed transaction with HYPay's APISign endpoint.

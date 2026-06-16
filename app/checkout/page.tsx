@@ -167,20 +167,8 @@ export default function CheckoutPage() {
 
       if (payData.error) throw new Error(`שגיאת תשלום: ${payData.error}`);
 
-      if (payData.endpoint && payData.fields) {
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = payData.endpoint;
-        form.style.display = "none";
-        Object.entries(payData.fields as Record<string, string>).forEach(([key, value]) => {
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = key;
-          input.value = value;
-          form.appendChild(input);
-        });
-        document.body.appendChild(form);
-        form.submit();
+      if (payData.redirectUrl) {
+        window.location.href = payData.redirectUrl;
       } else {
         router.push(`/order/${order.id}`);
       }
