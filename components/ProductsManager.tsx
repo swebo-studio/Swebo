@@ -92,6 +92,12 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setEditing(p);
     setCreating(false);
     setTab("details");
+    // Pre-populate sizeStocks from already-loaded data so inputs show current values immediately
+    const preloaded: Record<string, SizeStock[]> = {};
+    for (const c of p.colors) {
+      if (c.sizes && c.sizes.length > 0) preloaded[c.id] = c.sizes;
+    }
+    setSizeStocks(preloaded);
   }
 
   function closeForm() {
