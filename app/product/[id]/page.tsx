@@ -63,6 +63,7 @@ export default async function ProductPage(
 
   let sizeChart: { size: string; chest: number; waist: number; length: number }[] = [];
   try { if (cfg["sizeChart"]) sizeChart = JSON.parse(cfg["sizeChart"]); } catch {}
+  const showSizeChart = cfg["sizeChart.showTable"] !== "false";
 
   // Other products from the same catalog/categories
   const categoryIds = product.categories.map((c) => c.id);
@@ -110,6 +111,7 @@ export default async function ProductPage(
               colors: product.colors,
             }}
             sizeChart={sizeChart}
+            showSizeChart={showSizeChart}
             sizeGuideImage={cfg["sizeGuide.imagePath"] || undefined}
           />
         </Suspense>

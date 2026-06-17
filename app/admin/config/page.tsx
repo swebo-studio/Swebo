@@ -22,6 +22,7 @@ export default function AdminConfigPage() {
   const [newCatName, setNewCatName] = useState("");
   const [announcementItems, setAnnouncementItems] = useState<{ text: string; url: string }[]>([]);
   const [sizeGuideImage, setSizeGuideImage] = useState("");
+  const [showSizeChart, setShowSizeChart] = useState(true);
   const [phones, setPhones] = useState<AdminPhone[]>([]);
   const [newPhone, setNewPhone] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -59,6 +60,7 @@ export default function AdminConfigPage() {
         })
       );
       setSizeGuideImage(cfg["sizeGuide.imagePath"] || "");
+      setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
     });
     fetchCategories();
     fetchPhones();
@@ -121,6 +123,7 @@ export default function AdminConfigPage() {
         "hero.imagePath": hero.imagePath,
         "hero.videoPath": hero.videoPath,
         "sizeChart": JSON.stringify(sizes),
+        "sizeChart.showTable": showSizeChart ? "true" : "false",
         "sizeGuide.imagePath": sizeGuideImage,
         "contact.whatsapp": contact.whatsapp,
         "contact.instagram": contact.instagram,
@@ -393,7 +396,24 @@ export default function AdminConfigPage() {
 
       {/* ── Size chart ── */}
       <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
-        <h2 className="font-bold text-lg mb-4 text-right" style={{ color: "var(--text)" }}>טבלת מידות (ס&quot;מ)</h2>
+        <div className="flex items-center justify-between mb-4">
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div
+              className="relative w-11 h-6 rounded-full transition-colors"
+              style={{ background: showSizeChart ? "var(--green)" : "var(--border)" }}
+              onClick={() => setShowSizeChart(v => !v)}
+            >
+              <div
+                className="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow"
+                style={{ transform: showSizeChart ? "translateX(24px)" : "translateX(4px)" }}
+              />
+            </div>
+            <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {showSizeChart ? "מוצגת בעמוד המוצר" : "מוסתרת מעמוד המוצר"}
+            </span>
+          </label>
+          <h2 className="font-bold text-lg text-right" style={{ color: "var(--text)" }}>טבלת מידות (ס&quot;מ)</h2>
+        </div>
         <table className="w-full text-sm text-center">
           <thead>
             <tr style={{ color: "var(--text-muted)" }}>

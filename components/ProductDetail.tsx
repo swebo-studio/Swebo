@@ -31,10 +31,11 @@ interface Props {
     colors: ProductColor[];
   };
   sizeChart: SizeRow[];
+  showSizeChart?: boolean;
   sizeGuideImage?: string;
 }
 
-export default function ProductDetail({ product, sizeChart, sizeGuideImage }: Props) {
+export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage }: Props) {
   const { addItem } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -216,7 +217,7 @@ export default function ProductDetail({ product, sizeChart, sizeGuideImage }: Pr
         {(selectedColor || !hasColors) && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <SizeChartModal rows={sizeChart} imagePath={sizeGuideImage} />
+              {showSizeChart && <SizeChartModal rows={sizeChart} imagePath={sizeGuideImage} />}
               <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>בחר מידה:</p>
             </div>
             <div className="flex gap-2 justify-end flex-wrap">
