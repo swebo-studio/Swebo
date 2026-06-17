@@ -726,9 +726,21 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ background: p.active ? "#e8f5e9" : "#f5e8e8", color: p.active ? "var(--green)" : "var(--maroon)" }}>
+                        <button
+                          onClick={async () => {
+                            const next = !p.active;
+                            await fetch(`/api/products/${p.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ active: next }),
+                            });
+                            setProducts((list) => list.map((x) => x.id === p.id ? { ...x, active: next } : x));
+                          }}
+                          className="px-2 py-1 rounded-full text-xs font-bold transition-opacity hover:opacity-70"
+                          style={{ background: p.active ? "#e8f5e9" : "#f5e8e8", color: p.active ? "var(--green)" : "var(--maroon)" }}
+                        >
                           {p.active ? "פעיל" : "מוסתר"}
-                        </span>
+                        </button>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
