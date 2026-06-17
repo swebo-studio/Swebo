@@ -51,6 +51,7 @@ export default function AdminOrdersPage() {
   const [activeStage, setActiveStage] = useState<Stage>("received");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState<string | null>(null);
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
 
   const loadOrders = useCallback(() => {
     fetch("/api/orders")
@@ -79,6 +80,22 @@ export default function AdminOrdersPage() {
     setAdvancing(null);
   }
 
+  async function markAsPaid(order: Order) {
+    setMarkingPaid(order.id);
+    const res = await fetch(`/api/orders/${order.id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid" }),
+    });
+    if (res.ok) {
+      setOrders((prev) =>
+        prev.map((o) => o.id === order.id ? { ...o, status: "paid" } : o)
+      );
+    }
+    setMarkingPaid(null);
+  }
+
+  const pendingOrders = orders.filter((o) => o.status === "pending");
   const byStage = (stage: Stage) =>
     orders.filter((o) => o.status === "paid" && o.orderStage === stage);
 
@@ -91,6 +108,42 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="flex flex-col h-full" style={{ minHeight: "calc(100vh - 80px)" }}>
+
+      {/* Pending orders — awaiting payment confirmation */}
+      {pendingOrders.length > 0 && (
+        <div className="mb-5 rounded-2xl border overflow-hidden" style={{ borderColor: "#f59e0b", background: "#fffbeb" }}>
+          <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "#f59e0b" }}>
+            <span className="text-xs font-medium" style={{ color: "#92400e" }}>ממתינות לאישור תשלום — לחץ לסמן כשולם לאחר בדיקה</span>
+            <span className="font-bold text-sm" style={{ color: "#92400e" }}>⏳ {pendingOrders.length} הזמנות</span>
+          </div>
+          <div className="flex flex-col divide-y" style={{ borderColor: "#fde68a" }}>
+            {pendingOrders.map((order) => (
+              <div key={order.id} className="flex items-center gap-3 px-4 py-3">
+                <button
+                  onClick={() => markAsPaid(order)}
+                  disabled={markingPaid === order.id}
+                  className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-opacity disabled:opacity-50"
+                  style={{ background: "var(--text)", color: "var(--cream)" }}
+                >
+                  {markingPaid === order.id ? "..." : "✓ שולם"}
+                </button>
+                <div className="flex-1 text-right min-w-0">
+                  <p className="font-bold text-sm truncate" style={{ color: "var(--text)" }}>{order.customerName}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                    {order.items.map((i) => `${i.product.nameHe} ×${i.quantity}`).join(" · ")}
+                  </p>
+                </div>
+                <div className="text-left flex-shrink-0">
+                  <p className="font-extrabold text-sm" style={{ color: "var(--text)" }}>₪{order.total}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {new Date(order.createdAt).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stage tab bar */}
       <div
