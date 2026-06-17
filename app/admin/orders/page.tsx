@@ -1,8 +1,22 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+const STAGES = [
+  { key: "received", label: "התקבל",  emoji: "📥" },
+  { key: "packed",   label: "ארוז",    emoji: "📦" },
+  { key: "shipped",  label: "במשלוח", emoji: "🚚" },
+  { key: "done",     label: "בוצע",   emoji: "✅" },
+] as const;
+type Stage = typeof STAGES[number]["key"];
+
+const NEXT_STAGE: Record<Stage, Stage | null> = {
+  received: "packed",
+  packed:   "shipped",
+  shipped:  "done",
+  done:     null,
+};
 
 const HFD_BASE = "https://api.hfd.co.il/rest/v2";
-function labelUrl(shipmentNumber: string) { return `${HFD_BASE}/shipments/${shipmentNumber}/label`; }
 
 interface OrderItem {
   id: string;
@@ -24,82 +38,110 @@ interface Order {
   delivery: number;
   total: number;
   status: string;
+  orderStage: Stage;
   shipmentNumber: string | null;
   shipmentRandId: string | null;
   createdAt: string;
   items: OrderItem[];
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  paid: "שולם",
-  pending: "ממתין",
-  failed: "נכשל",
-  cancelled: "בוטל",
-};
-const STATUS_COLORS: Record<string, string> = {
-  paid: "var(--green)",
-  pending: "#b08c00",
-  failed: "var(--maroon)",
-  cancelled: "#888",
-};
-
-interface TrackingStatus {
-  status_code: string;
-  status_desc: string;
-  status_date: string;
-  status_time: string;
-}
-
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeStage, setActiveStage] = useState<Stage>("received");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [tracking, setTracking] = useState<Record<string, TrackingStatus[] | "loading" | "error">>({});
-  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [advancing, setAdvancing] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadOrders = useCallback(() => {
     fetch("/api/orders")
       .then((r) => r.json())
       .then((data) => { setOrders(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
-  async function loadTracking(orderId: string, shipmentNumber: string) {
-    setTracking((t) => ({ ...t, [orderId]: "loading" }));
-    const res = await fetch(`/api/orders/${orderId}/tracking`);
-    if (!res.ok) { setTracking((t) => ({ ...t, [orderId]: "error" })); return; }
-    const data = await res.json();
-    setTracking((t) => ({ ...t, [orderId]: data.status ?? [] }));
-  }
+  useEffect(() => { loadOrders(); }, [loadOrders]);
 
-  async function handleCancel(orderId: string) {
-    if (!confirm("לבטל את המשלוח ב-HFD? ניתן רק לפני שהשליח הגיע לאסוף.")) return;
-    setCancelling(orderId);
-    const res = await fetch(`/api/orders/${orderId}/cancel`, { method: "POST" });
-    const data = await res.json();
-    setCancelling(null);
-    if (data.status === "OK") {
-      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: "cancelled" } : o));
-      alert("המשלוח בוטל בהצלחה");
-    } else {
-      alert(`שגיאה: ${data.status_desc || data.error || "לא ניתן לבטל"}`);
+  async function advanceStage(order: Order) {
+    const next = NEXT_STAGE[order.orderStage];
+    if (!next) return;
+    setAdvancing(order.id);
+    const res = await fetch(`/api/orders/${order.id}/stage`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage: next }),
+    });
+    if (res.ok) {
+      setOrders((prev) =>
+        prev.map((o) => o.id === order.id ? { ...o, orderStage: next } : o)
+      );
+      setExpandedId(null);
     }
+    setAdvancing(null);
   }
 
-  if (loading) return <p className="text-center py-20" style={{ color: "var(--text-muted)" }}>טוען...</p>;
+  const byStage = (stage: Stage) =>
+    orders.filter((o) => o.status === "paid" && o.orderStage === stage);
+
+  const stageCount = (stage: Stage) => byStage(stage).length;
+  const visible = byStage(activeStage);
+
+  if (loading) return (
+    <p className="text-center py-20" style={{ color: "var(--text-muted)" }}>טוען...</p>
+  );
 
   return (
-    <div>
-      <h1 className="text-2xl font-extrabold mb-8" style={{ color: "var(--text)" }}>הזמנות</h1>
+    <div className="flex flex-col h-full" style={{ minHeight: "calc(100vh - 80px)" }}>
 
-      {orders.length === 0 ? (
-        <p className="text-center py-20" style={{ color: "var(--text-muted)" }}>אין הזמנות עדיין</p>
+      {/* Stage tab bar */}
+      <div
+        className="flex rounded-2xl border overflow-hidden mb-5 text-sm"
+        style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}
+      >
+        {STAGES.map(({ key, label, emoji }) => {
+          const count = stageCount(key);
+          const active = activeStage === key;
+          return (
+            <button
+              key={key}
+              onClick={() => { setActiveStage(key); setExpandedId(null); }}
+              className="flex-1 flex flex-col items-center gap-0.5 py-3 transition-all relative"
+              style={{
+                background: active ? "var(--text)" : "transparent",
+                color: active ? "var(--cream)" : count > 0 ? "var(--text)" : "var(--text-muted)",
+                fontWeight: active ? 700 : 400,
+              }}
+            >
+              <span className="text-base">{emoji}</span>
+              <span className="text-xs leading-tight">{label}</span>
+              {count > 0 && (
+                <span
+                  className="absolute top-1.5 right-1.5 text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center"
+                  style={{
+                    background: active ? "var(--cream)" : "var(--maroon)",
+                    color: active ? "var(--text)" : "white",
+                  }}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Order list */}
+      {visible.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
+          <span className="text-4xl">{STAGES.find((s) => s.key === activeStage)?.emoji}</span>
+          <p style={{ color: "var(--text-muted)" }}>אין הזמנות ב{STAGES.find((s) => s.key === activeStage)?.label}</p>
+        </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          {orders.map((order) => {
+        <div className="flex flex-col gap-3">
+          {visible.map((order) => {
             const isExpanded = expandedId === order.id;
-            const statusColor = STATUS_COLORS[order.status] ?? "#888";
-            const trackResult = tracking[order.id];
+            const next = NEXT_STAGE[order.orderStage];
+            const nextLabel = next ? STAGES.find((s) => s.key === next)?.label : null;
+            const nextEmoji = next ? STAGES.find((s) => s.key === next)?.emoji : null;
 
             return (
               <div
@@ -107,134 +149,109 @@ export default function AdminOrdersPage() {
                 className="rounded-2xl border overflow-hidden"
                 style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
               >
-                {/* Header row */}
+                {/* Card header — tap to expand */}
                 <div
-                  className="flex items-center justify-between p-5 cursor-pointer"
+                  className="flex items-center gap-3 p-4 cursor-pointer active:opacity-70"
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="px-3 py-1 rounded-full text-xs font-bold"
-                      style={{ background: `${statusColor}22`, color: statusColor }}
-                    >
-                      {STATUS_LABELS[order.status] ?? order.status}
-                    </span>
-                    <span className="text-sm font-mono" style={{ color: "var(--text-muted)" }}>
-                      #{order.id.slice(-8).toUpperCase()}
-                    </span>
-                    {order.shipmentNumber && (
-                      <span className="text-xs px-2 py-0.5 rounded-lg font-mono" style={{ background: "#e8f5e9", color: "var(--green)" }}>
-                        {order.shipmentNumber}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-sm" style={{ color: "var(--text)" }}>{order.customerName}</p>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      ₪{order.total} · {new Date(order.createdAt).toLocaleDateString("he-IL")}
+                  {/* Expand chevron */}
+                  <span style={{ color: "var(--text-muted)", fontSize: 12, flexShrink: 0 }}>
+                    {isExpanded ? "▲" : "▼"}
+                  </span>
+
+                  {/* Order info */}
+                  <div className="flex-1 text-right min-w-0">
+                    <p className="font-bold text-base truncate" style={{ color: "var(--text)" }}>
+                      {order.customerName}
                     </p>
+                    <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                      {order.items.map((i) =>
+                        `${i.product.nameHe} ×${i.quantity}${i.color ? ` ${i.color}` : ""} ${i.size}`
+                      ).join(" · ")}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      {new Date(order.createdAt).toLocaleDateString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {order.shipmentNumber && (
+                        <span className="mr-2 font-mono" style={{ color: "var(--green)" }}>
+                          #{order.shipmentNumber}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Total */}
+                  <div className="text-left flex-shrink-0">
+                    <p className="font-extrabold text-base" style={{ color: "var(--text)" }}>₪{order.total}</p>
                   </div>
                 </div>
 
-                {/* Expanded detail */}
+                {/* Advance button — always visible */}
+                {next && (
+                  <div className="px-4 pb-4">
+                    <button
+                      onClick={() => advanceStage(order)}
+                      disabled={advancing === order.id}
+                      className="w-full py-3.5 rounded-xl font-bold text-base transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                      style={{ background: "var(--text)", color: "var(--cream)" }}
+                    >
+                      {advancing === order.id ? (
+                        "מעדכן..."
+                      ) : (
+                        <>{nextEmoji} סמן כ{nextLabel}</>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Expanded details */}
                 {isExpanded && (
-                  <div className="border-t px-5 pb-5" style={{ borderColor: "var(--border)" }}>
-                    {/* Customer details */}
-                    <div className="py-4 text-sm text-right" style={{ color: "var(--text-muted)" }}>
+                  <div className="border-t px-4 pb-4 pt-3 text-sm text-right" style={{ borderColor: "var(--border)" }}>
+                    {/* Customer */}
+                    <div className="mb-3" style={{ color: "var(--text-muted)" }}>
                       <p>{order.address}, {order.city}</p>
-                      <p>{order.customerPhone} · {order.customerEmail}</p>
-                      <p>{new Date(order.createdAt).toLocaleString("he-IL")}</p>
+                      <a
+                        href={`tel:${order.customerPhone}`}
+                        className="underline"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {order.customerPhone}
+                      </a>
+                      <span className="mx-1">·</span>
+                      <span>{order.customerEmail}</span>
                     </div>
 
                     {/* Items */}
-                    <div className="border-t pt-3 mb-4" style={{ borderColor: "var(--border)" }}>
+                    <div className="border rounded-xl overflow-hidden mb-3" style={{ borderColor: "var(--border)" }}>
                       {order.items.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm mb-1">
+                        <div
+                          key={item.id}
+                          className="flex justify-between px-3 py-2 border-b last:border-0 text-xs"
+                          style={{ borderColor: "var(--border)" }}
+                        >
                           <span style={{ color: "var(--text-muted)" }}>₪{item.price * item.quantity}</span>
                           <span style={{ color: "var(--text)" }}>
-                            {item.product.nameHe} × {item.quantity}
+                            {item.product.nameHe} ×{item.quantity}
                             {item.color ? ` · ${item.color}` : ""} / מידה {item.size}
                           </span>
                         </div>
                       ))}
-                      <div className="flex justify-between font-extrabold mt-2 pt-2 border-t text-sm" style={{ borderColor: "var(--border)", color: "var(--text)" }}>
+                      <div className="flex justify-between px-3 py-2 font-extrabold text-xs" style={{ background: "var(--cream)", color: "var(--text)" }}>
                         <span>₪{order.total}</span>
-                        <span>סה&quot;כ</span>
+                        <span>סה&quot;כ{order.delivery === 0 ? " (ללא משלוח)" : ""}</span>
                       </div>
                     </div>
 
-                    {/* HFD actions */}
-                    {order.shipmentNumber ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-wrap gap-2 justify-end">
-                          {/* Label */}
-                          <a
-                            href={labelUrl(order.shipmentNumber)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-opacity hover:opacity-70"
-                            style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                          >
-                            הדפס תווית
-                          </a>
-
-                          {/* Tracking */}
-                          <button
-                            onClick={() => loadTracking(order.id, order.shipmentNumber!)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-opacity hover:opacity-70"
-                            style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                          >
-                            מעקב משלוח
-                          </button>
-
-                          {/* Cancel — only if not delivered/cancelled */}
-                          {order.status !== "cancelled" && order.shipmentRandId && (
-                            <button
-                              onClick={() => handleCancel(order.id)}
-                              disabled={cancelling === order.id}
-                              className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-opacity hover:opacity-70 disabled:opacity-40"
-                              style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}
-                            >
-                              {cancelling === order.id ? "מבטל..." : "בטל משלוח"}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Tracking results */}
-                        {trackResult === "loading" && (
-                          <p className="text-sm text-center" style={{ color: "var(--text-muted)" }}>טוען מעקב...</p>
-                        )}
-                        {trackResult === "error" && (
-                          <p className="text-sm text-center" style={{ color: "var(--maroon)" }}>לא ניתן לטעון מעקב</p>
-                        )}
-                        {Array.isArray(trackResult) && trackResult.length > 0 && (
-                          <div className="rounded-xl border overflow-hidden text-sm" style={{ borderColor: "var(--border)" }}>
-                            {trackResult.map((s, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between px-4 py-2.5 border-b last:border-0"
-                                style={{ borderColor: "var(--border)", background: i === 0 ? "#e8f5e9" : "transparent" }}
-                              >
-                                <span style={{ color: "var(--text-muted)" }}>{s.status_date} {s.status_time}</span>
-                                <span className="font-medium text-right" style={{ color: i === 0 ? "var(--green)" : "var(--text)" }}>
-                                  {s.status_desc}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {Array.isArray(trackResult) && trackResult.length === 0 && (
-                          <p className="text-sm text-center" style={{ color: "var(--text-muted)" }}>אין עדכוני מעקב עדיין</p>
-                        )}
-                      </div>
-                    ) : (
-                      order.delivery > 0 && (
-                        <p className="text-sm text-center py-2" style={{ color: "var(--text-muted)" }}>
-                          {!process.env.HFD_CLIENT_NUMBER
-                            ? "HFD לא מוגדר — מלא את פרטי HFD ב-.env"
-                            : "משלוח לא נוצר עדיין ב-HFD"}
-                        </p>
-                      )
+                    {/* HFD label */}
+                    {order.shipmentNumber && (
+                      <a
+                        href={`${HFD_BASE}/shipments/${order.shipmentNumber}/label`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70"
+                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                      >
+                        🖨️ הדפס תווית HFD
+                      </a>
                     )}
                   </div>
                 )}

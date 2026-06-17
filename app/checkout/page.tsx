@@ -1,9 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useCart } from "@/components/CartProvider";
 import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import type { AppliedReward } from "@/lib/promotions";
+
+const EpostMap = dynamic(() => import("@/components/EpostMap"), { ssr: false });
 
 type DeliveryMode = "home" | "epost" | "self";
 
@@ -13,8 +16,12 @@ interface EpostPoint {
   city: string;
   street: string;
   house: number;
-  remarks: string;
-  type: string;
+  remarks?: string;
+  type?: string;
+  lat?: number; lng?: number;
+  latitude?: number; longitude?: number;
+  x_wgs84?: number; y_wgs84?: number;
+  x?: number; y?: number;
 }
 
 export default function CheckoutPage() {
@@ -312,27 +319,39 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {/* Points list */}
+              {/* Points list + map */}
               {epostPoints.length > 0 && (
-                <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-                  {epostPoints.map((point) => (
-                    <button
-                      key={point.n_code}
-                      type="button"
-                      onClick={() => setSelectedPoint(point)}
-                      className="text-right px-4 py-3 rounded-xl border transition-all"
-                      style={{
-                        borderColor: selectedPoint?.n_code === point.n_code ? "var(--text)" : "var(--border)",
-                        background: selectedPoint?.n_code === point.n_code ? "var(--cream-dark)" : "transparent",
-                      }}
-                    >
-                      <p className="text-sm font-bold" style={{ color: "var(--text)" }}>{point.name}</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{point.street} {point.house} — {point.type}</p>
-                      {point.remarks && (
-                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{point.remarks}</p>
-                      )}
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-2">
+                  {/* Leaflet map — only renders if HFD returns coordinates */}
+                  <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)", height: 280 }}>
+                    <EpostMap
+                      points={epostPoints}
+                      selected={selectedPoint}
+                      onSelect={setSelectedPoint}
+                    />
+                  </div>
+
+                  {/* Scrollable list */}
+                  <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                    {epostPoints.map((point) => (
+                      <button
+                        key={point.n_code}
+                        type="button"
+                        onClick={() => setSelectedPoint(point)}
+                        className="text-right px-4 py-3 rounded-xl border transition-all"
+                        style={{
+                          borderColor: selectedPoint?.n_code === point.n_code ? "var(--text)" : "var(--border)",
+                          background: selectedPoint?.n_code === point.n_code ? "var(--cream-dark)" : "transparent",
+                        }}
+                      >
+                        <p className="text-sm font-bold" style={{ color: "var(--text)" }}>{point.name}</p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{point.street} {point.house}{point.type ? ` — ${point.type}` : ""}</p>
+                        {point.remarks && (
+                          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{point.remarks}</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

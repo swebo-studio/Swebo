@@ -82,6 +82,7 @@ model Order {
   delivery      Float       @default(40)
   total         Float
   status        String      @default("pending")
+  orderStage    String      @default("received")
   paymentId     String?
   shipmentNumber String?
   shipmentRandId String?

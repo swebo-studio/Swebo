@@ -96,14 +96,14 @@ export default function ProductDetail({ product, sizeChart, sizeGuideImage }: Pr
   const reserveHref = `https://wa.me/${waNumber}?text=${reserveMsg}`;
 
   function handleAdd() {
-    if (!canAdd || !selectedColor) return;
+    if (!canAdd) return;
     addItem({
       productId: product.id,
       nameHe: product.nameHe,
       price: product.price,
       size: selectedSize,
-      color: selectedColor.nameHe,
-      colorHex: selectedColor.hex,
+      color: selectedColor?.nameHe,
+      colorHex: selectedColor?.hex,
       quantity: 1,
       image: mainImg || product.image,
     });
@@ -213,7 +213,7 @@ export default function ProductDetail({ product, sizeChart, sizeGuideImage }: Pr
         )}
 
         {/* Size picker with per-size stock */}
-        {selectedColor && (
+        {(selectedColor || !hasColors) && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <SizeChartModal rows={sizeChart} imagePath={sizeGuideImage} />

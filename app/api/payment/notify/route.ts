@@ -10,7 +10,8 @@ import { notifyOrderConfirmation } from "@/lib/notify";
  */
 export async function GET(req: NextRequest) {
   const params = Object.fromEntries(req.nextUrl.searchParams.entries());
-  const orderId = params["orderId"];
+  // orderId comes from our dynamic SuccessUrl param; fall back to HYPay's Order field
+  const orderId = params["orderId"] || params["Order"];
   const transactionId = params["Id"];
   const origin = req.nextUrl.origin;
 

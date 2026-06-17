@@ -11,16 +11,14 @@ export default function Header() {
   const { totalItems } = useCart();
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [announcementItems, setAnnouncementItems] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const cached = sessionStorage.getItem("swebo_announcement_items");
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
-  });
+  const [announcementItems, setAnnouncementItems] = useState<string[]>([]);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem("swebo_announcement_items");
+      if (cached) setAnnouncementItems(JSON.parse(cached));
+    } catch {}
     fetch("/api/categories").then((r) => r.json()).then(setCategories).catch(() => {});
     fetch("/api/config").then((r) => r.json()).then((cfg: Record<string, string>) => {
       const raw = cfg["announcement.items"] ?? "";
