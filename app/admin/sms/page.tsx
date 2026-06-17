@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SMS_TEMPLATES, renderSmsTemplate } from "@/lib/smsTemplates";
 
 const PREVIEW_VARS: Record<string, Record<string, string>> = {
@@ -17,6 +17,25 @@ export default function AdminSmsPage() {
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+  function insertAtCursor(key: string, tag: string) {
+    const el = textareaRefs.current[key];
+    if (!el) {
+      setValues((v) => ({ ...v, [key]: (v[key] ?? "") + tag }));
+      return;
+    }
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    const current = values[key] ?? "";
+    const next = current.slice(0, start) + tag + current.slice(end);
+    setValues((v) => ({ ...v, [key]: next }));
+    // Restore cursor after the inserted tag
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + tag.length, start + tag.length);
+    });
+  }
 
   useEffect(() => {
     fetch("/api/admin/config").then((r) => r.json()).then((cfg: Record<string, string>) => {
@@ -68,6 +87,7 @@ export default function AdminSmsPage() {
           <p className="text-xs text-right mb-3" style={{ color: "var(--text-muted)" }}>{def.description}</p>
 
           <textarea
+            ref={(el) => { textareaRefs.current[key] = el; }}
             value={values[key] ?? ""}
             onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
             rows={4}
@@ -76,20 +96,28 @@ export default function AdminSmsPage() {
             style={inputStyle}
           />
 
-          <div className="flex flex-wrap gap-2 mt-3 justify-end">
-            {def.placeholders.map((p) => (
-              <button
-                key={p.tag}
-                type="button"
-                title={p.desc}
-                onClick={() => setValues((v) => ({ ...v, [key]: (v[key] ?? "") + p.tag }))}
-                className="text-xs px-2 py-1 rounded-lg border font-mono hover:opacity-70 transition-opacity"
-                style={{ borderColor: "var(--border)", color: "var(--text)" }}
-              >
-                {p.tag}
-              </button>
-            ))}
-          </div>
+          {def.placeholders.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs mb-2 text-right" style={{ color: "var(--text-muted)" }}>
+                לחצו להכנסת ערך דינמי בתוך ההודעה:
+              </p>
+              <div className="flex flex-wrap gap-2 justify-end">
+                {def.placeholders.map((p) => (
+                  <button
+                    key={p.tag}
+                    type="button"
+                    onClick={() => insertAtCursor(key, p.tag)}
+                    className="text-xs px-3 py-1.5 rounded-lg border hover:opacity-70 transition-opacity flex items-center gap-1.5"
+                    style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                  >
+                    <span style={{ color: "var(--text-muted)" }}>+</span>
+                    <span>{p.desc}</span>
+                    <span className="font-mono text-[10px] px-1 rounded" style={{ background: "var(--cream-dark)", color: "var(--text-muted)" }}>{p.tag}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Live preview */}
           <div className="mt-4 p-3 rounded-xl text-sm text-right" style={{ background: "var(--cream-dark)", color: "var(--text)" }}>
