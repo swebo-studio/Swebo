@@ -97,7 +97,7 @@ export default function CheckoutPage() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", city: "" });
 
   const hasFreeShipping = promotionRewards.some((r) => r.type === "free_shipping");
-  const baseDelivery = deliveryMode === "home" ? (hasFreeShipping ? 0 : 40) : 0;
+  const baseDelivery = deliveryMode === "home" ? (hasFreeShipping ? 0 : 40) : deliveryMode === "epost" ? 25 : 0;
 
   const itemDiscountMap: Record<string, number> = {};
   promotionRewards.filter((r) => r.type === "product_discount" && r.productId && r.discountPct).forEach((r) => {
@@ -219,7 +219,7 @@ export default function CheckoutPage() {
           <div className="rounded-2xl border p-1 flex text-sm font-bold overflow-hidden" style={{ borderColor: "var(--border)" }}>
             {([
               { val: "home",  label: "משלוח עד הבית — ₪40" },
-              { val: "epost", label: "נקודת EPOST — חינם" },
+              { val: "epost", label: "נקודת EPOST — ₪25" },
               { val: "self",  label: "איסוף עצמי — חינם" },
             ] as { val: DeliveryMode; label: string }[]).map(({ val, label }) => (
               <button
