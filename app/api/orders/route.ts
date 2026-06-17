@@ -23,10 +23,15 @@ export async function POST(req: NextRequest) {
 
   // Validate coupon
   let discountPct = 0;
+  let discountAmount = 0;
   let couponId: string | null = null;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode);
-    if (coupon) { discountPct = coupon.discountPct; couponId = coupon.singleUse ? coupon.id : null; }
+    if (coupon) {
+      discountPct = coupon.discountPct ?? 0;
+      discountAmount = coupon.discountAmount ?? 0;
+      couponId = coupon.singleUse ? coupon.id : null;
+    }
   }
 
   const rawSubtotal = cartItems.reduce(
@@ -35,11 +40,13 @@ export async function POST(req: NextRequest) {
 
   // Evaluate promotions server-side
   const rewards = await evaluatePromotions(cartItems, rawSubtotal);
-  const baseDelivery = requestedDelivery === 0 ? 0 : 40;
+  const baseDelivery = requestedDelivery === 0 ? 0 : requestedDelivery === 25 ? 25 : 40;
   const { subtotal: promoSubtotal, delivery: promoDelivery, itemPrices } = applyRewards(cartItems, rawSubtotal, baseDelivery, rewards);
 
   // Apply coupon on top of promotion-adjusted subtotal
-  const couponSavings = Math.round(promoSubtotal * discountPct / 100);
+  const couponSavings = discountAmount > 0
+    ? Math.min(discountAmount, promoSubtotal)
+    : Math.round(promoSubtotal * discountPct / 100);
   const subtotal = promoSubtotal - couponSavings;
   const delivery = promoDelivery;
   const total = subtotal + delivery;
