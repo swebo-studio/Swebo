@@ -44,6 +44,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
@@ -303,15 +305,15 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("למחוק מוצר זה?")) return;
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || "לא ניתן למחוק מוצר זה");
-      return;
+  async function confirmDelete() {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    const res = await fetch(`/api/products/${deleteConfirm.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setProducts((p) => p.filter((x) => x.id !== deleteConfirm.id));
     }
-    setProducts((p) => p.filter((x) => x.id !== id));
+    setDeleting(false);
+    setDeleteConfirm(null);
   }
 
   const showForm = creating || editing !== null;
@@ -730,7 +732,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button onClick={() => openEdit(p)} className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
-                          <button onClick={() => handleDelete(p.id)} className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-70" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחיקה</button>
+                          <button onClick={() => setDeleteConfirm({ id: p.id, name: p.nameHe })} className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-opacity hover:opacity-70" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחיקה</button>
                         </div>
                       </td>
                     </tr>
@@ -742,5 +744,44 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
         )}
       </div>
     </div>
+
+    {/* Delete confirmation modal */}
+    {deleteConfirm && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{ background: "rgba(0,0,0,0.4)" }}
+        onClick={() => !deleting && setDeleteConfirm(null)}
+      >
+        <div
+          className="rounded-2xl p-6 w-80 text-right shadow-xl"
+          style={{ background: "var(--cream)", border: "1px solid var(--border)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="font-bold text-base mb-1" style={{ color: "var(--text)" }}>מחיקת מוצר</p>
+          <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
+            האם למחוק את <span className="font-semibold" style={{ color: "var(--text)" }}>{deleteConfirm.name}</span>?<br />
+            פעולה זו אינה ניתנת לביטול.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setDeleteConfirm(null)}
+              disabled={deleting}
+              className="px-4 py-2 rounded-xl text-sm font-medium border disabled:opacity-40"
+              style={{ borderColor: "var(--border)", color: "var(--text)" }}
+            >
+              ביטול
+            </button>
+            <button
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+              style={{ background: "var(--maroon)", color: "#fff" }}
+            >
+              {deleting ? "מוחק..." : "מחק"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
