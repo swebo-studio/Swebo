@@ -38,3 +38,39 @@ body {
   100% { transform: scale(1); }
 }
 .cart-badge { animation: bounce-in 0.3s ease; }
+
+/* Fly-to-cart animation — two wrappers create a parabolic arc */
+@keyframes fly-to-cart-x {
+  to { transform: translateX(var(--fly-dx)); }
+}
+@keyframes fly-to-cart-y {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(var(--fly-dy)); }
+}
+@keyframes fly-to-cart-card {
+  0%   { transform: scale(1) rotate(0deg); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: scale(0.05) rotate(8deg); opacity: 0; }
+}
+.fly-x {
+  animation: fly-to-cart-x 0.62s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+  pointer-events: none;
+}
+.fly-y {
+  animation: fly-to-cart-y 0.62s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+.fly-card-inner {
+  animation: fly-to-cart-card 0.62s ease-in forwards;
+}
+
+/* Cart icon receive bounce */
+@keyframes cart-receive {
+  0%   { transform: scale(1) rotate(0deg); }
+  25%  { transform: scale(1.35) rotate(-12deg); }
+  50%  { transform: scale(0.88) rotate(6deg); }
+  75%  { transform: scale(1.12) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.cart-received {
+  animation: cart-receive 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}

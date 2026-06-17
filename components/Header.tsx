@@ -94,7 +94,7 @@ export default function Header() {
 
           {/* Left column (RTL end): cart */}
           <div className="flex items-center justify-end">
-            <Link href="/cart" className="relative p-2 hover:opacity-70 transition-opacity" aria-label="עגלת קניות">
+            <Link id="cart-icon" href="/cart" className="relative p-2 hover:opacity-70 transition-opacity" aria-label="עגלת קניות">
               <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                 <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
                 <line x1="3" y1="6" x2="21" y2="6" />
