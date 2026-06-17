@@ -8,9 +8,7 @@ type Ctx = { params: Promise<{ id: string; colorId: string }> };
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const { colorId } = await params;
   const sizes = await prisma.productColorSize.findMany({ where: { colorId } });
-  // Return full set with 0 defaults
-  const map = Object.fromEntries(sizes.map((s) => [s.size, s.stock]));
-  return Response.json(SIZES.map((size) => ({ size, stock: map[size] ?? 0 })));
+  return Response.json(sizes.map((s) => ({ size: s.size, stock: s.stock })));
 }
 
 export async function PUT(req: NextRequest, { params }: Ctx) {
@@ -20,8 +18,12 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const { colorId } = await params;
   const body: { size: string; stock: number }[] = await req.json();
 
+  // Delete sizes no longer in the list
+  await prisma.productColorSize.deleteMany({
+    where: { colorId, size: { notIn: body.map((b: { size: string }) => b.size) } },
+  });
   await Promise.all(
-    body.map(({ size, stock }) =>
+    body.map(({ size, stock }: { size: string; stock: number }) =>
       prisma.productColorSize.upsert({
         where: { colorId_size: { colorId, size } },
         update: { stock },

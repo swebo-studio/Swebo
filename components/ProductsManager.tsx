@@ -68,7 +68,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
   // New color pending images (URLs already uploaded, awaiting color creation)
   const [newColorImages, setNewColorImages] = useState<string[]>([]);
-  const [newColorSizes, setNewColorSizes] = useState<SizeStock[]>(SIZES.map((s) => ({ size: s, stock: 0 })));
+  const [newColorSizes, setNewColorSizes] = useState<SizeStock[]>([]);
   const newColorImageRef = useRef<HTMLInputElement>(null);
 
   // Crop modal
@@ -106,7 +106,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setEditingColor(null);
     setColorForm({ nameHe: "", hex: "#000000", stock: 0 });
     setNewColorImages([]);
-    setNewColorSizes(SIZES.map((s) => ({ size: s, stock: 0 })));
+    setNewColorSizes([]);
   }
 
   async function loadSizeStocks(colorId: string) {
@@ -119,7 +119,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   async function saveSizeStocks(colorId: string) {
     if (!editing) return;
     setSavingSizes((prev) => ({ ...prev, [colorId]: true }));
-    const stocks = sizeStocks[colorId] ?? SIZES.map((size) => ({ size, stock: 0 }));
+    const stocks = sizeStocks[colorId] ?? [];
     await fetch(`/api/products/${editing.id}/colors/${colorId}/sizes`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -264,7 +264,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     }
 
     // Save size stocks if any non-zero
-    const hasSizes = newColorSizes.some((s) => s.stock > 0);
+    const hasSizes = newColorSizes.length > 0;
     if (hasSizes) {
       await fetch(`/api/products/${editing.id}/colors/${newColor.id}/sizes`, {
         method: "PUT",
@@ -285,7 +285,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
     setColorForm({ nameHe: "", hex: "#000000", stock: 0 });
     setNewColorImages([]);
-    setNewColorSizes(SIZES.map((s) => ({ size: s, stock: 0 })));
+    setNewColorSizes([]);
     setAddingColor(false);
   }
 
@@ -519,27 +519,47 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                           </button>
                           <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה</span>
                         </div>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           {SIZES.map((size) => {
+                            const enabled = !!sizeStocks[c.id]?.find((s) => s.size === size);
                             const current = sizeStocks[c.id]?.find((s) => s.size === size);
                             return (
                               <div key={size} className="flex flex-col items-center gap-1">
-                                <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{size}</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={current?.stock ?? 0}
-                                  onFocus={() => { if (!sizeStocks[c.id]) loadSizeStocks(c.id); }}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setSizeStocks((prev) => {
-                                      const existing = prev[c.id] ?? SIZES.map((s) => ({ size: s, stock: 0 }));
-                                      return { ...prev, [c.id]: existing.map((s) => s.size === size ? { ...s, stock: val } : s) };
-                                    });
+                                <button
+                                  type="button"
+                                  onClick={() => setSizeStocks((prev) => {
+                                    const existing = prev[c.id] ?? [];
+                                    if (enabled) return { ...prev, [c.id]: existing.filter((s) => s.size !== size) };
+                                    return { ...prev, [c.id]: [...existing, { size, stock: 0 }] };
+                                  })}
+                                  className="w-full text-xs font-bold py-1 rounded-md transition-all"
+                                  style={{
+                                    background: enabled ? "var(--text)" : "transparent",
+                                    color: enabled ? "var(--cream)" : "var(--text-muted)",
+                                    border: "1px solid",
+                                    borderColor: enabled ? "var(--text)" : "var(--border)",
                                   }}
-                                  className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
-                                  style={inputStyle}
-                                />
+                                >
+                                  {size}
+                                </button>
+                                {enabled ? (
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={current?.stock ?? 0}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value);
+                                      setSizeStocks((prev) => ({
+                                        ...prev,
+                                        [c.id]: (prev[c.id] ?? []).map((s) => s.size === size ? { ...s, stock: val } : s),
+                                      }));
+                                    }}
+                                    className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
+                                    style={inputStyle}
+                                  />
+                                ) : (
+                                  <div className="w-full py-1.5 text-center text-xs" style={{ color: "var(--border)" }}>—</div>
+                                )}
                               </div>
                             );
                           })}
@@ -608,24 +628,47 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
                     {/* Size stocks for new color */}
                     <div>
-                      <p className="text-xs font-medium text-right mb-1.5" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה</p>
-                      <div className="grid grid-cols-4 gap-2">
+                      <p className="text-xs font-medium text-right mb-1.5" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה — לחץ על המידה להפעלה</p>
+                      <div className="grid grid-cols-3 gap-2">
                         {SIZES.map((size) => {
+                          const enabled = newColorSizes.some((s) => s.size === size);
                           const current = newColorSizes.find((s) => s.size === size);
                           return (
                             <div key={size} className="flex flex-col items-center gap-1">
-                              <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{size}</span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={current?.stock ?? 0}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value);
-                                  setNewColorSizes((prev) => prev.map((s) => s.size === size ? { ...s, stock: val } : s));
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (enabled) {
+                                    setNewColorSizes((prev) => prev.filter((s) => s.size !== size));
+                                  } else {
+                                    setNewColorSizes((prev) => [...prev, { size, stock: 0 }]);
+                                  }
                                 }}
-                                className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
-                                style={inputStyle}
-                              />
+                                className="w-full text-xs font-bold py-1 rounded-md transition-all"
+                                style={{
+                                  background: enabled ? "var(--text)" : "transparent",
+                                  color: enabled ? "var(--cream)" : "var(--text-muted)",
+                                  border: "1px solid",
+                                  borderColor: enabled ? "var(--text)" : "var(--border)",
+                                }}
+                              >
+                                {size}
+                              </button>
+                              {enabled ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={current?.stock ?? 0}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setNewColorSizes((prev) => prev.map((s) => s.size === size ? { ...s, stock: val } : s));
+                                  }}
+                                  className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
+                                  style={inputStyle}
+                                />
+                              ) : (
+                                <div className="w-full py-1.5 text-center text-xs" style={{ color: "var(--border)" }}>—</div>
+                              )}
                             </div>
                           );
                         })}

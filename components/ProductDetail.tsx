@@ -221,7 +221,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>בחר מידה:</p>
             </div>
             <div className="flex gap-2 justify-end flex-wrap">
-              {SIZES.map((s) => {
+              {(sizeStocks.length > 0 ? SIZES.filter((s) => sizeStocks.some((ss) => ss.size === s)) : SIZES).map((s) => {
                 const stock = sizeStock(s);
                 const outOfStock = sizeStocks.length > 0 && stock === 0;
                 return (
