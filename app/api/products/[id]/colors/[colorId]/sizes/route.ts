@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
-const SIZES = ["S", "M", "L", "XL"];
+const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 type Ctx = { params: Promise<{ id: string; colorId: string }> };
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
