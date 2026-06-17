@@ -266,7 +266,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       setSizeStocks((prev) => ({ ...prev, [newColor.id]: newColorSizes }));
     }
     const totalStock = hasSizes ? newColorSizes.reduce((s, r) => s + r.stock, 0) : newColor.stock;
-    const colorWithImages = { ...newColor, images: savedImages, stock: totalStock };
+    const colorWithImages = { ...newColor, images: savedImages, stock: totalStock, sizes: hasSizes ? newColorSizes : [] };
 
     let updatedProduct = { ...editing, colors: [...editing.colors, colorWithImages] };
     // If first color and has images, set display image
@@ -697,7 +697,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                   const sizeMap: Record<string, number> = {};
                   if (p.colors.length > 0) {
                     for (const c of p.colors) {
-                      for (const s of c.sizes) {
+                      for (const s of (c.sizes ?? [])) {
                         sizeMap[s.size] = (sizeMap[s.size] ?? 0) + s.stock;
                       }
                     }
