@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
             address: order.address,
             city: order.city,
             total: order.total,
-            pudoCodeDestination: order.pudoCodeDestination ?? undefined,
+            pudoCodeDestination: order.pudoCodeDestination ? Number(order.pudoCodeDestination) : undefined,
           });
           if (result && result.errorCode === "0" && result.shipmentNumber) {
             await prisma.order.update({
