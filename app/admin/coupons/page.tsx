@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Coupon {
   id: string;
@@ -38,6 +39,7 @@ export default function AdminCouponsPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -72,13 +74,11 @@ export default function AdminCouponsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("למחוק קופון זה לצמיתות?")) return;
-    await fetch("/api/admin/coupons", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    load();
+    setConfirm({ message: "למחוק קופון זה לצמיתות?", onConfirm: async () => {
+      setConfirm(null);
+      await fetch("/api/admin/coupons", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      load();
+    }});
   }
 
   async function handleEdit(c: Coupon) {
@@ -109,13 +109,11 @@ export default function AdminCouponsPage() {
   }
 
   async function handleResetUsed(id: string) {
-    if (!confirm("לאפס שימוש בקופון? הוא יהיה פעיל שוב.")) return;
-    await fetch("/api/admin/coupons", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, resetUsed: true }),
-    });
-    load();
+    setConfirm({ message: "לאפס שימוש בקופון? הוא יהיה פעיל שוב.", onConfirm: async () => {
+      setConfirm(null);
+      await fetch("/api/admin/coupons", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, resetUsed: true }) });
+      load();
+    }});
   }
 
   function copyCode(code: string) {
@@ -131,6 +129,7 @@ export default function AdminCouponsPage() {
   const expired = coupons.filter((c) => !c.usedAt && c.expiresAt && new Date(c.expiresAt) < new Date()).length;
 
   return (
+    <>
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <button
@@ -409,5 +408,15 @@ export default function AdminCouponsPage() {
         )}
       </div>
     </div>
+    {confirm && (
+      <ConfirmModal
+        message={confirm.message}
+        confirmLabel="אישור"
+        danger={confirm.message.includes("מחק")}
+        onConfirm={confirm.onConfirm}
+        onCancel={() => setConfirm(null)}
+      />
+    )}
+    </>
   );
 }

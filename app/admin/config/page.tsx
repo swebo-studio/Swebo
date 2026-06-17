@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
 interface Category { id: string; nameHe: string; sortOrder: number }
@@ -26,6 +27,7 @@ export default function AdminConfigPage() {
   const [newLabel, setNewLabel] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState<"image" | "video" | "sizeGuide" | null>(null);
   const heroImageRef = useRef<HTMLInputElement>(null);
@@ -83,13 +85,11 @@ export default function AdminConfigPage() {
   }
 
   async function deletePhone(id: string) {
-    if (!confirm("להסיר את המספר הזה מרשימת המנהלים?")) return;
-    await fetch("/api/admin/phones", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    fetchPhones();
+    setConfirmState({ message: "להסיר את המספר הזה מרשימת המנהלים?", onConfirm: async () => {
+      setConfirmState(null);
+      await fetch("/api/admin/phones", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      fetchPhones();
+    }});
   }
 
   async function uploadFile(file: File, type: "image" | "video" | "sizeGuide") {
@@ -140,18 +140,17 @@ export default function AdminConfigPage() {
   }
 
   async function deleteCategory(id: string) {
-    if (!confirm("למחוק קטגוריה זו? המוצרים שלה יישארו ללא קטגוריה.")) return;
-    await fetch("/api/admin/categories", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    fetchCategories();
+    setConfirmState({ message: "למחוק קטגוריה זו? המוצרים שלה יישארו ללא קטגוריה.", onConfirm: async () => {
+      setConfirmState(null);
+      await fetch("/api/admin/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      fetchCategories();
+    }});
   }
 
   const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
 
   return (
+    <>
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-extrabold mb-8 text-right" style={{ color: "var(--text)" }}>הגדרות אתר</h1>
 
@@ -442,5 +441,15 @@ export default function AdminConfigPage() {
         {saved ? "✓ נשמר!" : saving ? "שומר..." : "שמור הגדרות"}
       </button>
     </div>
+    {confirmState && (
+      <ConfirmModal
+        message={confirmState.message}
+        confirmLabel={confirmState.message.includes("מחק") ? "מחק" : "הסר"}
+        danger
+        onConfirm={confirmState.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
+    )}
+    </>
   );
 }

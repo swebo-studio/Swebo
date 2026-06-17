@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import ImageCropModal from "@/components/ImageCropModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Category { id: string; nameHe: string }
 
@@ -47,6 +48,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [uploading, setUploading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [colorDeleteId, setColorDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
@@ -296,8 +298,9 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setEditingColor(null);
   }
 
-  async function handleDeleteColor(colorId: string) {
-    if (!editing || !confirm("למחוק צבע זה?")) return;
+  async function doDeleteColor(colorId: string) {
+    if (!editing) return;
+    setColorDeleteId(null);
     await fetch(`/api/products/${editing.id}/colors/${colorId}`, { method: "DELETE" });
     const updatedColors = editing.colors.filter((c) => c.id !== colorId);
     const newDisplayImage = updatedColors[0]?.images[0]?.url ?? "";
@@ -489,7 +492,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleDeleteColor(c.id)} className="px-2 py-1 rounded-lg text-xs border mr-auto" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
+                          <button onClick={() => setColorDeleteId(c.id)} className="px-2 py-1 rounded-lg text-xs border mr-auto" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
                           <button onClick={() => setEditingColor(c)} className="px-2 py-1 rounded-lg text-xs border" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
                           <span className="text-sm font-medium" style={{ color: c.stock <= 3 ? "var(--maroon)" : "var(--green)" }}>{c.stock} במלאי</span>
                           <span className="font-medium text-sm text-right" style={{ color: "var(--text)" }}>{c.nameHe}</span>
@@ -787,6 +790,16 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
         )}
       </div>
     </div>
+
+    {/* Color delete modal */}
+    {colorDeleteId && (
+      <ConfirmModal
+        message="למחוק צבע זה?"
+        confirmLabel="מחק"
+        onConfirm={() => doDeleteColor(colorDeleteId)}
+        onCancel={() => setColorDeleteId(null)}
+      />
+    )}
 
     {/* Delete confirmation modal */}
     {deleteConfirm && (

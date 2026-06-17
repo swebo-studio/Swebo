@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Order {
   id: string;
@@ -29,9 +30,10 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
   const [orders, setOrders] = useState(initial);
   const [collapsed, setCollapsed] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
-  async function handleDelete(id: string) {
-    if (!confirm("למחוק הזמנה זו לצמיתות?")) return;
+  async function doDelete(id: string) {
+    setPendingDelete(null);
     setDeleting(id);
     const res = await fetch(`/api/orders/${id}`, { method: "DELETE" });
     if (res.ok) setOrders((prev) => prev.filter((o) => o.id !== id));
@@ -39,6 +41,7 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
   }
 
   return (
+    <>
     <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
       {/* Header */}
       <button
@@ -88,7 +91,7 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => handleDelete(order.id)}
+                        onClick={() => setPendingDelete(order.id)}
                         disabled={deleting === order.id}
                         className="text-xs px-2 py-1 rounded-lg border transition-opacity hover:opacity-70 disabled:opacity-30"
                         style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}
@@ -104,5 +107,14 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
         )
       )}
     </div>
+    {pendingDelete && (
+      <ConfirmModal
+        message="למחוק הזמנה זו לצמיתות?"
+        confirmLabel="מחק"
+        onConfirm={() => doDelete(pendingDelete)}
+        onCancel={() => setPendingDelete(null)}
+      />
+    )}
+    </>
   );
 }

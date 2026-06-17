@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface Product { id: string; nameHe: string; price: number }
 
@@ -74,6 +75,7 @@ export default function AdminPromotionsPage() {
   const [conditions, setConditions] = useState<Condition[]>([emptyCondition()]);
   const [rewards, setRewards] = useState<Reward[]>([emptyReward()]);
   const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -119,8 +121,8 @@ export default function AdminPromotionsPage() {
     load();
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("למחוק מבצע זה?")) return;
+  async function doDelete(id: string) {
+    setPendingDelete(null);
     await fetch("/api/admin/promotions", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     load();
   }
@@ -147,6 +149,7 @@ export default function AdminPromotionsPage() {
   function removeReward(i: number) { setRewards((prev) => prev.filter((_, idx) => idx !== i)); }
 
   return (
+    <>
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <button
@@ -347,7 +350,7 @@ export default function AdminPromotionsPage() {
             <div key={p.id} className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", background: p.active ? "var(--cream)" : "var(--cream-dark)", opacity: p.active ? 1 : 0.7 }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex gap-2">
-                  <button onClick={() => handleDelete(p.id)} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
+                  <button onClick={() => setPendingDelete(p.id)} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
                   <button onClick={() => openEdit(p)} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
                 </div>
                 <div className="flex items-center gap-3">
@@ -391,5 +394,14 @@ export default function AdminPromotionsPage() {
         </div>
       )}
     </div>
+    {pendingDelete && (
+      <ConfirmModal
+        message="למחוק מבצע זה?"
+        confirmLabel="מחק"
+        onConfirm={() => doDelete(pendingDelete)}
+        onCancel={() => setPendingDelete(null)}
+      />
+    )}
+    </>
   );
 }
