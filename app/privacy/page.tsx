@@ -22,7 +22,7 @@ export default function PrivacyPage() {
           </div>
           <div>
             <h2 className="font-bold text-base mb-2" style={{ color: "var(--text)" }}>4. אבטחת מידע</h2>
-            <p>אנו נוקטים באמצעי אבטחה מתאימים לשמירת המידע האישי. פרטי תשלום מוצפנים ומעובדים על ידי GROW בלבד.</p>
+            <p>אנו נוקטים באמצעי אבטחה מתאימים לשמירת המידע האישי. פרטי תשלום מוצפנים ומעובדים על ידי HYP בלבד.</p>
           </div>
           <div>
             <h2 className="font-bold text-base mb-2" style={{ color: "var(--text)" }}>5. עוגיות (Cookies)</h2>

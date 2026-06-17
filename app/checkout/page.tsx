@@ -32,6 +32,7 @@ export default function CheckoutPage() {
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>("home");
   const [couponInput, setCouponInput] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
   const [couponError, setCouponError] = useState("");
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [promotionRewards, setPromotionRewards] = useState<AppliedReward[]>([]);
@@ -64,10 +65,12 @@ export default function CheckoutPage() {
     const data = await res.json();
     setValidatingCoupon(false);
     if (data.valid) {
-      setCouponDiscount(data.discountPct);
+      setCouponDiscount(data.discountPct ?? 0);
+      setCouponDiscountAmount(data.discountAmount ?? 0);
     } else {
       setCouponError(data.error || "קוד לא תקין");
       setCouponDiscount(0);
+      setCouponDiscountAmount(0);
     }
   }
 
@@ -108,7 +111,9 @@ export default function CheckoutPage() {
   }, 0);
   const cartDiscountPct = promotionRewards.filter((r) => r.type === "cart_discount").reduce((sum, r) => sum + (r.discountPct ?? 0), 0);
   const afterCartDiscount = cartDiscountPct > 0 ? Math.round(promotionSubtotal * (1 - Math.min(cartDiscountPct, 100) / 100)) : promotionSubtotal;
-  const couponSavings = couponDiscount > 0 ? Math.round(afterCartDiscount * couponDiscount / 100) : 0;
+  const couponSavings = couponDiscountAmount > 0
+    ? Math.min(couponDiscountAmount, afterCartDiscount)
+    : couponDiscount > 0 ? Math.round(afterCartDiscount * couponDiscount / 100) : 0;
   const finalSubtotal = afterCartDiscount - couponSavings;
   const delivery = baseDelivery;
   const total = finalSubtotal + delivery;
@@ -362,24 +367,30 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={applyCoupon}
-              disabled={validatingCoupon || couponDiscount > 0}
+              disabled={validatingCoupon || couponSavings > 0}
               className="px-4 py-3 rounded-xl border font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
               style={{ borderColor: "var(--border)", color: "var(--text)" }}
             >
-              {validatingCoupon ? "..." : couponDiscount > 0 ? "✓" : "הפעל"}
+              {validatingCoupon ? "..." : couponSavings > 0 ? "✓" : "הפעל"}
             </button>
             <input
               type="text"
               value={couponInput}
-              onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponError(""); }}
+              onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponError(""); }}
               placeholder="קוד קופון (אופציונלי)"
-              disabled={couponDiscount > 0}
+              disabled={couponSavings > 0}
               className="flex-1 px-4 py-3 rounded-xl border text-right outline-none text-sm"
-              style={{ background: "var(--cream-dark)", borderColor: couponDiscount > 0 ? "var(--green)" : "var(--border)", color: "var(--text)" }}
+              style={{ background: "var(--cream-dark)", borderColor: couponSavings > 0 ? "var(--green)" : "var(--border)", color: "var(--text)" }}
             />
           </div>
           {couponError && <p className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
-          {couponDiscount > 0 && <p className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>✓ קופון פעיל – {couponDiscount}% הנחה (חיסכון ₪{couponSavings})</p>}
+          {couponSavings > 0 && (
+            <p className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>
+              ✓ קופון פעיל –{" "}
+              {couponDiscountAmount > 0 ? `₪${couponDiscountAmount} הנחה` : `${couponDiscount}% הנחה`}
+              {" "}(חיסכון ₪{couponSavings})
+            </p>
+          )}
 
           {/* Active promotions */}
           {promotionRewards.length > 0 && (

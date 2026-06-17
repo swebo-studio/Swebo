@@ -298,7 +298,7 @@ export default function ProductDetail({ product, sizeChart, sizeGuideImage }: Pr
         {/* Shipping info */}
         <div className="mt-2 p-4 rounded-xl text-sm border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
           <div className="flex justify-between mb-2"><span>משלוח</span><span>₪40</span></div>
-          <div className="flex justify-between"><span>תשלום</span><span>GROW – מאובטח</span></div>
+          <div className="flex justify-between"><span>תשלום</span><span>HYP – מאובטח</span></div>
         </div>
       </div>
     </div>

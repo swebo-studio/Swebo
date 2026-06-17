@@ -11,7 +11,7 @@ export default function Header() {
   const { totalItems } = useCart();
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [announcementItems, setAnnouncementItems] = useState<string[]>([]);
+  const [announcementItems, setAnnouncementItems] = useState<{ text: string; url?: string }[]>([]);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,7 +22,11 @@ export default function Header() {
     fetch("/api/categories").then((r) => r.json()).then(setCategories).catch(() => {});
     fetch("/api/config").then((r) => r.json()).then((cfg: Record<string, string>) => {
       const raw = cfg["announcement.items"] ?? "";
-      const items = raw.split("\n").map((s) => s.trim()).filter(Boolean);
+      const items = raw.split("\n").map((s) => s.trim()).filter(Boolean).map((s) => {
+        const pipe = s.indexOf("|");
+        if (pipe === -1) return { text: s };
+        return { text: s.slice(0, pipe).trim(), url: s.slice(pipe + 1).trim() };
+      });
       setAnnouncementItems(items);
       try { sessionStorage.setItem("swebo_announcement_items", JSON.stringify(items)); } catch {}
     }).catch(() => {});

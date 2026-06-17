@@ -166,12 +166,13 @@ model PromotionReward {
 }
 
 model Coupon {
-  id           String    @id @default(cuid())
-  code         String    @unique
-  discountPct  Int       @default(5)
-  singleUse    Boolean   @default(true)
-  usedByEmail  String?
-  expiresAt    DateTime?
-  createdAt    DateTime  @default(now())
-  usedAt       DateTime?
+  id             String    @id @default(cuid())
+  code           String    @unique
+  discountPct    Int?
+  discountAmount Int?
+  singleUse      Boolean   @default(true)
+  usedByEmail    String?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  usedAt         DateTime?
 }

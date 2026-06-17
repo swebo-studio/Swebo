@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 interface Coupon {
   id: string;
   code: string;
-  discountPct: number;
+  discountPct: number | null;
+  discountAmount: number | null;
   singleUse: boolean;
   expiresAt: string | null;
   usedAt: string | null;
@@ -31,9 +32,9 @@ export default function AdminCouponsPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   // Create form
-  const [form, setForm] = useState({ code: "", discountPct: "10", expiresAt: "", singleUse: true });
+  const [form, setForm] = useState({ code: "", discountType: "pct" as "pct" | "amount", discountPct: "10", discountAmount: "", expiresAt: "", singleUse: true });
   // Edit form
-  const [editForm, setEditForm] = useState({ discountPct: "", expiresAt: "" });
+  const [editForm, setEditForm] = useState({ discountType: "pct" as "pct" | "amount", discountPct: "", discountAmount: "", expiresAt: "" });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -56,14 +57,15 @@ export default function AdminCouponsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         code: form.code || undefined,
-        discountPct: Number(form.discountPct),
+        discountPct: form.discountType === "pct" ? Number(form.discountPct) : undefined,
+        discountAmount: form.discountType === "amount" ? Number(form.discountAmount) : undefined,
         expiresAt: form.expiresAt || null,
         singleUse: form.singleUse,
       }),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error || "שגיאה"); setSaving(false); return; }
-    setForm({ code: "", discountPct: "10", expiresAt: "", singleUse: true });
+    setForm({ code: "", discountType: "pct", discountPct: "10", discountAmount: "", expiresAt: "", singleUse: true });
     setCreating(false);
     setSaving(false);
     load();
@@ -82,7 +84,9 @@ export default function AdminCouponsPage() {
   async function handleEdit(c: Coupon) {
     setEditingId(c.id);
     setEditForm({
-      discountPct: String(c.discountPct),
+      discountType: c.discountAmount ? "amount" : "pct",
+      discountPct: c.discountPct ? String(c.discountPct) : "",
+      discountAmount: c.discountAmount ? String(c.discountAmount) : "",
       expiresAt: c.expiresAt ? c.expiresAt.split("T")[0] : "",
     });
   }
@@ -94,7 +98,8 @@ export default function AdminCouponsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id,
-        discountPct: Number(editForm.discountPct),
+        discountPct: editForm.discountType === "pct" ? Number(editForm.discountPct) : null,
+        discountAmount: editForm.discountType === "amount" ? Number(editForm.discountAmount) : null,
         expiresAt: editForm.expiresAt || null,
       }),
     });
@@ -175,37 +180,65 @@ export default function AdminCouponsPage() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-sm text-right" style={{ color: "var(--text-muted)" }}>אחוז הנחה</label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold" style={{ color: "var(--text)" }}>%</span>
-                <input
-                  type="number"
-                  min={1} max={100}
-                  value={form.discountPct}
-                  onChange={(e) => setForm((f) => ({ ...f, discountPct: e.target.value }))}
-                  required
-                  className="flex-1 px-4 py-3 rounded-xl border text-right outline-none"
-                  style={inputStyle}
-                />
-              </div>
-              {/* Quick presets */}
-              <div className="flex gap-2 justify-end flex-wrap mt-1">
-                {[5, 10, 15, 20, 25, 50].map((p) => (
+              <label className="text-sm text-right" style={{ color: "var(--text-muted)" }}>סוג הנחה</label>
+              <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                {(["pct", "amount"] as const).map((t) => (
                   <button
-                    key={p}
+                    key={t}
                     type="button"
-                    onClick={() => setForm((f) => ({ ...f, discountPct: String(p) }))}
-                    className="px-3 py-1 rounded-lg text-xs font-bold border transition-all"
+                    onClick={() => setForm((f) => ({ ...f, discountType: t }))}
+                    className="flex-1 py-2 text-sm font-bold transition-all"
                     style={{
-                      borderColor: form.discountPct === String(p) ? "var(--text)" : "var(--border)",
-                      background: form.discountPct === String(p) ? "var(--text)" : "transparent",
-                      color: form.discountPct === String(p) ? "var(--cream)" : "var(--text-muted)",
+                      background: form.discountType === t ? "var(--text)" : "transparent",
+                      color: form.discountType === t ? "var(--cream)" : "var(--text-muted)",
                     }}
                   >
-                    {p}%
+                    {t === "pct" ? "אחוזים (%)" : "שקלים (₪)"}
                   </button>
                 ))}
               </div>
+              {form.discountType === "pct" ? (
+                <>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm font-bold" style={{ color: "var(--text)" }}>%</span>
+                    <input
+                      type="number" min={1} max={100}
+                      value={form.discountPct}
+                      onChange={(e) => setForm((f) => ({ ...f, discountPct: e.target.value }))}
+                      required
+                      className="flex-1 px-4 py-3 rounded-xl border text-right outline-none"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end flex-wrap mt-1">
+                    {[5, 10, 15, 20, 25, 50].map((p) => (
+                      <button
+                        key={p} type="button"
+                        onClick={() => setForm((f) => ({ ...f, discountPct: String(p) }))}
+                        className="px-3 py-1 rounded-lg text-xs font-bold border transition-all"
+                        style={{
+                          borderColor: form.discountPct === String(p) ? "var(--text)" : "var(--border)",
+                          background: form.discountPct === String(p) ? "var(--text)" : "transparent",
+                          color: form.discountPct === String(p) ? "var(--cream)" : "var(--text-muted)",
+                        }}
+                      >{p}%</button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm font-bold" style={{ color: "var(--text)" }}>₪</span>
+                  <input
+                    type="number" min={1}
+                    value={form.discountAmount}
+                    onChange={(e) => setForm((f) => ({ ...f, discountAmount: e.target.value }))}
+                    required
+                    placeholder="50"
+                    className="flex-1 px-4 py-3 rounded-xl border text-right outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -285,15 +318,30 @@ export default function AdminCouponsPage() {
                       {/* Discount */}
                       <td className="px-4 py-3">
                         {isEditing ? (
-                          <input
-                            type="number" min={1} max={100}
-                            value={editForm.discountPct}
-                            onChange={(e) => setEditForm((f) => ({ ...f, discountPct: e.target.value }))}
-                            className="w-16 px-2 py-1 rounded-lg border text-center outline-none text-sm"
-                            style={inputStyle}
-                          />
+                          <div className="flex flex-col gap-1">
+                            <div className="flex rounded-lg overflow-hidden border text-xs" style={{ borderColor: "var(--border)" }}>
+                              {(["pct", "amount"] as const).map((t) => (
+                                <button key={t} type="button" onClick={() => setEditForm((f) => ({ ...f, discountType: t }))}
+                                  className="flex-1 py-1 font-bold transition-all"
+                                  style={{ background: editForm.discountType === t ? "var(--text)" : "transparent", color: editForm.discountType === t ? "var(--cream)" : "var(--text-muted)" }}>
+                                  {t === "pct" ? "%" : "₪"}
+                                </button>
+                              ))}
+                            </div>
+                            {editForm.discountType === "pct" ? (
+                              <input type="number" min={1} max={100} value={editForm.discountPct}
+                                onChange={(e) => setEditForm((f) => ({ ...f, discountPct: e.target.value }))}
+                                className="w-16 px-2 py-1 rounded-lg border text-center outline-none text-sm" style={inputStyle} />
+                            ) : (
+                              <input type="number" min={1} value={editForm.discountAmount}
+                                onChange={(e) => setEditForm((f) => ({ ...f, discountAmount: e.target.value }))}
+                                className="w-16 px-2 py-1 rounded-lg border text-center outline-none text-sm" style={inputStyle} />
+                            )}
+                          </div>
                         ) : (
-                          <span className="font-bold" style={{ color: "var(--text)" }}>{c.discountPct}%</span>
+                          <span className="font-bold" style={{ color: "var(--text)" }}>
+                            {c.discountAmount ? `₪${c.discountAmount}` : `${c.discountPct}%`}
+                          </span>
                         )}
                       </td>
 

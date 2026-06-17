@@ -158,12 +158,13 @@ export default function AdminConfigPage() {
       {/* ── Announcement bar ── */}
       <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
         <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>פס הודעות עליון</h2>
-        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>כל שורה = פריט נפרד בקרוסלה. השאר ריק כדי להסתיר את הפס.</p>
+        <p className="text-xs text-right mb-1" style={{ color: "var(--text-muted)" }}>כל שורה = פריט נפרד בקרוסלה. השאר ריק כדי להסתיר את הפס.</p>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>להוספת קישור: <span className="font-mono">טקסט|https://...</span></p>
         <textarea
           value={announcement}
           onChange={(e) => setAnnouncement(e.target.value)}
           rows={4}
-          placeholder={"משלוח חינם מעל ₪300\nקולקציה חדשה הגיעה\nהנחה 10% עם קוד SWEBO10"}
+          placeholder={"משלוח חינם מעל ₪300\nקולקציה חדשה הגיעה|/catalog\nהנחה 10% עם קוד SWEBO10"}
           className="w-full px-4 py-3 rounded-xl border text-right outline-none resize-none text-sm"
           style={{ background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" }}
           dir="rtl"

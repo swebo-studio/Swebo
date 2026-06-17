@@ -10,5 +10,5 @@ export async function POST(req: NextRequest) {
   if (coupon.singleUse && coupon.usedAt) return Response.json({ valid: false, error: "קוד כבר נוצל" });
   if (coupon.expiresAt && coupon.expiresAt < new Date()) return Response.json({ valid: false, error: "קוד פג תוקף" });
 
-  return Response.json({ valid: true, discountPct: coupon.discountPct });
+  return Response.json({ valid: true, discountPct: coupon.discountPct, discountAmount: coupon.discountAmount });
 }

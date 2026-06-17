@@ -143,7 +143,7 @@ export default async function HomePage({ searchParams }: Props) {
           {[
             { title: "משלוח ₪40", sub: "לכל הארץ · או איסוף עצמי חינם" },
             { title: "מידות S–XL", sub: "בחר מידה בעמוד המוצר" },
-            { title: "תשלום מאובטח", sub: "דרך GROW" },
+            { title: "תשלום מאובטח", sub: "דרך HYP" },
           ].map((item) => (
             <div key={item.title}>
               <div className="font-bold" style={{ color: "var(--text)" }}>{item.title}</div>

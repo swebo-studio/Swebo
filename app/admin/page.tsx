@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export default async function AdminDashboard() {
   const revenue = paidOrders.reduce((s, o) => s + o.total, 0);
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
   const lowStock = products.filter((p) => p.stock <= 3 && p.active);
+
+  const toProcess = paidOrders.filter((o) => (o as { orderStage?: string }).orderStage !== "done").length;
 
   const recentOrders = orders.slice(0, 8);
 
@@ -31,6 +34,26 @@ export default async function AdminDashboard() {
       <h1 className="text-2xl font-extrabold mb-8" style={{ color: "var(--text)" }}>
         לוח בקרה
       </h1>
+
+      {/* Order pipeline CTA */}
+      <Link
+        href="/admin/orders"
+        className="flex items-center justify-between p-5 rounded-2xl border mb-6 transition-opacity hover:opacity-80"
+        style={{ background: "var(--text)", borderColor: "var(--text)", color: "var(--cream)" }}
+      >
+        <div className="flex items-center gap-2 text-sm font-medium opacity-80">
+          {toProcess > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-extrabold" style={{ background: "var(--cream)", color: "var(--text)" }}>
+              {toProcess}
+            </span>
+          )}
+          <span>{toProcess > 0 ? "הזמנות ממתינות לטיפול" : "כל ההזמנות טופלו ✓"}</span>
+        </div>
+        <div className="text-right">
+          <p className="font-extrabold text-lg">ניהול הזמנות</p>
+          <p className="text-sm opacity-70">התקבל · ארוז · במשלוח · בוצע</p>
+        </div>
+      </Link>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
