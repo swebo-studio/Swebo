@@ -8,6 +8,18 @@ interface Order {
   total: number;
   status: string;
   createdAt: string;
+  deliveryMode: string | null;
+  pudoPointName: string | null;
+  address: string;
+}
+
+function deliveryLabel(order: Order): string {
+  if (order.deliveryMode === "self") return "איסוף עצמי";
+  if (order.deliveryMode === "epost") return `נקודת איסוף — ${order.pudoPointName ?? order.city}`;
+  if (order.deliveryMode === "home") return `משלוח — ${order.city}`;
+  // fallback for orders created before this feature
+  if (order.address === "איסוף עצמי") return "איסוף עצמי";
+  return `משלוח — ${order.city}`;
 }
 
 const statusLabel: Record<string, string> = { paid: "שולם", pending: "ממתין", failed: "נכשל" };
@@ -46,7 +58,7 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
             <table className="w-full text-sm text-right">
               <thead>
                 <tr style={{ borderBottom: `1px solid var(--border)`, background: "var(--cream-dark)" }}>
-                  {["#", "לקוח", "עיר", "סכום", "סטטוס", "תאריך", ""].map((h) => (
+                  {["#", "לקוח", "משלוח", "סכום", "סטטוס", "תאריך", ""].map((h) => (
                     <th key={h} className="px-4 py-3 font-medium" style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
                 </tr>
@@ -58,7 +70,7 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
                       {order.id.slice(-6).toUpperCase()}
                     </td>
                     <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>{order.customerName}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-muted)" }}>{order.city}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{deliveryLabel(order)}</td>
                     <td className="px-4 py-3 font-bold" style={{ color: "var(--text)" }}>₪{order.total}</td>
                     <td className="px-4 py-3">
                       <span

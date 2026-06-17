@@ -92,6 +92,9 @@ export default async function AdminDashboard() {
         total: o.total,
         status: o.status,
         createdAt: o.createdAt.toISOString(),
+        deliveryMode: o.deliveryMode ?? null,
+        pudoPointName: o.pudoPointName ?? null,
+        address: o.address,
       }))} />
     </div>
   );

@@ -17,7 +17,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { customer, cartItems, delivery: requestedDelivery, couponCode, pudoCodeDestination } = body;
+  const { customer, cartItems, delivery: requestedDelivery, couponCode, pudoCodeDestination, pudoPointName, deliveryMode } = body;
 
   // Validate coupon
   let discountPct = 0;
@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
       delivery,
       total,
       pudoCodeDestination: pudoCodeDestination != null ? String(pudoCodeDestination) : null,
+      pudoPointName: pudoPointName ?? null,
+      deliveryMode: deliveryMode ?? null,
       items: {
         create: effectiveItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
           productId: item.productId,

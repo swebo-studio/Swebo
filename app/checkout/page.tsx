@@ -154,7 +154,9 @@ export default function CheckoutPage() {
           couponCode: couponDiscount > 0 ? couponInput.trim().toUpperCase() : undefined,
           customer: { name: form.name, email: form.email, phone: form.phone, address, city },
           delivery,
+          deliveryMode,
           pudoCodeDestination: deliveryMode === "epost" ? selectedPoint!.n_code : undefined,
+          pudoPointName: deliveryMode === "epost" ? selectedPoint!.name : undefined,
           cartItems: items.map((i) => ({
             productId: i.productId,
             quantity: i.quantity,

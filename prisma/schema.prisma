@@ -87,6 +87,8 @@ model Order {
   shipmentNumber      String?
   shipmentRandId      String?
   pudoCodeDestination String?
+  pudoPointName       String?
+  deliveryMode        String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }

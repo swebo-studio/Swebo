@@ -60,7 +60,11 @@ export async function GET(req: NextRequest) {
         const itemLines = order.items
           .map((i) => `• ${i.product.nameHe} × ${i.quantity} (${i.color ?? "ללא צבע"} / מידה ${i.size}) ₪${i.price * i.quantity}`)
           .join("\n");
-        const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n\n${itemLines}`;
+        const deliveryLine =
+          order.deliveryMode === "self" ? "איסוף עצמי" :
+          order.deliveryMode === "epost" ? `נקודת איסוף: ${order.pudoPointName ?? ""} (${order.city})` :
+          `משלוח לכתובת: ${order.address}, ${order.city}`;
+        const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n${deliveryLine}\n\n${itemLines}`;
         await notifyAdmin("הזמנה חדשה", msg);
 
         // 3. Create HFD shipment
