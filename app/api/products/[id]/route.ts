@@ -44,6 +44,19 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   return Response.json(product);
 }
 
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  const session = await auth();
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json();
+  const product = await prisma.product.update({
+    where: { id },
+    data: { ...(body.active !== undefined && { active: body.active }) },
+  });
+  return Response.json(product);
+}
+
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
