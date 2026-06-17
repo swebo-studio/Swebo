@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
+import RecentOrdersTable from "@/components/RecentOrdersTable";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +18,6 @@ export default async function AdminDashboard() {
   const toProcess = paidOrders.filter((o) => (o as { orderStage?: string }).orderStage !== "done").length;
 
   const recentOrders = orders.slice(0, 8);
-
-  const statusLabel: Record<string, string> = {
-    paid: "שולם",
-    pending: "ממתין",
-    failed: "נכשל",
-  };
-  const statusColor: Record<string, string> = {
-    paid: "var(--green)",
-    pending: "#b08c00",
-    failed: "var(--maroon)",
-  };
 
   return (
     <div>
@@ -95,72 +85,14 @@ export default async function AdminDashboard() {
         </div>
       )}
 
-      {/* Recent orders */}
-      <div
-        className="rounded-2xl border overflow-hidden"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div
-          className="px-6 py-4 border-b font-bold text-right"
-          style={{ background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" }}
-        >
-          הזמנות אחרונות
-        </div>
-        {recentOrders.length === 0 ? (
-          <p className="p-6 text-center" style={{ color: "var(--text-muted)" }}>
-            אין הזמנות עדיין
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-right">
-              <thead>
-                <tr style={{ borderBottom: `1px solid var(--border)`, background: "var(--cream-dark)" }}>
-                  {["#", "לקוח", "עיר", "סכום", "סטטוס", "תאריך"].map((h) => (
-                    <th key={h} className="px-4 py-3 font-medium" style={{ color: "var(--text-muted)" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    style={{ borderBottom: `1px solid var(--border)` }}
-                  >
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
-                      {order.id.slice(-6).toUpperCase()}
-                    </td>
-                    <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>
-                      {order.customerName}
-                    </td>
-                    <td className="px-4 py-3" style={{ color: "var(--text-muted)" }}>
-                      {order.city}
-                    </td>
-                    <td className="px-4 py-3 font-bold" style={{ color: "var(--text)" }}>
-                      ₪{order.total}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="px-2 py-1 rounded-full text-xs font-bold"
-                        style={{
-                          background: `${statusColor[order.status]}22`,
-                          color: statusColor[order.status],
-                        }}
-                      >
-                        {statusLabel[order.status] ?? order.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                      {new Date(order.createdAt).toLocaleDateString("he-IL")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <RecentOrdersTable initial={recentOrders.map((o) => ({
+        id: o.id,
+        customerName: o.customerName,
+        city: o.city,
+        total: o.total,
+        status: o.status,
+        createdAt: o.createdAt.toISOString(),
+      }))} />
     </div>
   );
 }
