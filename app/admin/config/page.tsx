@@ -20,7 +20,7 @@ export default function AdminConfigPage() {
   const [sizes, setSizes] = useState<SizeRow[]>(DEFAULT_SIZES);
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCatName, setNewCatName] = useState("");
-  const [announcement, setAnnouncement] = useState("");
+  const [announcementItems, setAnnouncementItems] = useState<{ text: string; url: string }[]>([]);
   const [sizeGuideImage, setSizeGuideImage] = useState("");
   const [phones, setPhones] = useState<AdminPhone[]>([]);
   const [newPhone, setNewPhone] = useState("");
@@ -51,7 +51,13 @@ export default function AdminConfigPage() {
       if (cfg["sizeChart"]) {
         try { setSizes(JSON.parse(cfg["sizeChart"])); } catch {}
       }
-      setAnnouncement(cfg["announcement.items"] || "");
+      const raw: string = cfg["announcement.items"] || "";
+      setAnnouncementItems(
+        raw.split("\n").map(s => s.trim()).filter(Boolean).map(s => {
+          const pipe = s.indexOf("|");
+          return pipe === -1 ? { text: s, url: "" } : { text: s.slice(0, pipe).trim(), url: s.slice(pipe + 1).trim() };
+        })
+      );
       setSizeGuideImage(cfg["sizeGuide.imagePath"] || "");
     });
     fetchCategories();
@@ -120,7 +126,10 @@ export default function AdminConfigPage() {
         "contact.instagram": contact.instagram,
         "contact.tiktok": contact.tiktok,
         "contact.email": contact.email,
-        "announcement.items": announcement,
+        "announcement.items": announcementItems
+          .filter(i => i.text.trim())
+          .map(i => i.url.trim() ? `${i.text}|${i.url}` : i.text)
+          .join("\n"),
       }),
     });
     setSaving(false);
@@ -156,18 +165,54 @@ export default function AdminConfigPage() {
 
       {/* ── Announcement bar ── */}
       <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
-        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>פס הודעות עליון</h2>
-        <p className="text-xs text-right mb-1" style={{ color: "var(--text-muted)" }}>כל שורה = פריט נפרד בקרוסלה. השאר ריק כדי להסתיר את הפס.</p>
-        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>להוספת קישור: <span className="font-mono">טקסט|https://...</span></p>
-        <textarea
-          value={announcement}
-          onChange={(e) => setAnnouncement(e.target.value)}
-          rows={4}
-          placeholder={"משלוח חינם מעל ₪300\nקולקציה חדשה הגיעה|/catalog\nהנחה 10% עם קוד SWEBO10"}
-          className="w-full px-4 py-3 rounded-xl border text-right outline-none resize-none text-sm"
-          style={{ background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" }}
-          dir="rtl"
-        />
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={() => setAnnouncementItems(prev => [...prev, { text: "", url: "" }])}
+            className="text-sm px-4 py-2 rounded-xl font-bold transition-opacity hover:opacity-80"
+            style={{ background: "var(--text)", color: "var(--cream)" }}
+          >
+            + הוסף הודעה
+          </button>
+          <h2 className="font-bold text-lg text-right" style={{ color: "var(--text)" }}>פס הודעות עליון</h2>
+        </div>
+        {announcementItems.length === 0 && (
+          <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>אין הודעות — הפס יוסתר</p>
+        )}
+        <div className="flex flex-col gap-3">
+          {announcementItems.map((item, i) => (
+            <div key={i} className="flex flex-col gap-1.5 p-3 rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAnnouncementItems(prev => prev.filter((_, idx) => idx !== i))}
+                  className="text-xs px-2 py-1 rounded-lg border flex-shrink-0 transition-opacity hover:opacity-70"
+                  style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}
+                >
+                  הסר
+                </button>
+                <input
+                  type="text"
+                  value={item.text}
+                  onChange={e => setAnnouncementItems(prev => prev.map((x, idx) => idx === i ? { ...x, text: e.target.value } : x))}
+                  placeholder="טקסט ההודעה"
+                  className="flex-1 px-3 py-2 rounded-lg border text-right outline-none text-sm"
+                  style={{ background: "var(--cream)", borderColor: "var(--border)", color: "var(--text)" }}
+                  dir="rtl"
+                />
+              </div>
+              <input
+                type="text"
+                value={item.url}
+                onChange={e => setAnnouncementItems(prev => prev.map((x, idx) => idx === i ? { ...x, url: e.target.value } : x))}
+                placeholder="קישור (אופציונלי) — /catalog או https://..."
+                className="w-full px-3 py-2 rounded-lg border text-right outline-none text-sm"
+                style={{ background: "var(--cream)", borderColor: "var(--border)", color: "var(--text-muted)" }}
+                dir="ltr"
+              />
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ── Hero section ── */}
