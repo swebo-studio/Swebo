@@ -7,13 +7,39 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const [orders, products] = await Promise.all([
     prisma.order.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.product.findMany(),
+    prisma.product.findMany({ include: { colors: { include: { sizes: true } } } }),
   ]);
 
   const paidOrders = orders.filter((o) => o.status === "paid");
   const revenue = paidOrders.reduce((s, o) => s + o.total, 0);
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
-  const lowStock = products.filter((p) => p.stock <= 3 && p.active);
+
+  // Build per-size low-stock report for active products only
+  const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"];
+  type LowStockEntry = { id: string; nameHe: string; lines: string[] };
+  const lowStock: LowStockEntry[] = [];
+  for (const p of products) {
+    if (!p.active) continue;
+    const lines: string[] = [];
+    if (p.colors.length > 0) {
+      for (const color of p.colors) {
+        if (color.sizes.length > 0) {
+          const low = color.sizes
+            .filter((s) => s.stock <= 3)
+            .sort((a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size));
+          if (low.length > 0) {
+            const parts = low.map((s) => `${s.size} ×${s.stock}`).join(", ");
+            lines.push(`${color.nameHe}: ${parts}`);
+          }
+        } else if (color.stock <= 3) {
+          lines.push(`${color.nameHe}: ${color.stock} יח׳`);
+        }
+      }
+    } else if (p.stock <= 3) {
+      lines.push(`${p.stock} יחידות`);
+    }
+    if (lines.length > 0) lowStock.push({ id: p.id, nameHe: p.nameHe, lines });
+  }
 
   const toProcess = paidOrders.filter((o) => (o as { orderStage?: string }).orderStage !== "done").length;
 
@@ -74,14 +100,19 @@ export default async function AdminDashboard() {
           className="mb-8 p-4 rounded-2xl border text-right"
           style={{ background: "#fff3e0", borderColor: "#f59e0b" }}
         >
-          <p className="font-bold mb-2" style={{ color: "#92400e" }}>
+          <p className="font-bold mb-3" style={{ color: "#92400e" }}>
             מלאי נמוך
           </p>
-          {lowStock.map((p) => (
-            <p key={p.id} className="text-sm" style={{ color: "#92400e" }}>
-              {p.nameHe} — {p.stock} יחידות
-            </p>
-          ))}
+          <div className="flex flex-col gap-2">
+            {lowStock.map((item) => (
+              <div key={item.id}>
+                <p className="text-sm font-semibold" style={{ color: "#92400e" }}>{item.nameHe}</p>
+                {item.lines.map((line, i) => (
+                  <p key={i} className="text-xs mt-0.5" style={{ color: "#b45309" }}>{line}</p>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
