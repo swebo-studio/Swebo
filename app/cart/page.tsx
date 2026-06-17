@@ -40,66 +40,70 @@ export default function CartPage() {
           {items.map((item) => (
             <div
               key={`${item.productId}-${item.size}-${item.color ?? ""}`}
-              className="flex items-center gap-4 p-4 rounded-2xl border"
+              className="p-4 rounded-2xl border"
               style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
             >
-              {/* Image */}
-              <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-white">
-                {item.image ? (
-                  <Image src={item.image} alt={item.nameHe} fill className="object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: "var(--cream-dark)" }} />
-                )}
-              </div>
-
-              {/* Details */}
-              <div className="flex-1 text-right">
-                <p className="font-bold" style={{ color: "var(--text)" }}>
-                  {item.nameHe}
-                </p>
-                <div className="flex items-center justify-end gap-2 mt-0.5">
-                  {item.colorHex && (
-                    <span
-                      className="w-4 h-4 rounded-full inline-block border"
-                      style={{ background: item.colorHex, borderColor: "var(--border)" }}
-                    />
+              {/* Top row: image + info + remove */}
+              <div className="flex gap-3">
+                {/* Image */}
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-white">
+                  {item.image ? (
+                    <Image src={item.image} alt={item.nameHe} fill className="object-cover" />
+                  ) : (
+                    <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
                   )}
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {item.color ? `${item.color} · ` : ""}מידה: {item.size}
+                </div>
+
+                {/* Details */}
+                <div className="flex-1 text-right min-w-0">
+                  <p className="font-bold leading-snug" style={{ color: "var(--text)" }}>
+                    {item.nameHe}
+                  </p>
+                  <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                    {item.colorHex && (
+                      <span
+                        className="w-3.5 h-3.5 rounded-full inline-block border flex-shrink-0"
+                        style={{ background: item.colorHex, borderColor: "var(--border)" }}
+                      />
+                    )}
+                    <p className="text-sm truncate" style={{ color: "var(--text-muted)" }}>
+                      {item.color ? `${item.color} · ` : ""}מידה {item.size}
+                    </p>
+                  </div>
+                  <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
+                    ₪{item.price * item.quantity}
                   </p>
                 </div>
-                <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
-                  ₪{item.price * item.quantity}
-                </p>
+
+                {/* Remove */}
+                <button
+                  onClick={() => removeItem(item.productId, item.size, item.color)}
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full opacity-40 hover:opacity-100 transition-opacity"
+                  aria-label="הסר"
+                  style={{ color: "var(--text)" }}
+                >
+                  ✕
+                </button>
               </div>
 
-              {/* Qty */}
-              <div className="flex items-center gap-2">
+              {/* Bottom row: qty controls */}
+              <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
                 <button
                   onClick={() => updateQty(item.productId, item.size, item.quantity + 1, item.color)}
-                  className="w-8 h-8 rounded-full border font-bold transition-colors hover:bg-gray-100"
+                  className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center"
                   style={{ borderColor: "var(--border)" }}
                 >
                   +
                 </button>
-                <span className="w-6 text-center font-bold">{item.quantity}</span>
+                <span className="w-6 text-center font-bold text-base">{item.quantity}</span>
                 <button
                   onClick={() => updateQty(item.productId, item.size, item.quantity - 1, item.color)}
-                  className="w-8 h-8 rounded-full border font-bold transition-colors hover:bg-gray-100"
+                  className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center"
                   style={{ borderColor: "var(--border)" }}
                 >
                   −
                 </button>
               </div>
-
-              {/* Remove */}
-              <button
-                onClick={() => removeItem(item.productId, item.size, item.color)}
-                className="text-xl opacity-40 hover:opacity-100 transition-opacity"
-                aria-label="הסר"
-              >
-                ✕
-              </button>
             </div>
           ))}
         </div>
