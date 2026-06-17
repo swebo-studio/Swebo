@@ -285,28 +285,28 @@ export default function CheckoutPage() {
 
           {/* EPOST pickup point selector */}
           {deliveryMode === "epost" && (
-            <div className="rounded-2xl border p-4 flex flex-col gap-3" style={{ borderColor: "var(--border)" }}>
+            <div className="rounded-2xl border p-4 flex flex-col gap-3 w-full overflow-hidden" style={{ borderColor: "var(--border)" }}>
               <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>בחר נקודת איסוף</p>
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={searchEpostPoints}
-                  disabled={loadingPoints}
-                  className="px-4 py-3 rounded-xl font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
-                  style={{ background: "var(--text)", color: "var(--cream)" }}
-                >
-                  {loadingPoints ? "מחפש..." : "חפש"}
-                </button>
+              <div className="flex gap-2 w-full min-w-0">
                 <input
                   type="text"
                   value={epostCity}
                   onChange={(e) => setEpostCity(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchEpostPoints(); } }}
                   placeholder="הקלד שם עיר..."
-                  className="flex-1 px-4 py-3 rounded-xl border text-right outline-none"
+                  className="flex-1 min-w-0 px-4 py-3 rounded-xl border text-right outline-none"
                   style={inputStyle}
                 />
+                <button
+                  type="button"
+                  onClick={searchEpostPoints}
+                  disabled={loadingPoints}
+                  className="px-5 py-3 rounded-xl font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
+                  style={{ background: "var(--text)", color: "var(--cream)" }}
+                >
+                  {loadingPoints ? "..." : "חפש"}
+                </button>
               </div>
 
               {pointsError && (
