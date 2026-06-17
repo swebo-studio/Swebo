@@ -7,8 +7,10 @@ const HFD_BASE = process.env.HFD_API_URL || "https://api.hfd.co.il/rest/v2";
 const HFD_TOKEN = process.env.HFD_TOKEN || "";
 const HFD_CLIENT_NUMBER = Number(process.env.HFD_CLIENT_NUMBER || 0);
 const HFD_SHIPMENT_TYPE_CODE = Number(process.env.HFD_SHIPMENT_TYPE_CODE || 0);
+const HFD_EPOST_SHIPMENT_TYPE_CODE = Number(process.env.HFD_EPOST_SHIPMENT_TYPE_CODE || process.env.HFD_SHIPMENT_TYPE_CODE || 0);
 const HFD_STAGE_CODE = Number(process.env.HFD_STAGE_CODE || 0);
 const HFD_CARGO_TYPE = Number(process.env.HFD_CARGO_TYPE || 0);
+const HFD_EPOST_CARGO_TYPE = Number(process.env.HFD_EPOST_CARGO_TYPE || process.env.HFD_CARGO_TYPE || 0);
 const HFD_ORDERER_NAME = process.env.HFD_ORDERER_NAME || "SWEBO";
 
 function headers() {
@@ -73,10 +75,10 @@ export async function createHFDShipment(order: {
   const payload = {
     clientNumber: HFD_CLIENT_NUMBER,
     mesiraIsuf: "מסירה",
-    shipmentTypeCode: isEpost ? 50 : HFD_SHIPMENT_TYPE_CODE,
+    shipmentTypeCode: isEpost ? HFD_EPOST_SHIPMENT_TYPE_CODE : HFD_SHIPMENT_TYPE_CODE,
     stageCode: HFD_STAGE_CODE,
     ordererName: HFD_ORDERER_NAME,
-    cargoTypeHaloch: isEpost ? 11 : HFD_CARGO_TYPE,
+    cargoTypeHaloch: isEpost ? HFD_EPOST_CARGO_TYPE : HFD_CARGO_TYPE,
     cargoTypeHazor: 0,
     packsHaloch: "1",
     packsHazor: 0,
@@ -99,7 +101,7 @@ export async function createHFDShipment(order: {
     futureTime: "",
     pudoCodeOrigin: 0,
     pudoCodeDestination: order.pudoCodeDestination ?? 0,
-    autoBindPudo: "N",
+    autoBindPudo: isEpost ? "Y" : "N",
     email: order.customerEmail.slice(0, 100),
     productsPrice: order.total,
     productPriceCurrency: "ILS",
@@ -108,16 +110,22 @@ export async function createHFDShipment(order: {
   };
 
   try {
+    console.log("[HFD] createShipment payload", JSON.stringify({ ...payload, clientNumber: "***", email: "***" }));
     const res = await fetch(`${HFD_BASE}/shipments/create`, {
       method: "POST",
       headers: headers(),
       body: JSON.stringify(payload),
     });
+    const text = await res.text();
     if (!res.ok) {
-      console.error("[HFD] createShipment HTTP error", res.status, await res.text());
+      console.error("[HFD] createShipment HTTP error", res.status, text);
       return null;
     }
-    return await res.json() as HFDShipmentResult;
+    const result = JSON.parse(text) as HFDShipmentResult;
+    if (result.errorCode !== "0") {
+      console.error("[HFD] createShipment API error", result.errorCode, result.errorMessage, "| payload:", JSON.stringify({ shipmentTypeCode: payload.shipmentTypeCode, cargoTypeHaloch: payload.cargoTypeHaloch, pudoCodeDestination: payload.pudoCodeDestination, autoBindPudo: payload.autoBindPudo }));
+    }
+    return result;
   } catch (err) {
     console.error("[HFD] createShipment error", err);
     return null;
