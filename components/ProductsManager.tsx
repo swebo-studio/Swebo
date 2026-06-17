@@ -15,6 +15,7 @@ interface ProductColor {
   stock: number;
   images: ColorImage[];
   linkedUrl?: string | null;
+  sizes: SizeStock[];
 }
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
@@ -692,9 +693,19 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
               <tbody>
                 {products.map((p) => {
                   const displayImg = p.colors[0]?.images[0]?.url || p.image;
-                  const totalStock = p.colors.length > 0
-                    ? p.colors.reduce((s, c) => s + c.stock, 0)
-                    : p.stock;
+                  // Aggregate stock per size across all colors
+                  const sizeMap: Record<string, number> = {};
+                  if (p.colors.length > 0) {
+                    for (const c of p.colors) {
+                      for (const s of c.sizes) {
+                        sizeMap[s.size] = (sizeMap[s.size] ?? 0) + s.stock;
+                      }
+                    }
+                  }
+                  const hasSizeData = Object.keys(sizeMap).length > 0;
+                  const totalStock = hasSizeData
+                    ? Object.values(sizeMap).reduce((a, b) => a + b, 0)
+                    : p.colors.length > 0 ? p.colors.reduce((s, c) => s + c.stock, 0) : p.stock;
                   return (
                     <tr key={p.id} style={{ borderBottom: `1px solid var(--border)` }}>
                       <td className="px-4 py-3">
@@ -712,7 +723,17 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       </td>
                       <td className="px-4 py-3 font-bold" style={{ color: "var(--text)" }}>₪{p.price}</td>
                       <td className="px-4 py-3">
-                        <span style={{ color: totalStock <= 3 ? "var(--maroon)" : "var(--green)", fontWeight: "bold" }}>{totalStock}</span>
+                        {hasSizeData ? (
+                          <div className="flex flex-col gap-0.5 text-xs">
+                            {SIZES.filter((sz) => sizeMap[sz] !== undefined).map((sz) => (
+                              <span key={sz} style={{ color: sizeMap[sz] <= 3 ? "var(--maroon)" : "var(--text-muted)" }}>
+                                <span className="font-medium" style={{ color: "var(--text)" }}>{sz}</span> {sizeMap[sz]}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: totalStock <= 3 ? "var(--maroon)" : "var(--green)", fontWeight: "bold" }}>{totalStock}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {p.colors.length > 0 ? (
@@ -727,6 +748,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       </td>
                       <td className="px-4 py-3">
                         <button
+                          title={p.active ? "לחץ להסתרה" : "לחץ להפעלה"}
                           onClick={async () => {
                             const next = !p.active;
                             await fetch(`/api/products/${p.id}`, {
@@ -736,9 +758,17 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                             });
                             setProducts((list) => list.map((x) => x.id === p.id ? { ...x, active: next } : x));
                           }}
-                          className="px-2 py-1 rounded-full text-xs font-bold transition-opacity hover:opacity-70"
-                          style={{ background: p.active ? "#e8f5e9" : "#f5e8e8", color: p.active ? "var(--green)" : "var(--maroon)" }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border cursor-pointer transition-all hover:opacity-80"
+                          style={{
+                            background: p.active ? "#e8f5e9" : "#f5e8e8",
+                            color: p.active ? "var(--green)" : "var(--maroon)",
+                            borderColor: p.active ? "#a5d6a7" : "#f5b8b8",
+                          }}
                         >
+                          <span
+                            className="w-2 h-2 rounded-full inline-block"
+                            style={{ background: p.active ? "var(--green)" : "var(--maroon)" }}
+                          />
                           {p.active ? "פעיל" : "מוסתר"}
                         </button>
                       </td>

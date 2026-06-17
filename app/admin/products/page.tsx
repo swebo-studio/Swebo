@@ -11,7 +11,7 @@ export default async function AdminProductsPage() {
       images: { orderBy: { sortOrder: "asc" } },
       colors: {
         orderBy: { sortOrder: "asc" },
-        include: { images: { orderBy: { sortOrder: "asc" } } },
+        include: { images: { orderBy: { sortOrder: "asc" } }, sizes: true },
       },
     },
   });
