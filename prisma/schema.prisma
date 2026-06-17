@@ -84,8 +84,9 @@ model Order {
   status        String      @default("pending")
   orderStage    String      @default("received")
   paymentId     String?
-  shipmentNumber String?
-  shipmentRandId String?
+  shipmentNumber      String?
+  shipmentRandId      String?
+  pudoCodeDestination String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }

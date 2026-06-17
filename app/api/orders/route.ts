@@ -1,9 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { notifyAdmin } from "@/lib/notify";
 import { validateCoupon } from "@/lib/coupon";
-import { createHFDShipment } from "@/lib/hfd";
 import { evaluatePromotions, applyRewards } from "@/lib/promotions";
 
 export async function GET() {
@@ -67,6 +65,7 @@ export async function POST(req: NextRequest) {
       subtotal,
       delivery,
       total,
+      pudoCodeDestination: pudoCodeDestination ?? null,
       items: {
         create: effectiveItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
           productId: item.productId,
@@ -103,39 +102,7 @@ export async function POST(req: NextRequest) {
     await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
   }
 
-  // Create HFD shipment — for home delivery and EPOST pickup points
-  if (delivery > 0 || pudoCodeDestination) {
-    createHFDShipment({
-      id: order.id,
-      customerName: customer.name,
-      customerPhone: customer.phone,
-      customerEmail: customer.email,
-      address: customer.address,
-      city: customer.city,
-      total,
-      pudoCodeDestination: pudoCodeDestination ?? undefined,
-    }).then(async (result) => {
-      if (result && result.errorCode === "0" && result.shipmentNumber) {
-        await prisma.order.update({
-          where: { id: order.id },
-          data: {
-            shipmentNumber: String(result.shipmentNumber),
-            shipmentRandId: result.randNumber,
-          },
-        });
-      } else if (result) {
-        console.error("[HFD] Shipment creation failed:", result.errorCode, result.errorMessage);
-      }
-    }).catch((err) => console.error("[HFD] Error:", err));
-  }
-
-  // Notifications — fire and forget
-  const itemLines = order.items.map((i) =>
-    `• ${i.product.nameHe} × ${i.quantity} (${i.color ?? "ללא צבע"} / מידה ${i.size}) ₪${i.price * i.quantity}`
-  ).join("\n");
-  const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${customer.name}\nטל: ${customer.phone}\nסה"כ: ₪${total}\n\n${itemLines}`;
-
-  notifyAdmin("הזמנה חדשה", msg).catch(() => {});
+  // HFD shipment and admin notification happen in /api/payment/notify after payment confirmed
 
   return Response.json(order, { status: 201 });
 }
