@@ -216,23 +216,24 @@ export default function CheckoutPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
           {/* Delivery mode toggle */}
-          <div className="rounded-2xl border p-1 flex text-sm font-bold overflow-hidden" style={{ borderColor: "var(--border)" }}>
+          <div className="rounded-2xl border p-1 flex overflow-hidden" style={{ borderColor: "var(--border)" }}>
             {([
-              { val: "home",  label: "משלוח עד הבית — ₪40" },
-              { val: "epost", label: "נקודת EPOST — ₪25" },
-              { val: "self",  label: "איסוף עצמי — חינם" },
-            ] as { val: DeliveryMode; label: string }[]).map(({ val, label }) => (
+              { val: "home",  line1: "משלוח לבית", line2: "₪40" },
+              { val: "epost", line1: "נקודת EPOST", line2: "₪25" },
+              { val: "self",  line1: "איסוף עצמי",  line2: "חינם" },
+            ] as { val: DeliveryMode; line1: string; line2: string }[]).map(({ val, line1, line2 }) => (
               <button
                 key={val}
                 type="button"
                 onClick={() => { setDeliveryMode(val); setError(""); }}
-                className="flex-1 py-3 rounded-xl transition-all text-xs"
+                className="flex-1 py-2.5 rounded-xl transition-all flex flex-col items-center gap-0.5"
                 style={{
                   background: deliveryMode === val ? "var(--text)" : "transparent",
                   color: deliveryMode === val ? "var(--cream)" : "var(--text-muted)",
                 }}
               >
-                {label}
+                <span className="text-xs font-bold leading-tight">{line1}</span>
+                <span className="text-xs leading-tight">{line2}</span>
               </button>
             ))}
           </div>
@@ -418,7 +419,7 @@ export default function CheckoutPage() {
             ))}
             <div className="flex justify-between text-sm mt-2" style={{ color: "var(--text-muted)" }}>
               <span style={{ color: (hasFreeShipping && deliveryMode === "home") ? "var(--green)" : "inherit" }}>
-                {deliveryMode !== "home" ? "חינם" : hasFreeShipping ? "חינם 🎉" : "₪40"}
+                {deliveryMode === "self" ? "חינם" : deliveryMode === "epost" ? "₪25" : hasFreeShipping ? "חינם 🎉" : "₪40"}
               </span>
               <span>
                 {deliveryMode === "home" ? "משלוח" : deliveryMode === "epost" ? "נקודת EPOST" : "איסוף עצמי"}
