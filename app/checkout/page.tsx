@@ -127,7 +127,7 @@ export default function CheckoutPage() {
     if (items.length === 0) return;
 
     if (deliveryMode === "epost" && !selectedPoint) {
-      setError("יש לבחור נקודת איסוף EPOST");
+      setError("יש לבחור נקודת איסוף");
       return;
     }
 
@@ -216,23 +216,23 @@ export default function CheckoutPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
           {/* Delivery mode toggle */}
-          <div className="rounded-2xl border p-1 flex overflow-hidden" style={{ borderColor: "var(--border)" }}>
+          <div className="rounded-2xl border p-1 flex overflow-hidden w-full" style={{ borderColor: "var(--border)" }}>
             {([
               { val: "home",  line1: "משלוח לבית", line2: "₪40" },
-              { val: "epost", line1: "נקודת EPOST", line2: "₪25" },
+              { val: "epost", line1: "נקודות איסוף", line2: "₪25" },
               { val: "self",  line1: "איסוף עצמי",  line2: "חינם" },
             ] as { val: DeliveryMode; line1: string; line2: string }[]).map(({ val, line1, line2 }) => (
               <button
                 key={val}
                 type="button"
                 onClick={() => { setDeliveryMode(val); setError(""); }}
-                className="flex-1 py-2.5 rounded-xl transition-all flex flex-col items-center gap-0.5"
+                className="flex-1 min-w-0 py-2.5 rounded-xl transition-all flex flex-col items-center gap-0.5 px-1"
                 style={{
                   background: deliveryMode === val ? "var(--text)" : "transparent",
                   color: deliveryMode === val ? "var(--cream)" : "var(--text-muted)",
                 }}
               >
-                <span className="text-xs font-bold leading-tight">{line1}</span>
+                <span className="text-xs font-bold leading-tight text-center">{line1}</span>
                 <span className="text-xs leading-tight">{line2}</span>
               </button>
             ))}
@@ -286,7 +286,7 @@ export default function CheckoutPage() {
           {/* EPOST pickup point selector */}
           {deliveryMode === "epost" && (
             <div className="rounded-2xl border p-4 flex flex-col gap-3" style={{ borderColor: "var(--border)" }}>
-              <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>בחר נקודת איסוף EPOST</p>
+              <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>בחר נקודת איסוף</p>
 
               <div className="flex gap-2">
                 <button
@@ -422,7 +422,7 @@ export default function CheckoutPage() {
                 {deliveryMode === "self" ? "חינם" : deliveryMode === "epost" ? "₪25" : hasFreeShipping ? "חינם 🎉" : "₪40"}
               </span>
               <span>
-                {deliveryMode === "home" ? "משלוח" : deliveryMode === "epost" ? "נקודת EPOST" : "איסוף עצמי"}
+                {deliveryMode === "home" ? "משלוח" : deliveryMode === "epost" ? "נקודות איסוף" : "איסוף עצמי"}
               </span>
             </div>
             <div className="flex justify-between font-extrabold text-xl mt-3 pt-3 border-t" style={{ borderColor: "var(--border)", color: "var(--text)" }}>
