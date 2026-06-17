@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const STAGES = [
   { key: "received", label: "התקבל",  emoji: "📥" },
@@ -52,6 +53,7 @@ export default function AdminOrdersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState<string | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Order | null>(null);
 
   const loadOrders = useCallback(() => {
     fetch("/api/orders")
@@ -95,6 +97,12 @@ export default function AdminOrdersPage() {
     setMarkingPaid(null);
   }
 
+  async function deleteOrder(order: Order) {
+    await fetch(`/api/orders/${order.id}`, { method: "DELETE" });
+    setOrders((prev) => prev.filter((o) => o.id !== order.id));
+    setPendingDelete(null);
+  }
+
   const pendingOrders = orders.filter((o) => o.status === "pending");
   const byStage = (stage: Stage) =>
     orders.filter((o) => o.status === "paid" && o.orderStage === stage);
@@ -107,6 +115,16 @@ export default function AdminOrdersPage() {
   );
 
   return (
+    <>
+    {pendingDelete && (
+      <ConfirmModal
+        message={`למחוק את ההזמנה של ${pendingDelete.customerName}?`}
+        confirmLabel="מחק"
+        danger
+        onConfirm={() => deleteOrder(pendingDelete)}
+        onCancel={() => setPendingDelete(null)}
+      />
+    )}
     <div className="flex flex-col h-full" style={{ minHeight: "calc(100vh - 80px)" }}>
 
       {/* Pending orders — awaiting payment confirmation */}
@@ -126,6 +144,14 @@ export default function AdminOrdersPage() {
                   style={{ background: "var(--text)", color: "var(--cream)" }}
                 >
                   {markingPaid === order.id ? "..." : "✓ שולם"}
+                </button>
+                <button
+                  onClick={() => setPendingDelete(order)}
+                  className="flex-shrink-0 px-2 py-2 rounded-xl text-xs font-bold transition-opacity hover:opacity-70"
+                  style={{ color: "var(--maroon)" }}
+                  title="מחק הזמנה"
+                >
+                  🗑
                 </button>
                 <div className="flex-1 text-right min-w-0">
                   <p className="font-bold text-sm truncate" style={{ color: "var(--text)" }}>{order.customerName}</p>
@@ -300,12 +326,21 @@ export default function AdminOrdersPage() {
                         href={`${HFD_BASE}/shipments/${order.shipmentNumber}/label`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70"
+                        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70 mb-2"
                         style={{ borderColor: "var(--border)", color: "var(--text)" }}
                       >
                         🖨️ הדפס תווית HFD
                       </a>
                     )}
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => setPendingDelete(order)}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold border transition-opacity hover:opacity-70"
+                      style={{ borderColor: "var(--maroon)", color: "var(--maroon)", background: "transparent" }}
+                    >
+                      מחק הזמנה
+                    </button>
                   </div>
                 )}
               </div>
@@ -314,5 +349,6 @@ export default function AdminOrdersPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
