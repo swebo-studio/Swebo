@@ -20,10 +20,10 @@ export async function createCoupon(discountPct = 5, expiresAt?: Date): Promise<s
 
 export async function validateCoupon(
   code: string
-): Promise<{ valid: boolean; discountPct: number; id: string; singleUse: boolean } | null> {
+): Promise<{ valid: boolean; discountPct: number | null; discountAmount: number | null; id: string; singleUse: boolean } | null> {
   const coupon = await prisma.coupon.findUnique({ where: { code: code.toUpperCase() } });
   if (!coupon) return null;
   if (coupon.singleUse && coupon.usedAt) return null;
   if (coupon.expiresAt && coupon.expiresAt < new Date()) return null;
-  return { valid: true, discountPct: coupon.discountPct, id: coupon.id, singleUse: coupon.singleUse };
+  return { valid: true, discountPct: coupon.discountPct, discountAmount: coupon.discountAmount, id: coupon.id, singleUse: coupon.singleUse };
 }
