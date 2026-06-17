@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       subtotal,
       delivery,
       total,
-      pudoCodeDestination: pudoCodeDestination ?? null,
+      pudoCodeDestination: pudoCodeDestination != null ? String(pudoCodeDestination) : null,
       items: {
         create: effectiveItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
           productId: item.productId,
