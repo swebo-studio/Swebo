@@ -12,43 +12,42 @@ export default function OGImage() {
           width: "100%",
           height: "100%",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#f5efe6",
-          gap: 24,
+          background: "#1A1814",
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://swebo.co.il/logo.png"
-          alt="SWEBO"
-          width={320}
-          height={160}
-          style={{ objectFit: "contain" }}
-        />
-        <p
+        <div
           style={{
-            fontFamily: "sans-serif",
-            fontSize: 28,
-            fontWeight: 700,
-            color: "#2a1a0e",
-            letterSpacing: "0.15em",
-            margin: 0,
+            background: "#F5F0E8",
+            borderRadius: 32,
+            padding: "48px 96px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
           }}
         >
-          BUILT ON UNIQUENESS
-        </p>
-        <p
-          style={{
-            fontFamily: "sans-serif",
-            fontSize: 20,
-            color: "#7a6a5a",
-            margin: 0,
-          }}
-        >
-          קולקציית מונדיאל 2026
-        </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://swebo.co.il/logo.png"
+            alt="SWEBO"
+            width={480}
+            height={200}
+            style={{ objectFit: "contain" }}
+          />
+          <p
+            style={{
+              fontFamily: "sans-serif",
+              fontSize: 18,
+              color: "#6B6B6B",
+              letterSpacing: "0.4em",
+              margin: 0,
+            }}
+          >
+            BUILT ON UNIQUENESS
+          </p>
+        </div>
       </div>
     ),
     { ...size }

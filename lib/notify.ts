@@ -18,35 +18,6 @@ function atHeaders() {
   };
 }
 
-// ── Transactional Email ───────────────────────────────────────────────────
-export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-  const apiKey = process.env.ACTIVETRAIL_API_KEY;
-  const fromEmail = process.env.ACTIVETRAIL_FROM_EMAIL;
-  if (!apiKey || !fromEmail || !to) return false;
-
-  try {
-    const res = await fetch(`${AT_BASE}/transactional/sendemail`, {
-      method: "POST",
-      headers: atHeaders(),
-      body: JSON.stringify({
-        to,
-        subject,
-        body: html,
-        from_email: fromEmail,
-        from_name: process.env.ACTIVETRAIL_FROM_NAME ?? "SWEBO",
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) {
-      const err = await res.text().catch(() => "");
-      console.error("[ActiveTrail] Email error:", res.status, err);
-    }
-    return res.ok;
-  } catch (e) {
-    console.error("[ActiveTrail] Email exception:", e);
-    return false;
-  }
-}
 
 // ── SMS ───────────────────────────────────────────────────────────────────
 export async function sendSMS(phone: string, message: string): Promise<boolean> {
@@ -83,14 +54,13 @@ export async function sendSMS(phone: string, message: string): Promise<boolean> 
   }
 }
 
-// ── Add contact to ActiveTrail list ──────────────────────────────────────
+// ── Add contact to ActiveTrail ────────────────────────────────────────────
 export async function addContact(opts: {
   email?: string;
   phone?: string;
   firstName?: string;
 }): Promise<boolean> {
   const apiKey = process.env.ACTIVETRAIL_API_KEY;
-  const listId = process.env.ACTIVETRAIL_LIST_ID;
   if (!apiKey) return false;
 
   try {
@@ -103,7 +73,6 @@ export async function addContact(opts: {
       const normalised = opts.phone.replace(/\D/g, "").replace(/^0/, "972");
       contact.phone1 = normalised;
     }
-    if (listId) contact.group_id = Number(listId);
 
     const res = await fetch(`${AT_BASE}/contacts`, {
       method: "POST",
@@ -122,23 +91,10 @@ export async function addContact(opts: {
   }
 }
 
-// ── notifyAdmin: SMS + email fallback ────────────────────────────────────
+// ── notifyAdmin: SMS ─────────────────────────────────────────────────────
 export async function notifyAdmin(subject: string, body: string): Promise<void> {
   const adminPhone = process.env.ADMIN_PHONE;
-  const adminEmail = process.env.ADMIN_EMAIL;
-
-  if (adminPhone) {
-    const ok = await sendSMS(adminPhone, `SWEBO – ${subject}\n${body}`);
-    if (ok) return;
-  }
-
-  if (adminEmail) {
-    await sendEmail(
-      adminEmail,
-      `SWEBO – ${subject}`,
-      `<div dir="rtl" style="font-family:sans-serif;white-space:pre-wrap">${body}</div>`
-    );
-  }
+  if (adminPhone) await sendSMS(adminPhone, `SWEBO – ${subject}\n${body}`);
 }
 
 // ── notifyOrderConfirmation: "thank you for your order" SMS ──────────────
