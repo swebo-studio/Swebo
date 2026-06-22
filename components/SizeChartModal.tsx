@@ -41,7 +41,7 @@ export default function SizeChartModal({ rows, imagePath }: Props) {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-              <button onClick={() => setOpen(false)} className="text-xl opacity-40 hover:opacity-100 transition-opacity">✕</button>
+              <button onClick={() => setOpen(false)} aria-label="סגור" className="text-xl opacity-40 hover:opacity-100 transition-opacity">✕</button>
               <h3 className="font-extrabold" style={{ color: "var(--text)" }}>מדריך מידות</h3>
             </div>
 

@@ -44,11 +44,20 @@ export default function AccessibilityPage() {
           </div>
 
           <div>
-            <h2 className="font-bold text-base mb-2" style={{ color: "var(--text)" }}>פנייה בנושא נגישות</h2>
+            <h2 className="font-bold text-base mb-2" style={{ color: "var(--text)" }}>רכז נגישות</h2>
             <p className="mb-3">
-              נתקלת בבעיית נגישות? נשמח לסייע. ניתן לפנות אלינו:
+              נתקלת בבעיית נגישות? ניתן לפנות לרכז הנגישות שלנו:
             </p>
             <ul className="flex flex-col gap-1.5">
+              <li><strong>שם:</strong> אורי דוד</li>
+              <li>
+                <strong>טלפון:</strong>{" "}
+                <a href="tel:0522770059" className="underline hover:opacity-70">052-277-0059</a>
+              </li>
+              <li>
+                <strong>אימייל:</strong>{" "}
+                <a href="mailto:streetwearbyori@gmail.com" className="underline hover:opacity-70">streetwearbyori@gmail.com</a>
+              </li>
               <li>
                 <a
                   href={`https://wa.me/${wa.replace(/\D/g, "")}`}

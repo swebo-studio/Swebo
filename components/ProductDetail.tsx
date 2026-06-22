@@ -133,10 +133,11 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               <button
                 key={i}
                 onClick={() => setMainImg(url)}
+                aria-label={`תמונה ${i + 1}`}
                 className="relative w-16 h-16 rounded-xl overflow-hidden border-2 transition-all"
                 style={{ borderColor: mainImg === url ? "var(--text)" : "var(--border)" }}
               >
-                <Image src={url} alt={`תמונה ${i + 1}`} fill className="object-cover" sizes="64px" />
+                <Image src={url} alt="" fill className="object-cover" sizes="64px" />
               </button>
             ))}
           </div>
