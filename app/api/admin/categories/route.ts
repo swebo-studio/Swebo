@@ -15,6 +15,19 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(category);
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Expects: [{ id, sortOrder }, ...]
+  const updates: { id: string; sortOrder: number }[] = await req.json();
+  await Promise.all(
+    updates.map(({ id, sortOrder }) =>
+      prisma.category.update({ where: { id }, data: { sortOrder } })
+    )
+  );
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

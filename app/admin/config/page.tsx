@@ -159,6 +159,27 @@ export default function AdminConfigPage() {
     }});
   }
 
+  async function moveCategory(id: string, direction: "up" | "down") {
+    const idx = categories.findIndex((c) => c.id === id);
+    if (direction === "up" && idx === 0) return;
+    if (direction === "down" && idx === categories.length - 1) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    const updated = categories.map((c, i) => {
+      if (i === idx) return { ...c, sortOrder: categories[swapIdx].sortOrder };
+      if (i === swapIdx) return { ...c, sortOrder: categories[idx].sortOrder };
+      return c;
+    });
+    setCategories([...updated].sort((a, b) => a.sortOrder - b.sortOrder));
+    await fetch("/api/admin/categories", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([
+        { id: updated[idx].id, sortOrder: updated[idx].sortOrder },
+        { id: updated[swapIdx].id, sortOrder: updated[swapIdx].sortOrder },
+      ]),
+    });
+  }
+
   const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
 
   return (
@@ -299,9 +320,25 @@ export default function AdminConfigPage() {
           {categories.length === 0 && (
             <p className="text-sm text-right" style={{ color: "var(--text-muted)" }}>אין קטגוריות עדיין</p>
           )}
-          {categories.map((cat) => (
+          {categories.map((cat, idx) => (
             <div key={cat.id} className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-              <button onClick={() => deleteCategory(cat.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => deleteCategory(cat.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    onClick={() => moveCategory(cat.id, "up")}
+                    disabled={idx === 0}
+                    className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
+                    style={{ color: "var(--text)" }}
+                  >▲</button>
+                  <button
+                    onClick={() => moveCategory(cat.id, "down")}
+                    disabled={idx === categories.length - 1}
+                    className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
+                    style={{ color: "var(--text)" }}
+                  >▼</button>
+                </div>
+              </div>
               <span className="font-medium text-right" style={{ color: "var(--text)" }}>{cat.nameHe}</span>
             </div>
           ))}
