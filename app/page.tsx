@@ -79,7 +79,7 @@ export default async function HomePage({ searchParams }: Props) {
         videoPath={cfg["hero.videoPath"]}
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-10">
+      <main id="main-content" className="max-w-6xl mx-auto px-4 py-10">
 
         {/* Category filter pill (when filtering) */}
         {filterCategoryId && (
@@ -227,9 +227,10 @@ export default async function HomePage({ searchParams }: Props) {
         className="mt-16 border-t py-6 text-center text-sm"
         style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
       >
-        <div className="flex justify-center gap-6 mb-3">
+        <div className="flex justify-center gap-6 mb-3 flex-wrap">
           <a href="/terms" className="hover:underline">תנאי שימוש</a>
           <a href="/privacy" className="hover:underline">מדיניות פרטיות</a>
+          <a href="/accessibility" className="hover:underline">הצהרת נגישות</a>
           <a href="/admin-login" className="hover:underline opacity-40">Admin</a>
         </div>
         © {new Date().getFullYear()} · כל הזכויות שמורות

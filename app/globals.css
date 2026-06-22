@@ -63,6 +63,43 @@ body {
   animation: fly-to-cart-card 0.62s ease-in forwards;
 }
 
+/* Accessibility overrides */
+.a11y-large-text { font-size: 112% !important; }
+.a11y-xlarge-text { font-size: 125% !important; }
+
+.a11y-contrast {
+  --cream: #ffffff !important;
+  --cream-dark: #e8e8e8 !important;
+  --text: #000000 !important;
+  --text-muted: #1a1a1a !important;
+  --border: #000000 !important;
+}
+.a11y-contrast body { background-color: #ffffff !important; }
+
+.a11y-grayscale { filter: grayscale(100%) !important; }
+
+.a11y-highlight-links a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  outline: 2px solid currentColor !important;
+  outline-offset: 2px !important;
+}
+
+/* Skip to content */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  right: 0;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--text);
+  color: var(--cream);
+  font-weight: bold;
+  border-radius: 0 0 8px 8px;
+  transition: top 0.2s;
+}
+.skip-link:focus { top: 0; }
+
 /* Cart icon receive bounce */
 @keyframes cart-receive {
   0%   { transform: scale(1) rotate(0deg); }
