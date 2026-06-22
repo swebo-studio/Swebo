@@ -41,7 +41,23 @@ export async function GET(req: NextRequest) {
       .then(async (order) => {
         if (!order) return;
 
-        // 1. Customer confirmation SMS
+        // 1. Decrement stock
+        for (const item of order.items) {
+          if (item.color) {
+            const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
+            if (colorRow) {
+              const sizeRow = await prisma.productColorSize.findUnique({ where: { colorId_size: { colorId: colorRow.id, size: item.size } } });
+              if (sizeRow) {
+                await prisma.productColorSize.update({ where: { colorId_size: { colorId: colorRow.id, size: item.size } }, data: { stock: { decrement: item.quantity } } });
+              }
+              await prisma.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
+              continue;
+            }
+          }
+          await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
+        }
+
+        // 2. Customer confirmation SMS
         await notifyOrderConfirmation({
           id: order.id,
           customerName: order.customerName,
@@ -56,7 +72,7 @@ export async function GET(req: NextRequest) {
           })),
         });
 
-        // 2. Admin notification SMS
+        // 3. Admin notification SMS
         const itemLines = order.items
           .map((i) => `• ${i.product.nameHe} × ${i.quantity} (${i.color ?? "ללא צבע"} / מידה ${i.size}) ₪${i.price * i.quantity}`)
           .join("\n");
@@ -67,7 +83,7 @@ export async function GET(req: NextRequest) {
         const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n${deliveryLine}\n\n${itemLines}`;
         await notifyAdmin("הזמנה חדשה", msg);
 
-        // 3. Create HFD shipment
+        // 4. Create HFD shipment
         if (order.delivery > 0 || order.pudoCodeDestination) {
           const result = await createHFDShipment({
             id: order.id,

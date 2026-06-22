@@ -88,23 +88,7 @@ export async function POST(req: NextRequest) {
     await prisma.newsletter.updateMany({ where: { couponCode: couponCode.toUpperCase() }, data: { usedAt: new Date() } });
   }
 
-  // Decrement stock
-  for (const item of effectiveItems) {
-    if (item.color) {
-      const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
-      if (colorRow) {
-        const sizeRow = await prisma.productColorSize.findUnique({ where: { colorId_size: { colorId: colorRow.id, size: item.size } } });
-        if (sizeRow) {
-          await prisma.productColorSize.update({ where: { colorId_size: { colorId: colorRow.id, size: item.size } }, data: { stock: { decrement: item.quantity } } });
-        }
-        await prisma.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
-        continue;
-      }
-    }
-    await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
-  }
-
-  // HFD shipment and admin notification happen in /api/payment/notify after payment confirmed
+  // Stock is decremented in /api/payment/notify only after payment is confirmed
 
   return Response.json(order, { status: 201 });
 }
