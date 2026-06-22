@@ -248,7 +248,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               <p className="text-xs text-right mt-1" style={{ color: "var(--text-muted)" }}>
                 * מידות חסרות במלאי —{" "}
                 <a
-                  href={`https://wa.me/972522770059?text=${encodeURIComponent("היי SWEBO, אני מעוניין להזמין מידה שאינה במלאי")}`}
+                  href={`https://wa.me/${waNumber.replace(/\D/g, "")}?text=${encodeURIComponent("היי SWEBO, אני מעוניין להזמין מידה שאינה במלאי")}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline hover:opacity-70"

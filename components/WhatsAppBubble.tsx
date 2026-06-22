@@ -1,9 +1,12 @@
 "use client";
 
-export default function WhatsAppBubble() {
+export default function WhatsAppBubble({ number }: { number: string }) {
+  if (!number) return null;
+  const digits = number.replace(/\D/g, "");
+  const href = `https://wa.me/${digits}?text=${encodeURIComponent("היי SWEBO🤍\nהגעתי דרך האתר אשמח לקבל עזרה")}`;
   return (
     <a
-      href="https://wa.me/972522770059?text=%D7%94%D7%99%D7%99%20SWEBO%F0%9F%A4%8D%0A%D7%94%D7%92%D7%A2%D7%AA%D7%99%20%D7%93%D7%A8%D7%9A%20%D7%94%D7%90%D7%AA%D7%A8%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A7%D7%91%D7%9C%20%D7%A2%D7%96%D7%A8%D7%94"
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp"

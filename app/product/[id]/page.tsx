@@ -142,7 +142,7 @@ export default async function ProductPage(
           </section>
         )}
       </main>
-      <WhatsAppBubble />
+      <WhatsAppBubble number={cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ""} />
     </>
   );
 }

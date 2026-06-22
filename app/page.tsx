@@ -235,7 +235,7 @@ export default async function HomePage({ searchParams }: Props) {
         © {new Date().getFullYear()} · כל הזכויות שמורות
       </footer>
 
-      <WhatsAppBubble />
+      <WhatsAppBubble number={cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ""} />
     </>
   );
 }

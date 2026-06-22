@@ -27,6 +27,7 @@ export default function AdminConfigPage() {
   const [newPhone, setNewPhone] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [legal, setLegal] = useState({ privacy: "", terms: "" });
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [saved, setSaved] = useState(false);
@@ -61,6 +62,7 @@ export default function AdminConfigPage() {
       );
       setSizeGuideImage(cfg["sizeGuide.imagePath"] || "");
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
+      setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
     });
     fetchCategories();
     fetchPhones();
@@ -133,6 +135,8 @@ export default function AdminConfigPage() {
           .filter(i => i.text.trim())
           .map(i => i.url.trim() ? `${i.text}|${i.url}` : i.text)
           .join("\n"),
+        "legal.privacy": legal.privacy,
+        "legal.terms": legal.terms,
       }),
     });
     setSaving(false);
@@ -531,6 +535,42 @@ export default function AdminConfigPage() {
             className="flex-1 px-4 py-2.5 rounded-xl border text-right outline-none text-sm"
             style={inputStyle}
           />
+        </div>
+      </section>
+
+      {/* ── Legal pages ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-4 text-right" style={{ color: "var(--text)" }}>דפים משפטיים</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          השאר ריק להצגת תוכן ברירת המחדל. שמור כדי לעדכן את הדפים.
+        </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>
+              מדיניות פרטיות — <a href="/privacy" target="_blank" className="underline hover:opacity-70">/privacy</a>
+            </label>
+            <textarea
+              value={legal.privacy}
+              onChange={(e) => setLegal((l) => ({ ...l, privacy: e.target.value }))}
+              placeholder="השאר ריק להצגת תוכן ברירת המחדל..."
+              rows={8}
+              className="w-full px-4 py-3 rounded-xl border text-right outline-none text-sm resize-y"
+              style={inputStyle}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>
+              תנאי שימוש — <a href="/terms" target="_blank" className="underline hover:opacity-70">/terms</a>
+            </label>
+            <textarea
+              value={legal.terms}
+              onChange={(e) => setLegal((l) => ({ ...l, terms: e.target.value }))}
+              placeholder="השאר ריק להצגת תוכן ברירת המחדל..."
+              rows={8}
+              className="w-full px-4 py-3 rounded-xl border text-right outline-none text-sm resize-y"
+              style={inputStyle}
+            />
+          </div>
         </div>
       </section>
 
