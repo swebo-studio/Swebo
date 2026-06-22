@@ -133,7 +133,7 @@ export default function AdminSmsPage() {
         className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-50"
         style={{ background: saved ? "var(--green)" : "var(--text)", color: "var(--cream)" }}
       >
-        {saved ? "✓ נשמר!" : saving ? "שומר..." : "שמור הודעות"}
+        {saved ? "נשמר!" : saving ? "שומר..." : "שמור הודעות"}
       </button>
     </div>
   );

@@ -1,12 +1,19 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
 
+const STAGE_ICONS: Record<string, React.ReactNode> = {
+  received: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/></svg>,
+  packed:   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+  shipped:  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+  done:     <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+};
+
 const STAGES = [
-  { key: "received", label: "התקבל",  emoji: "📥" },
-  { key: "packed",   label: "ארוז",    emoji: "📦" },
-  { key: "shipped",  label: "במשלוח", emoji: "🚚" },
-  { key: "done",     label: "בוצע",   emoji: "✅" },
+  { key: "received", label: "התקבל" },
+  { key: "packed",   label: "ארוז" },
+  { key: "shipped",  label: "במשלוח" },
+  { key: "done",     label: "בוצע" },
 ] as const;
 type Stage = typeof STAGES[number]["key"];
 
@@ -132,7 +139,10 @@ export default function AdminOrdersPage() {
         <div className="mb-5 rounded-2xl border overflow-hidden" style={{ borderColor: "#f59e0b", background: "#fffbeb" }}>
           <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "#f59e0b" }}>
             <span className="text-xs font-medium" style={{ color: "#92400e" }}>ממתינות לאישור תשלום — לחץ לסמן כשולם לאחר בדיקה</span>
-            <span className="font-bold text-sm" style={{ color: "#92400e" }}>⏳ {pendingOrders.length} הזמנות</span>
+            <span className="font-bold text-sm flex items-center gap-1.5" style={{ color: "#92400e" }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {pendingOrders.length} הזמנות
+            </span>
           </div>
           <div className="flex flex-col divide-y" style={{ borderColor: "#fde68a" }}>
             {pendingOrders.map((order) => (
@@ -143,7 +153,12 @@ export default function AdminOrdersPage() {
                   className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-opacity disabled:opacity-50"
                   style={{ background: "var(--text)", color: "var(--cream)" }}
                 >
-                  {markingPaid === order.id ? "..." : "✓ שולם"}
+                  {markingPaid === order.id ? "..." : (
+                    <span className="flex items-center gap-1">
+                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                      שולם
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => setPendingDelete(order)}
@@ -151,7 +166,7 @@ export default function AdminOrdersPage() {
                   style={{ color: "var(--maroon)" }}
                   title="מחק הזמנה"
                 >
-                  🗑
+                  <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                 </button>
                 <div className="flex-1 text-right min-w-0">
                   <p className="font-bold text-sm truncate" style={{ color: "var(--text)" }}>{order.customerName}</p>
@@ -176,7 +191,7 @@ export default function AdminOrdersPage() {
         className="flex rounded-2xl border overflow-hidden mb-5 text-sm"
         style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}
       >
-        {STAGES.map(({ key, label, emoji }) => {
+        {STAGES.map(({ key, label }) => {
           const count = stageCount(key);
           const active = activeStage === key;
           return (
@@ -190,7 +205,7 @@ export default function AdminOrdersPage() {
                 fontWeight: active ? 700 : 400,
               }}
             >
-              <span className="text-base">{emoji}</span>
+              <span>{STAGE_ICONS[key]}</span>
               <span className="text-xs leading-tight">{label}</span>
               {count > 0 && (
                 <span
@@ -211,7 +226,7 @@ export default function AdminOrdersPage() {
       {/* Order list */}
       {visible.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
-          <span className="text-4xl">{STAGES.find((s) => s.key === activeStage)?.emoji}</span>
+          <span style={{ opacity: 0.3 }}>{STAGE_ICONS[activeStage]}</span>
           <p style={{ color: "var(--text-muted)" }}>אין הזמנות ב{STAGES.find((s) => s.key === activeStage)?.label}</p>
         </div>
       ) : (
@@ -220,7 +235,6 @@ export default function AdminOrdersPage() {
             const isExpanded = expandedId === order.id;
             const next = NEXT_STAGE[order.orderStage];
             const nextLabel = next ? STAGES.find((s) => s.key === next)?.label : null;
-            const nextEmoji = next ? STAGES.find((s) => s.key === next)?.emoji : null;
 
             return (
               <div
@@ -234,8 +248,11 @@ export default function AdminOrdersPage() {
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}
                 >
                   {/* Expand chevron */}
-                  <span style={{ color: "var(--text-muted)", fontSize: 12, flexShrink: 0 }}>
-                    {isExpanded ? "▲" : "▼"}
+                  <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+                    {isExpanded
+                      ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+                      : <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                    }
                   </span>
 
                   {/* Order info */}
@@ -276,7 +293,7 @@ export default function AdminOrdersPage() {
                       {advancing === order.id ? (
                         "מעדכן..."
                       ) : (
-                        <>{nextEmoji} סמן כ{nextLabel}</>
+                        <span className="flex items-center gap-2">{next && STAGE_ICONS[next]} סמן כ{nextLabel}</span>
                       )}
                     </button>
                   </div>
@@ -329,7 +346,8 @@ export default function AdminOrdersPage() {
                         className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70 mb-2"
                         style={{ borderColor: "var(--border)", color: "var(--text)" }}
                       >
-                        🖨️ הדפס תווית HFD
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        הדפס תווית HFD
                       </a>
                     )}
 

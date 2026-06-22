@@ -157,7 +157,7 @@ export default function AddToCartButton({ product, sizes, colors = [] }: Props) 
           color: "var(--cream)",
         }}
       >
-        {added ? "✓ נוסף לסל!" : "הוסף לסל"}
+        {added ? "נוסף לסל!" : "הוסף לסל"}
       </button>
 
       <button

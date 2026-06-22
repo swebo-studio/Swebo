@@ -334,13 +334,13 @@ export default function AdminConfigPage() {
                     disabled={idx === 0}
                     className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
                     style={{ color: "var(--text)" }}
-                  >▲</button>
+                  ><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
                   <button
                     onClick={() => moveCategory(cat.id, "down")}
                     disabled={idx === categories.length - 1}
                     className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
                     style={{ color: "var(--text)" }}
-                  >▼</button>
+                  ><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
                 </div>
               </div>
               <span className="font-medium text-right" style={{ color: "var(--text)" }}>{cat.nameHe}</span>
@@ -580,7 +580,7 @@ export default function AdminConfigPage() {
         className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-50"
         style={{ background: saved ? "var(--green)" : "var(--text)", color: "var(--cream)" }}
       >
-        {saved ? "✓ נשמר!" : saving ? "שומר..." : "שמור הגדרות"}
+        {saved ? "נשמר!" : saving ? "שומר..." : "שמור הגדרות"}
       </button>
     </div>
     {confirmState && (

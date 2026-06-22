@@ -440,7 +440,12 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                   <div className="flex gap-3 mt-2">
                     <button onClick={closeForm} className="flex-1 py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
                     <button onClick={handleSave} disabled={saving || !form.nameHe} className="flex-1 py-3 rounded-xl font-bold transition-all disabled:opacity-50" style={{ background: saved ? "var(--green)" : "var(--text)", color: "var(--cream)" }}>
-                      {saving ? "שומר..." : saved ? "✓ נשמר!" : isEdit ? "שמור" : "המשך לצבעים ←"}
+                      {saving ? "שומר..." : saved ? "נשמר!" : isEdit ? "שמור" : (
+                        <span className="flex items-center justify-center gap-2">
+                          המשך לצבעים
+                          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </span>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -580,7 +585,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                               onClick={() => handleDeleteColorImage(c.id, img.id)}
                               className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center"
                             >
-                              ✕
+                              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
                           </div>
                         ))}
@@ -688,7 +693,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                               onClick={() => setNewColorImages((prev) => prev.filter((u) => u !== url))}
                               className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
                             >
-                              ✕
+                              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
                           </div>
                         ))}

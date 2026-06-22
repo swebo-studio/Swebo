@@ -158,7 +158,10 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                 className="text-xs underline text-right block mb-2 hover:opacity-70 transition-opacity"
                 style={{ color: "var(--text-muted)" }}
               >
-                ← צפה במוצר קשור
+                <span className="flex items-center gap-1">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                  צפה במוצר קשור
+                </span>
               </a>
             )}
             <div className="flex gap-3 justify-end flex-wrap">
@@ -270,7 +273,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               className="w-full py-4 rounded-2xl font-bold text-lg transition-all disabled:opacity-40"
               style={{ background: added ? "var(--green)" : "var(--text)", color: "var(--cream)" }}
             >
-              {added ? "✓ נוסף לסל!" : "הוסף לסל"}
+              {added ? "נוסף לסל!" : "הוסף לסל"}
             </button>
             <button
               onClick={() => { if (!canAdd) return; handleAdd(); router.push("/cart"); }}

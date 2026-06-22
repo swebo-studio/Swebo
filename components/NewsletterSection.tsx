@@ -68,7 +68,12 @@ export default function NewsletterSection() {
           className="w-full py-3 rounded-xl font-bold transition-opacity disabled:opacity-50"
           style={{ background: "var(--text)", color: "var(--cream)" }}
         >
-          {loading ? "רגע..." : "קבל קופון 5% ←"}
+          {loading ? "רגע..." : (
+            <span className="flex items-center justify-center gap-2">
+              קבל קופון 5%
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </span>
+          )}
         </button>
         <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
           ההרשמה כפופה ל

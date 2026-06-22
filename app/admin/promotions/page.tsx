@@ -211,7 +211,7 @@ export default function AdminPromotionsPage() {
                   {conditions.map((c, i) => (
                     <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
                       <div className="flex items-center gap-2 justify-end">
-                        <button onClick={() => removeCondition(i)} className="text-xs" style={{ color: "var(--maroon)" }}>✕</button>
+                        <button onClick={() => removeCondition(i)} className="text-xs" style={{ color: "var(--maroon)" }} aria-label="הסר תנאי"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         <select
                           value={c.type}
                           onChange={(e) => setCondition(i, { type: e.target.value as Condition["type"], minTotal: null, productId: null })}
@@ -261,7 +261,7 @@ export default function AdminPromotionsPage() {
                   {rewards.map((r, i) => (
                     <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
                       <div className="flex items-center gap-2 justify-end">
-                        <button onClick={() => removeReward(i)} className="text-xs" style={{ color: "var(--maroon)" }}>✕</button>
+                        <button onClick={() => removeReward(i)} className="text-xs" style={{ color: "var(--maroon)" }} aria-label="הסר פרס"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         <select
                           value={r.type}
                           onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, productId: null })}
@@ -384,7 +384,7 @@ export default function AdminPromotionsPage() {
                   {p.rewards.length === 0
                     ? <p className="text-right text-xs" style={{ color: "var(--text-muted)" }}>ללא פרסים</p>
                     : p.rewards.map((r, i) => (
-                        <p key={i} className="text-right text-xs mb-0.5" style={{ color: "var(--green)" }}>✓ {rewardText(r, products)}</p>
+                        <p key={i} className="text-right text-xs mb-0.5 flex items-center gap-1 justify-end" style={{ color: "var(--green)" }}><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>{rewardText(r, products)}</p>
                       ))
                   }
                 </div>

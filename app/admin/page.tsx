@@ -63,7 +63,7 @@ export default async function AdminDashboard() {
               {toProcess}
             </span>
           )}
-          <span>{toProcess > 0 ? "הזמנות ממתינות לטיפול" : "כל ההזמנות טופלו ✓"}</span>
+          <span>{toProcess > 0 ? "הזמנות ממתינות לטיפול" : "כל ההזמנות טופלו"}</span>
         </div>
         <div className="text-right">
           <p className="font-extrabold text-lg">ניהול הזמנות</p>

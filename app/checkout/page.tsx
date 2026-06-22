@@ -318,7 +318,7 @@ export default function CheckoutPage() {
               {/* Selected point confirmation */}
               {selectedPoint && (
                 <div className="rounded-xl p-3 border-2 text-right" style={{ borderColor: "var(--green)", background: "#e8f5e9" }}>
-                  <p className="text-xs font-bold mb-0.5" style={{ color: "var(--green)" }}>✓ נקודה נבחרה</p>
+                  <p className="text-xs font-bold mb-0.5 flex items-center gap-1" style={{ color: "var(--green)" }}><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>נקודה נבחרה</p>
                   <p className="text-sm font-bold" style={{ color: "var(--text)" }}>{selectedPoint.name}</p>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>{selectedPoint.street} {selectedPoint.house}, {selectedPoint.city}</p>
                   {selectedPoint.remarks && (
@@ -374,7 +374,7 @@ export default function CheckoutPage() {
               className="px-4 py-3 rounded-xl border font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
               style={{ borderColor: "var(--border)", color: "var(--text)" }}
             >
-              {validatingCoupon ? "..." : couponSavings > 0 ? "✓" : "הפעל"}
+              {validatingCoupon ? "..." : couponSavings > 0 ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> : "הפעל"}
             </button>
             <input
               type="text"
@@ -389,7 +389,7 @@ export default function CheckoutPage() {
           {couponError && <p className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
           {couponSavings > 0 && (
             <p className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>
-              ✓ קופון פעיל –{" "}
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> קופון פעיל –{" "}
               {couponDiscountAmount > 0 ? `₪${couponDiscountAmount} הנחה` : `${couponDiscount}% הנחה`}
               {" "}(חיסכון ₪{couponSavings})
             </p>
@@ -398,10 +398,10 @@ export default function CheckoutPage() {
           {/* Active promotions */}
           {promotionRewards.length > 0 && (
             <div className="rounded-xl border p-3 flex flex-col gap-1" style={{ borderColor: "var(--green)", background: "#e8f5e9" }}>
-              <p className="text-xs font-bold text-right mb-1" style={{ color: "var(--green)" }}>מבצעים פעילים 🎉</p>
+              <p className="text-xs font-bold text-right mb-1" style={{ color: "var(--green)" }}>מבצעים פעילים</p>
               {promotionRewards.map((r, i) => (
                 <p key={i} className="text-xs text-right" style={{ color: "var(--green)" }}>
-                  ✓ {r.promotionName}
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> {r.promotionName}
                   {r.type === "free_shipping" && " — משלוח חינם"}
                   {r.type === "cart_discount" && ` — ${r.discountPct}% הנחה על הסל`}
                   {r.type === "product_discount" && ` — ${r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`} על ${r.productName}`}
