@@ -52,7 +52,7 @@ export default function AccessibilityWidget() {
   const inactive = { background: "transparent", color: "var(--text)", borderColor: "var(--border)" };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-start gap-2">
       {open && (
         <div
           className="rounded-2xl border p-4 flex flex-col gap-3 w-56 shadow-lg"
