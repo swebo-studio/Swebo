@@ -74,6 +74,7 @@ export async function createHypayRedirectUrl(params: {
     UTF8out:    "True",
     MoreData:   "True",
     sendemail:  "False",
+    SendHesh:   "True",
     Tash:       "1",
   });
 
