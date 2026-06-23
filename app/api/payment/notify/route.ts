@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
         await notifyAdmin("הזמנה חדשה", msg);
 
         // 4. Create HFD shipment
-        if (order.delivery > 0 || order.pudoCodeDestination) {
+        if (order.delivery > 0 || order.pudoCodeDestination || order.deliveryMode === "epost") {
           const result = await createHFDShipment({
             id: order.id,
             customerName: order.customerName,
@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
             city: order.city,
             total: order.total,
             pudoCodeDestination: order.pudoCodeDestination ? Number(order.pudoCodeDestination) : undefined,
+            isEpost: order.deliveryMode === "epost",
           });
           if (result && result.errorCode === "0" && result.shipmentNumber) {
             await prisma.order.update({

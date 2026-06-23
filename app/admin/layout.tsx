@@ -108,7 +108,6 @@ function AdminNav({ pathname, onClose }: { pathname: string; onClose?: () => voi
             style={{
               color: "var(--text)",
               background: isActive ? "var(--cream)" : "transparent",
-              flexDirection: "row-reverse",
             }}
           >
             <span style={{ opacity: isActive ? 1 : 0.5 }}>{item.icon}</span>

@@ -12,6 +12,7 @@ export interface AppliedReward {
   type: "free_shipping" | "cart_discount" | "product_discount";
   promotionName: string;
   discountPct?: number;
+  discountAmount?: number;
   productId?: string;
   productName?: string;
 }
@@ -58,6 +59,7 @@ export async function evaluatePromotions(
         type: reward.type as AppliedReward["type"],
         promotionName: promotion.name,
         discountPct: reward.discountPct ?? undefined,
+        discountAmount: reward.discountAmount ?? undefined,
         productId: reward.productId ?? undefined,
         productName: reward.productId ? productName(reward.productId) : undefined,
       });
@@ -81,8 +83,12 @@ export function applyRewards(
   for (const reward of rewards) {
     if (reward.type === "free_shipping") {
       delivery = 0;
-    } else if (reward.type === "cart_discount" && reward.discountPct) {
-      subtotal = Math.round(subtotal * (1 - reward.discountPct / 100));
+    } else if (reward.type === "cart_discount") {
+      if (reward.discountAmount) {
+        subtotal = Math.max(0, subtotal - reward.discountAmount);
+      } else if (reward.discountPct) {
+        subtotal = Math.round(subtotal * (1 - reward.discountPct / 100));
+      }
     } else if (reward.type === "product_discount" && reward.productId && reward.discountPct) {
       const existing = itemDiscounts[reward.productId] ?? 0;
       // Stack discounts: apply on top of each other
@@ -107,8 +113,12 @@ export function applyRewards(
     }, 0);
     // Re-apply cart_discount on top of item-discounted subtotal if any
     for (const reward of rewards) {
-      if (reward.type === "cart_discount" && reward.discountPct) {
-        subtotal = Math.round(subtotal * (1 - reward.discountPct / 100));
+      if (reward.type === "cart_discount") {
+        if (reward.discountAmount) {
+          subtotal = Math.max(0, subtotal - reward.discountAmount);
+        } else if (reward.discountPct) {
+          subtotal = Math.round(subtotal * (1 - reward.discountPct / 100));
+        }
       }
     }
   }

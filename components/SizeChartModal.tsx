@@ -12,11 +12,17 @@ interface SizeRow {
 interface Props {
   rows: SizeRow[];
   imagePath?: string;
+  imagePaths?: string[];
 }
 
-export default function SizeChartModal({ rows, imagePath }: Props) {
+export default function SizeChartModal({ rows, imagePath, imagePaths }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"guide" | "table">("guide");
+  const [imgIndex, setImgIndex] = useState(0);
+
+  const images = imagePaths && imagePaths.length > 0
+    ? imagePaths
+    : imagePath ? [imagePath] : ["/size-guide.png"];
 
   // Always show — image guide works even without a measurements table
   return (
@@ -47,15 +53,15 @@ export default function SizeChartModal({ rows, imagePath }: Props) {
 
             {/* Tabs — only show if we also have a measurements table */}
             {rows.length > 0 && (
-              <div className="flex border-b flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+              <div className="flex border-b flex-shrink-0 overflow-hidden" style={{ borderColor: "var(--border)" }}>
                 {([
                   { key: "guide", label: "מדריך" },
-                  { key: "table", label: "מידות (ס\"מ)" },
+                  { key: "table", label: 'מידות (ס"מ)' },
                 ] as const).map(({ key, label }) => (
                   <button
                     key={key}
                     onClick={() => setTab(key)}
-                    className="flex-1 py-2.5 text-sm font-bold transition-colors"
+                    className="flex-1 min-w-0 py-2.5 text-sm font-bold transition-colors truncate px-2"
                     style={{
                       color: tab === key ? "var(--text)" : "var(--text-muted)",
                       borderBottom: tab === key ? "2px solid var(--text)" : "2px solid transparent",
@@ -74,7 +80,7 @@ export default function SizeChartModal({ rows, imagePath }: Props) {
                 <div className="p-3">
                   <div className="relative w-full rounded-xl overflow-hidden" style={{ background: "#fff" }}>
                     <Image
-                      src={imagePath || "/size-guide.png"}
+                      src={images[imgIndex] ?? "/size-guide.png"}
                       alt="מדריך מידות"
                       width={600}
                       height={900}
@@ -82,6 +88,31 @@ export default function SizeChartModal({ rows, imagePath }: Props) {
                       priority
                     />
                   </div>
+                  {images.length > 1 && (
+                    <div className="flex items-center justify-between mt-3 px-1">
+                      <button
+                        onClick={() => setImgIndex((i) => Math.min(i + 1, images.length - 1))}
+                        disabled={imgIndex === images.length - 1}
+                        className="p-1.5 rounded-lg border disabled:opacity-30 transition-opacity hover:opacity-70"
+                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                        aria-label="תמונה הבאה"
+                      >
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {imgIndex + 1} / {images.length}
+                      </span>
+                      <button
+                        onClick={() => setImgIndex((i) => Math.max(i - 1, 0))}
+                        disabled={imgIndex === 0}
+                        className="p-1.5 rounded-lg border disabled:opacity-30 transition-opacity hover:opacity-70"
+                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                        aria-label="תמונה קודמת"
+                      >
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

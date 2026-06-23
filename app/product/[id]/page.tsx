@@ -41,7 +41,7 @@ export default async function ProductPage(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const [product, configRows] = await Promise.all([
+  const [product, configRows, activePromotions] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
       include: {
@@ -54,7 +54,13 @@ export default async function ProductPage(
       },
     }),
     prisma.siteConfig.findMany(),
+    prisma.promotion.findMany({ where: { active: true }, include: { rewards: true } }),
   ]);
+
+  const cartDiscountPct = activePromotions
+    .flatMap((p) => p.rewards)
+    .filter((r) => r.type === "cart_discount" && r.discountPct)
+    .reduce((max, r) => Math.max(max, r.discountPct ?? 0), 0);
 
   if (!product || !product.active) notFound();
 
@@ -64,6 +70,13 @@ export default async function ProductPage(
   let sizeChart: { size: string; chest: number; waist: number; length: number }[] = [];
   try { if (cfg["sizeChart"]) sizeChart = JSON.parse(cfg["sizeChart"]); } catch {}
   const showSizeChart = cfg["sizeChart.showTable"] !== "false";
+
+  let sizeGuideImages: string[] = [];
+  try {
+    const parsed = cfg["sizeGuide.imagePaths"] ? JSON.parse(cfg["sizeGuide.imagePaths"]) : null;
+    if (Array.isArray(parsed) && parsed.length > 0) sizeGuideImages = parsed;
+    else if (cfg["sizeGuide.imagePath"]) sizeGuideImages = [cfg["sizeGuide.imagePath"]];
+  } catch { if (cfg["sizeGuide.imagePath"]) sizeGuideImages = [cfg["sizeGuide.imagePath"]]; }
 
   // Other products from the same catalog/categories
   const categoryIds = product.categories.map((c) => c.id);
@@ -97,8 +110,17 @@ export default async function ProductPage(
             {product.descriptionHe}
           </p>
         )}
-        <div className="text-right mb-6">
-          <span className="text-4xl font-extrabold" style={{ color: "var(--text)" }}>₪{product.price}</span>
+        <div className="text-right mb-6 flex items-baseline gap-3 justify-end">
+          {cartDiscountPct > 0 ? (
+            <>
+              <span className="text-2xl line-through" style={{ color: "var(--text-muted)" }}>₪{product.price}</span>
+              <span className="text-4xl font-extrabold" style={{ color: "var(--maroon)" }}>
+                ₪{Math.round(product.price * (1 - cartDiscountPct / 100))}
+              </span>
+            </>
+          ) : (
+            <span className="text-4xl font-extrabold" style={{ color: "var(--text)" }}>₪{product.price}</span>
+          )}
         </div>
         <Suspense>
           <ProductDetail
@@ -112,7 +134,8 @@ export default async function ProductPage(
             }}
             sizeChart={sizeChart}
             showSizeChart={showSizeChart}
-            sizeGuideImage={cfg["sizeGuide.imagePath"] || undefined}
+            sizeGuideImages={sizeGuideImages.length > 0 ? sizeGuideImages : undefined}
+            sizeGuideImage={sizeGuideImages[0] || undefined}
           />
         </Suspense>
 
@@ -135,6 +158,7 @@ export default async function ProductPage(
                     price={p.price}
                     image={displayImg}
                     stock={totalStock}
+                    discountedPrice={cartDiscountPct > 0 ? Math.round(p.price * (1 - cartDiscountPct / 100)) : undefined}
                   />
                 );
               })}

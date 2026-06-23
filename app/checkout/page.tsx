@@ -109,8 +109,10 @@ export default function CheckoutPage() {
     const effectivePrice = disc ? Math.round(item.price * (1 - disc / 100)) : item.price;
     return sum + effectivePrice * item.quantity;
   }, 0);
-  const cartDiscountPct = promotionRewards.filter((r) => r.type === "cart_discount").reduce((sum, r) => sum + (r.discountPct ?? 0), 0);
-  const afterCartDiscount = cartDiscountPct > 0 ? Math.round(promotionSubtotal * (1 - Math.min(cartDiscountPct, 100) / 100)) : promotionSubtotal;
+  const cartDiscountPct = promotionRewards.filter((r) => r.type === "cart_discount").reduce((sum, r) => sum + ((r.discountPct ?? 0)), 0);
+  const cartDiscountAmountPromo = promotionRewards.filter((r) => r.type === "cart_discount").reduce((sum, r) => sum + ((r.discountAmount ?? 0)), 0);
+  const afterCartDiscountPct = cartDiscountPct > 0 ? Math.round(promotionSubtotal * (1 - Math.min(cartDiscountPct, 100) / 100)) : promotionSubtotal;
+  const afterCartDiscount = cartDiscountAmountPromo > 0 ? Math.max(0, afterCartDiscountPct - cartDiscountAmountPromo) : afterCartDiscountPct;
   const couponSavings = couponDiscountAmount > 0
     ? Math.min(couponDiscountAmount, afterCartDiscount)
     : couponDiscount > 0 ? Math.round(afterCartDiscount * couponDiscount / 100) : 0;
@@ -176,8 +178,6 @@ export default function CheckoutPage() {
         body: JSON.stringify({ orderId: order.id }),
       });
       const payData = await payRes.json();
-
-      clearCart();
 
       if (payData.error) throw new Error(`שגיאת תשלום: ${payData.error}`);
 
@@ -403,7 +403,7 @@ export default function CheckoutPage() {
                 <p key={i} className="text-xs text-right" style={{ color: "var(--green)" }}>
                   <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> {r.promotionName}
                   {r.type === "free_shipping" && " — משלוח חינם"}
-                  {r.type === "cart_discount" && ` — ${r.discountPct}% הנחה על הסל`}
+                  {r.type === "cart_discount" && (r.discountAmount ? ` — ₪${r.discountAmount} הנחה על הסל` : ` — ${r.discountPct}% הנחה על הסל`)}
                   {r.type === "product_discount" && ` — ${r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`} על ${r.productName}`}
                 </p>
               ))}

@@ -160,12 +160,13 @@ model PromotionCondition {
 }
 
 model PromotionReward {
-  id          String    @id @default(cuid())
-  promotionId String
-  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
-  type        String    // "free_shipping" | "cart_discount" | "product_discount"
-  productId   String?
-  discountPct Int?
+  id             String    @id @default(cuid())
+  promotionId    String
+  promotion      Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  type           String    // "free_shipping" | "cart_discount" | "product_discount"
+  productId      String?
+  discountPct    Int?
+  discountAmount Int?
 }
 
 model Coupon {

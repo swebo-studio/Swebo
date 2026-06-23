@@ -21,7 +21,7 @@ export default function AdminConfigPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCatName, setNewCatName] = useState("");
   const [announcementItems, setAnnouncementItems] = useState<{ text: string; url: string }[]>([]);
-  const [sizeGuideImage, setSizeGuideImage] = useState("");
+  const [sizeGuideImages, setSizeGuideImages] = useState<string[]>([]);
   const [showSizeChart, setShowSizeChart] = useState(true);
   const [phones, setPhones] = useState<AdminPhone[]>([]);
   const [newPhone, setNewPhone] = useState("");
@@ -60,7 +60,14 @@ export default function AdminConfigPage() {
           return pipe === -1 ? { text: s, url: "" } : { text: s.slice(0, pipe).trim(), url: s.slice(pipe + 1).trim() };
         })
       );
-      setSizeGuideImage(cfg["sizeGuide.imagePath"] || "");
+      try {
+        const paths = cfg["sizeGuide.imagePaths"] ? JSON.parse(cfg["sizeGuide.imagePaths"]) : null;
+        if (Array.isArray(paths) && paths.length > 0) {
+          setSizeGuideImages(paths);
+        } else if (cfg["sizeGuide.imagePath"]) {
+          setSizeGuideImages([cfg["sizeGuide.imagePath"]]);
+        }
+      } catch { if (cfg["sizeGuide.imagePath"]) setSizeGuideImages([cfg["sizeGuide.imagePath"]]); }
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
     });
@@ -110,7 +117,7 @@ export default function AdminConfigPage() {
     const data = await res.json();
     if (type === "image") setHero((h) => ({ ...h, imagePath: data.url, videoPath: "" }));
     else if (type === "video") setHero((h) => ({ ...h, videoPath: data.url, imagePath: "" }));
-    else setSizeGuideImage(data.url);
+    else setSizeGuideImages((prev) => [...prev, data.url]);
     setUploading(null);
   }
 
@@ -126,7 +133,8 @@ export default function AdminConfigPage() {
         "hero.videoPath": hero.videoPath,
         "sizeChart": JSON.stringify(sizes),
         "sizeChart.showTable": showSizeChart ? "true" : "false",
-        "sizeGuide.imagePath": sizeGuideImage,
+        "sizeGuide.imagePaths": JSON.stringify(sizeGuideImages),
+        "sizeGuide.imagePath": sizeGuideImages[0] ?? "",
         "contact.whatsapp": contact.whatsapp,
         "contact.instagram": contact.instagram,
         "contact.tiktok": contact.tiktok,
@@ -399,29 +407,46 @@ export default function AdminConfigPage() {
         </p>
       </section>
 
-      {/* ── Size guide image ── */}
+      {/* ── Size guide images ── */}
       <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
-        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>תמונת מדריך מידות</h2>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>תמונות מדריך מידות</h2>
         <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
-          התמונה שמוצגת בלשונית &quot;מדריך&quot; בחלון מדריך המידות בעמוד המוצר
+          ניתן להוסיף מספר תמונות — יוצגו בחלון מדריך המידות עם אפשרות ניווט ביניהן
         </p>
 
-        {sizeGuideImage && (
-          <div className="relative w-full max-w-xs mx-auto mb-3 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)", background: "#fff" }}>
-            <Image src={sizeGuideImage} alt="מדריך מידות" width={400} height={600} className="w-full h-auto" />
+        {sizeGuideImages.length > 0 && (
+          <div className="flex flex-wrap gap-3 mb-4">
+            {sizeGuideImages.map((url, i) => (
+              <div key={i} className="relative w-28 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)", background: "#fff" }}>
+                <Image src={url} alt={`מדריך מידות ${i + 1}`} width={200} height={300} className="w-full h-auto" />
+                <button
+                  onClick={() => setSizeGuideImages((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{ background: "var(--maroon)", color: "#fff" }}
+                  title="הסר תמונה"
+                >
+                  ✕
+                </button>
+                <div className="absolute bottom-1 left-0 right-0 text-center">
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}>
+                    {i + 1}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
         <input type="file" accept="image/*" ref={sizeGuideRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "sizeGuide"); }} />
 
         <div className="flex gap-2 justify-end">
-          {sizeGuideImage && (
+          {sizeGuideImages.length > 0 && (
             <button
-              onClick={() => setSizeGuideImage("")}
+              onClick={() => setSizeGuideImages([])}
               className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70"
               style={{ borderColor: "var(--maroon)", color: "var(--maroon)" }}
             >
-              הסר (חזרה לברירת מחדל)
+              נקה הכל
             </button>
           )}
           <button
@@ -430,7 +455,7 @@ export default function AdminConfigPage() {
             className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
             style={{ borderColor: "var(--border)", color: "var(--text)" }}
           >
-            {uploading === "sizeGuide" ? "מעלה..." : "העלה תמונה"}
+            {uploading === "sizeGuide" ? "מעלה..." : "+ הוסף תמונה"}
           </button>
         </div>
       </section>

@@ -24,7 +24,7 @@ interface Props {
 export default async function HomePage({ searchParams }: Props) {
   const { category: filterCategoryId } = await searchParams;
 
-  const [allCategories, products, configRows] = await Promise.all([
+  const [allCategories, products, configRows, activePromotions] = await Promise.all([
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.product.findMany({
       where: {
@@ -42,7 +42,17 @@ export default async function HomePage({ searchParams }: Props) {
       },
     }),
     prisma.siteConfig.findMany(),
+    prisma.promotion.findMany({
+      where: { active: true },
+      include: { rewards: true },
+    }),
   ]);
+
+  // Find the best active cart % discount to advertise on product cards
+  const cartDiscountPct = activePromotions
+    .flatMap((p) => p.rewards)
+    .filter((r) => r.type === "cart_discount" && r.discountPct)
+    .reduce((max, r) => Math.max(max, r.discountPct ?? 0), 0);
 
   const cfg: Record<string, string> = {};
   configRows.forEach((r) => { cfg[r.key] = r.value; });
@@ -126,6 +136,7 @@ export default async function HomePage({ searchParams }: Props) {
                         price={p.price}
                         image={displayImg}
                         stock={totalStock}
+                        discountedPrice={cartDiscountPct > 0 ? Math.round(p.price * (1 - cartDiscountPct / 100)) : undefined}
                       />
                     );
                   })}

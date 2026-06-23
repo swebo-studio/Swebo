@@ -13,6 +13,16 @@ export async function GET() {
   return Response.json(promotions);
 }
 
+type ConditionInput = { type: string; minTotal?: number | null; productId?: string | null };
+type RewardInput = { type: string; discountPct?: number | null; discountAmount?: number | null; productId?: string | null };
+
+function mapCondition(c: ConditionInput) {
+  return { type: c.type, minTotal: c.minTotal ?? null, productId: c.productId ?? null };
+}
+function mapReward(r: RewardInput) {
+  return { type: r.type, discountPct: r.discountPct ?? null, discountAmount: r.discountAmount ?? null, productId: r.productId ?? null };
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,8 +33,8 @@ export async function POST(req: NextRequest) {
     data: {
       name,
       active: active ?? true,
-      conditions: { create: conditions ?? [] },
-      rewards: { create: rewards ?? [] },
+      conditions: { create: (conditions ?? []).map(mapCondition) },
+      rewards: { create: (rewards ?? []).map(mapReward) },
     },
     include: { conditions: true, rewards: true },
   });
@@ -46,8 +56,8 @@ export async function PUT(req: NextRequest) {
     data: {
       name,
       active,
-      conditions: { create: conditions ?? [] },
-      rewards: { create: rewards ?? [] },
+      conditions: { create: (conditions ?? []).map(mapCondition) },
+      rewards: { create: (rewards ?? []).map(mapReward) },
     },
     include: { conditions: true, rewards: true },
   });

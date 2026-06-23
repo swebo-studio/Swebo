@@ -8,9 +8,10 @@ interface Props {
   price: number;
   image: string;
   stock: number;
+  discountedPrice?: number;
 }
 
-export default function ProductCard({ id, nameHe, price, image, stock }: Props) {
+export default function ProductCard({ id, nameHe, price, image, stock, discountedPrice }: Props) {
   return (
     <Link href={`/product/${id}`} className="group block">
       <div
@@ -48,10 +49,21 @@ export default function ProductCard({ id, nameHe, price, image, stock }: Props) 
           <h3 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>
             {nameHe}
           </h3>
-          <div className="flex items-center justify-end">
-            <span className="font-extrabold text-xl" style={{ color: "var(--text)" }}>
-              ₪{price}
-            </span>
+          <div className="flex items-center gap-2 justify-end">
+            {discountedPrice !== undefined && discountedPrice < price ? (
+              <>
+                <span className="text-sm line-through" style={{ color: "var(--text-muted)" }}>
+                  ₪{price}
+                </span>
+                <span className="font-extrabold text-xl" style={{ color: "var(--maroon)" }}>
+                  ₪{discountedPrice}
+                </span>
+              </>
+            ) : (
+              <span className="font-extrabold text-xl" style={{ color: "var(--text)" }}>
+                ₪{price}
+              </span>
+            )}
           </div>
         </div>
       </div>

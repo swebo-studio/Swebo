@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Link from "next/link";
+import CartClearer from "@/components/CartClearer";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,14 @@ export default async function OrderPage(
   if (!order) notFound();
 
   const isPaid = order.status === "paid";
-  const isEpost = order.delivery === 0 && order.address && !order.address.includes("איסוף עצמי");
-  const isSelfPickup = order.address === "איסוף עצמי";
+  const isEpost = order.deliveryMode === "epost";
+  const isSelfPickup = order.deliveryMode === "self" || order.address === "איסוף עצמי";
   const orderCode = order.id.slice(-6).toUpperCase();
 
   return (
     <>
       <Header />
+      {isPaid && <CartClearer />}
       <main className="max-w-lg mx-auto px-4 py-12 text-right" dir="rtl">
 
         {/* Hero */}
@@ -114,6 +116,14 @@ export default async function OrderPage(
           {order.shipmentNumber && (
             <p className="text-xs mt-2 font-mono px-2 py-1 rounded-lg inline-block" style={{ background: "#e8f5e9", color: "var(--green)" }}>
               מספר משלוח: {order.shipmentNumber}
+            </p>
+          )}
+          {!isSelfPickup && isPaid && (
+            <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>
+              משלוח עד חמישה ימי עסקים ·{" "}
+              <Link href="/yeshuvim-meruhakim" className="underline underline-offset-2 hover:opacity-70">
+                יישובים מרוחקים
+              </Link>
             </p>
           )}
         </div>

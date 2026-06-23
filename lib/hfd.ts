@@ -61,10 +61,11 @@ export async function createHFDShipment(order: {
   city: string;
   total: number;
   pudoCodeDestination?: number;
+  isEpost?: boolean;
 }): Promise<HFDShipmentResult | null> {
   if (!HFD_CLIENT_NUMBER) return null; // Not configured
 
-  const isEpost = !!order.pudoCodeDestination;
+  const isEpost = order.isEpost ?? !!order.pudoCodeDestination;
 
   // Parse address — street name and house number may be combined or separate
   const addressParts = order.address.split(",")[0].trim();

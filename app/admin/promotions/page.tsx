@@ -15,6 +15,7 @@ interface Reward {
   id?: string;
   type: "free_shipping" | "cart_discount" | "product_discount";
   discountPct?: number | null;
+  discountAmount?: number | null;
   productId?: string | null;
 }
 
@@ -50,7 +51,10 @@ function conditionText(c: Condition, products: Product[]) {
 
 function rewardText(r: Reward, products: Product[]) {
   if (r.type === "free_shipping") return "משלוח חינם";
-  if (r.type === "cart_discount") return `${r.discountPct}% הנחה על כל הסל`;
+  if (r.type === "cart_discount") {
+    if (r.discountAmount) return `₪${r.discountAmount} הנחה על הסל`;
+    return `${r.discountPct}% הנחה על כל הסל`;
+  }
   if (r.type === "product_discount") {
     const p = products.find((x) => x.id === r.productId);
     const pct = r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`;
@@ -60,7 +64,7 @@ function rewardText(r: Reward, products: Product[]) {
 }
 
 function emptyCondition(): Condition { return { type: "min_cart_total", minTotal: 300, productId: null }; }
-function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, productId: null }; }
+function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null }; }
 
 export default function AdminPromotionsPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -264,7 +268,7 @@ export default function AdminPromotionsPage() {
                         <button onClick={() => removeReward(i)} className="text-xs" style={{ color: "var(--maroon)" }} aria-label="הסר פרס"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         <select
                           value={r.type}
-                          onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, productId: null })}
+                          onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, discountAmount: null, productId: null })}
                           className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
                           style={inputStyle}
                         >
@@ -272,15 +276,55 @@ export default function AdminPromotionsPage() {
                         </select>
                       </div>
                       {r.type === "cart_discount" && (
-                        <input
-                          type="number"
-                          min={1} max={100}
-                          value={r.discountPct ?? ""}
-                          onChange={(e) => setReward(i, { discountPct: Number(e.target.value) })}
-                          placeholder="אחוז הנחה (1–100)"
-                          className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                          style={inputStyle}
-                        />
+                        <>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setReward(i, { discountPct: r.discountPct ?? 10, discountAmount: null })}
+                              className="flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                              style={{
+                                borderColor: !r.discountAmount ? "var(--text)" : "var(--border)",
+                                background: !r.discountAmount ? "var(--text)" : "transparent",
+                                color: !r.discountAmount ? "var(--cream)" : "var(--text-muted)",
+                              }}
+                            >
+                              הנחה באחוזים %
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReward(i, { discountAmount: r.discountAmount ?? 10, discountPct: null })}
+                              className="flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                              style={{
+                                borderColor: r.discountAmount ? "var(--text)" : "var(--border)",
+                                background: r.discountAmount ? "var(--text)" : "transparent",
+                                color: r.discountAmount ? "var(--cream)" : "var(--text-muted)",
+                              }}
+                            >
+                              הנחה בשקלים ₪
+                            </button>
+                          </div>
+                          {!r.discountAmount ? (
+                            <input
+                              type="number"
+                              min={1} max={100}
+                              value={r.discountPct ?? ""}
+                              onChange={(e) => setReward(i, { discountPct: Number(e.target.value) })}
+                              placeholder="אחוז הנחה (1–100)"
+                              className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                              style={inputStyle}
+                            />
+                          ) : (
+                            <input
+                              type="number"
+                              min={1}
+                              value={r.discountAmount ?? ""}
+                              onChange={(e) => setReward(i, { discountAmount: Number(e.target.value) })}
+                              placeholder="סכום הנחה בשקלים (₪)"
+                              className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                              style={inputStyle}
+                            />
+                          )}
+                        </>
                       )}
                       {r.type === "product_discount" && (
                         <>
