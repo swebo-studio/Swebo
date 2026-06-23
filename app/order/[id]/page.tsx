@@ -118,7 +118,7 @@ export default async function OrderPage(
               מספר משלוח: {order.shipmentNumber}
             </p>
           )}
-          {!isSelfPickup && isPaid && (
+          {!isSelfPickup && (
             <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>
               משלוח עד חמישה ימי עסקים ·{" "}
               <Link href="/yeshuvim-meruhakim" className="underline underline-offset-2 hover:opacity-70">
