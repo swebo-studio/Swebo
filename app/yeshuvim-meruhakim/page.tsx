@@ -1,5 +1,8 @@
+import { prisma } from "@/lib/db";
 import Header from "@/components/Header";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "יישובים מרוחקים | SWEBO",
@@ -38,7 +41,11 @@ const LOCALITIES: string[] = [
   "עין תמר", "עקבה", "קטורה",
 ];
 
-export default function YeshuvimMerukhakimPage() {
+export default async function YeshuvimMerukhakimPage() {
+  const contactRow = await prisma.siteConfig.findUnique({ where: { key: "contact.whatsapp" } });
+  const waLink = contactRow?.value || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "";
+  const waHref = waLink.startsWith("http") ? waLink : waLink ? `https://wa.me/${waLink}` : "";
+
   return (
     <>
       <Header />
@@ -75,16 +82,20 @@ export default function YeshuvimMerukhakimPage() {
           </div>
         </div>
 
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          הרשימה מתעדכנת מעת לעת בהתאם לשירות HFD. לשאלות:{" "}
-          <a
-            href="https://wa.me/972"
-            className="underline underline-offset-2"
-            style={{ color: "var(--text)" }}
-          >
-            צור קשר בוואטסאפ
-          </a>
-        </p>
+        {waHref && (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            הרשימה מתעדכנת מעת לעת בהתאם לשירות HFD. לשאלות:{" "}
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2"
+              style={{ color: "var(--text)" }}
+            >
+              צור קשר בוואטסאפ
+            </a>
+          </p>
+        )}
       </main>
     </>
   );

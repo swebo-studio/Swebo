@@ -139,6 +139,7 @@ export default async function ProductPage(
             sizeGuideImage={sizeGuideImages[0] || undefined}
             detailsHe={product.detailsHe}
             shippingInfoText={cfg["shippingInfo.text"] || undefined}
+            whatsappLink={cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ""}
           />
         </Suspense>
 

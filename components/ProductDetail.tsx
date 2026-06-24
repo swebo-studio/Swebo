@@ -36,15 +36,22 @@ interface Props {
   sizeGuideImages?: string[];
   detailsHe?: string;
   shippingInfoText?: string;
+  whatsappLink?: string;
+}
+
+function buildWhatsAppHref(link: string, text: string): string {
+  if (!link) return "";
+  const encoded = encodeURIComponent(text);
+  if (link.startsWith("http")) return `${link}${link.includes("?") ? "&" : "?"}text=${encoded}`;
+  return `https://wa.me/${link}?text=${encoded}`;
 }
 
 const DEFAULT_SHIPPING_INFO = "משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP";
 
-export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe, shippingInfoText = DEFAULT_SHIPPING_INFO }: Props) {
+export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe, shippingInfoText = DEFAULT_SHIPPING_INFO, whatsappLink = "" }: Props) {
   const { addItem } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "";
 
   const hasColors = product.colors.length > 0;
 
@@ -96,10 +103,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
   const canAdd = selectedSize && effectiveStock > 0 && (!hasColors || selectedColor !== null);
 
   // WhatsApp reserve message for out-of-stock
-  const reserveMsg = encodeURIComponent(
-    `היי, אני רוצה להזמין: ${product.nameHe}${selectedColor ? ` – ${selectedColor.nameHe}` : ""}${selectedSize ? ` / מידה ${selectedSize}` : ""}`
-  );
-  const reserveHref = `https://wa.me/${waNumber}?text=${reserveMsg}`;
+  const reserveMsg = `היי, אני רוצה להזמין: ${product.nameHe}${selectedColor ? ` – ${selectedColor.nameHe}` : ""}${selectedSize ? ` / מידה ${selectedSize}` : ""}`;
+  const reserveHref = buildWhatsAppHref(whatsappLink, reserveMsg);
 
   function handleAdd() {
     if (!canAdd) return;
@@ -259,7 +264,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               <p className="text-xs text-right mt-1" style={{ color: "var(--text-muted)" }}>
                 * מידות חסרות במלאי —{" "}
                 <a
-                  href={`https://wa.me/${waNumber.replace(/\D/g, "")}?text=${encodeURIComponent("היי SWEBO, אני מעוניין להזמין מידה שאינה במלאי")}`}
+                  href={buildWhatsAppHref(whatsappLink, "היי SWEBO, אני מעוניין להזמין מידה שאינה במלאי")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline hover:opacity-70"
