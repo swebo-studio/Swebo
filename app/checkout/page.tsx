@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useCart } from "@/components/CartProvider";
 import Header from "@/components/Header";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AppliedReward } from "@/lib/promotions";
 
@@ -412,7 +413,15 @@ export default function CheckoutPage() {
 
           {/* Order summary */}
           <div className="mt-4 p-5 rounded-2xl border text-right" style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}>
-            <h2 className="font-bold mb-3" style={{ color: "var(--text)" }}>סיכום הזמנה</h2>
+            <h2 className="font-bold mb-1" style={{ color: "var(--text)" }}>סיכום הזמנה</h2>
+            <Link
+              href="/yeshuvim-meruhakim"
+              target="_blank"
+              className="text-xs underline underline-offset-2 hover:opacity-70 transition-opacity block mb-3"
+              style={{ color: "var(--text-muted)" }}
+            >
+              יישובים מרוחקים
+            </Link>
             {items.map((item) => (
               <div key={`${item.productId}-${item.size}-${item.color ?? ""}`} className="flex justify-between text-sm mb-1" style={{ color: "var(--text-muted)" }}>
                 <span>₪{item.price * item.quantity}</span>
