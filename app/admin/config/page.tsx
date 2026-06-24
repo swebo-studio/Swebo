@@ -526,23 +526,23 @@ export default function AdminConfigPage() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>משלוח</label>
-            <input
-              type="text"
+            <textarea
               value={shippingInfo.deliveryText}
               onChange={(e) => setShippingInfo((s) => ({ ...s, deliveryText: e.target.value }))}
               placeholder="₪40"
-              className="px-4 py-3 rounded-xl border text-right outline-none"
+              rows={2}
+              className="px-4 py-3 rounded-xl border text-right outline-none resize-none"
               style={inputStyle}
             />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>תשלום</label>
-            <input
-              type="text"
+            <textarea
               value={shippingInfo.paymentText}
               onChange={(e) => setShippingInfo((s) => ({ ...s, paymentText: e.target.value }))}
               placeholder="HYP – מאובטח"
-              className="px-4 py-3 rounded-xl border text-right outline-none"
+              rows={2}
+              className="px-4 py-3 rounded-xl border text-right outline-none resize-none"
               style={inputStyle}
             />
           </div>

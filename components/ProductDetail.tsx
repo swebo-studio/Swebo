@@ -314,9 +314,15 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         )}
 
         {/* Shipping info */}
-        <div className="mt-2 p-4 rounded-xl text-sm border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-          <div className="flex justify-between mb-2"><span>משלוח</span><span>{deliveryText}</span></div>
-          <div className="flex justify-between"><span>תשלום</span><span>{paymentText}</span></div>
+        <div className="mt-2 p-4 rounded-xl text-sm border flex flex-col gap-3" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+          <div>
+            <span className="font-medium" style={{ color: "var(--text)" }}>משלוח</span>
+            <div className="whitespace-pre-line mt-0.5">{deliveryText}</div>
+          </div>
+          <div>
+            <span className="font-medium" style={{ color: "var(--text)" }}>תשלום</span>
+            <div className="whitespace-pre-line mt-0.5">{paymentText}</div>
+          </div>
         </div>
       </div>
     </div>
