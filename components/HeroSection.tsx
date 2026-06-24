@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface Props {
   slogan?: string;
@@ -13,6 +13,17 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath 
   const [videoError, setVideoError] = useState(false);
   const effectiveVideo = videoError ? undefined : videoPath;
   const hasMedia = effectiveVideo || imagePath;
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !effectiveVideo) return;
+    // iOS Safari checks the `muted` attribute at parse time, before React's
+    // JS-set property takes effect — setting it explicitly here (and calling
+    // play() ourselves) makes autoplay reliable on iPhone.
+    video.muted = true;
+    video.play().catch(() => {});
+  }, [effectiveVideo]);
 
   return (
     <section
@@ -22,11 +33,13 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath 
       {/* Background: video or image */}
       {effectiveVideo ? (
         <video
+          ref={videoRef}
           src={effectiveVideo}
           autoPlay
           muted
           loop
           playsInline
+          preload="auto"
           onError={() => setVideoError(true)}
           className="absolute inset-0 w-full h-full object-cover"
         />
