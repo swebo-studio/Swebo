@@ -28,7 +28,7 @@ export default function AdminConfigPage() {
   const [newLabel, setNewLabel] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [legal, setLegal] = useState({ privacy: "", terms: "" });
-  const [shippingInfo, setShippingInfo] = useState({ deliveryText: "₪40", paymentText: "HYP – מאובטח" });
+  const [shippingInfoText, setShippingInfoText] = useState("משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP");
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [saved, setSaved] = useState(false);
@@ -71,10 +71,7 @@ export default function AdminConfigPage() {
       } catch { if (cfg["sizeGuide.imagePath"]) setSizeGuideImages([cfg["sizeGuide.imagePath"]]); }
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
-      setShippingInfo({
-        deliveryText: cfg["shippingInfo.deliveryText"] || "₪40",
-        paymentText: cfg["shippingInfo.paymentText"] || "HYP – מאובטח",
-      });
+      if (cfg["shippingInfo.text"]) setShippingInfoText(cfg["shippingInfo.text"]);
     });
     fetchCategories();
     fetchPhones();
@@ -150,8 +147,7 @@ export default function AdminConfigPage() {
           .join("\n"),
         "legal.privacy": legal.privacy,
         "legal.terms": legal.terms,
-        "shippingInfo.deliveryText": shippingInfo.deliveryText,
-        "shippingInfo.paymentText": shippingInfo.paymentText,
+        "shippingInfo.text": shippingInfoText,
       }),
     });
     setSaving(false);
@@ -523,30 +519,14 @@ export default function AdminConfigPage() {
         <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
           הטקסט המוצג בתיבה מתחת לכפתורי הקנייה בעמוד המוצר
         </p>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>משלוח</label>
-            <textarea
-              value={shippingInfo.deliveryText}
-              onChange={(e) => setShippingInfo((s) => ({ ...s, deliveryText: e.target.value }))}
-              placeholder="₪40"
-              rows={2}
-              className="px-4 py-3 rounded-xl border text-right outline-none resize-none"
-              style={inputStyle}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>תשלום</label>
-            <textarea
-              value={shippingInfo.paymentText}
-              onChange={(e) => setShippingInfo((s) => ({ ...s, paymentText: e.target.value }))}
-              placeholder="HYP – מאובטח"
-              rows={2}
-              className="px-4 py-3 rounded-xl border text-right outline-none resize-none"
-              style={inputStyle}
-            />
-          </div>
-        </div>
+        <textarea
+          value={shippingInfoText}
+          onChange={(e) => setShippingInfoText(e.target.value)}
+          placeholder={"משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP"}
+          rows={6}
+          className="w-full px-4 py-3 rounded-xl border text-right outline-none resize-none"
+          style={inputStyle}
+        />
       </section>
 
       {/* ── Admin phone numbers ── */}

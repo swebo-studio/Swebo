@@ -35,11 +35,12 @@ interface Props {
   sizeGuideImage?: string;
   sizeGuideImages?: string[];
   detailsHe?: string;
-  deliveryText?: string;
-  paymentText?: string;
+  shippingInfoText?: string;
 }
 
-export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe, deliveryText = "₪40", paymentText = "HYP – מאובטח" }: Props) {
+const DEFAULT_SHIPPING_INFO = "משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP";
+
+export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe, shippingInfoText = DEFAULT_SHIPPING_INFO }: Props) {
   const { addItem } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -314,15 +315,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         )}
 
         {/* Shipping info */}
-        <div className="mt-2 p-4 rounded-xl text-sm border flex flex-col gap-3" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-          <div>
-            <span className="font-medium" style={{ color: "var(--text)" }}>משלוח</span>
-            <div className="whitespace-pre-line mt-0.5">{deliveryText}</div>
-          </div>
-          <div>
-            <span className="font-medium" style={{ color: "var(--text)" }}>תשלום</span>
-            <div className="whitespace-pre-line mt-0.5">{paymentText}</div>
-          </div>
+        <div className="mt-2 p-4 rounded-xl text-sm border whitespace-pre-line" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+          {shippingInfoText}
         </div>
       </div>
     </div>
