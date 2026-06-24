@@ -443,7 +443,7 @@ export default function CheckoutPage() {
             className="w-full py-4 rounded-2xl font-bold text-lg transition-opacity disabled:opacity-60"
             style={{ background: "var(--text)", color: "var(--cream)" }}
           >
-            {loading ? "מעבד..." : `שלם ₪${total}`}
+            {loading ? "מעבד..." : "לשלב הבא"}
           </button>
         </form>
       </main>
