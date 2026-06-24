@@ -35,9 +35,11 @@ interface Props {
   sizeGuideImage?: string;
   sizeGuideImages?: string[];
   detailsHe?: string;
+  deliveryText?: string;
+  paymentText?: string;
 }
 
-export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe }: Props) {
+export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe, deliveryText = "₪40", paymentText = "HYP – מאובטח" }: Props) {
   const { addItem } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -313,8 +315,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
 
         {/* Shipping info */}
         <div className="mt-2 p-4 rounded-xl text-sm border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-          <div className="flex justify-between mb-2"><span>משלוח</span><span>₪40</span></div>
-          <div className="flex justify-between"><span>תשלום</span><span>HYP – מאובטח</span></div>
+          <div className="flex justify-between mb-2"><span>משלוח</span><span>{deliveryText}</span></div>
+          <div className="flex justify-between"><span>תשלום</span><span>{paymentText}</span></div>
         </div>
       </div>
     </div>

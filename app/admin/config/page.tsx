@@ -28,6 +28,7 @@ export default function AdminConfigPage() {
   const [newLabel, setNewLabel] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [legal, setLegal] = useState({ privacy: "", terms: "" });
+  const [shippingInfo, setShippingInfo] = useState({ deliveryText: "₪40", paymentText: "HYP – מאובטח" });
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [saved, setSaved] = useState(false);
@@ -70,6 +71,10 @@ export default function AdminConfigPage() {
       } catch { if (cfg["sizeGuide.imagePath"]) setSizeGuideImages([cfg["sizeGuide.imagePath"]]); }
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
+      setShippingInfo({
+        deliveryText: cfg["shippingInfo.deliveryText"] || "₪40",
+        paymentText: cfg["shippingInfo.paymentText"] || "HYP – מאובטח",
+      });
     });
     fetchCategories();
     fetchPhones();
@@ -145,6 +150,8 @@ export default function AdminConfigPage() {
           .join("\n"),
         "legal.privacy": legal.privacy,
         "legal.terms": legal.terms,
+        "shippingInfo.deliveryText": shippingInfo.deliveryText,
+        "shippingInfo.paymentText": shippingInfo.paymentText,
       }),
     });
     setSaving(false);
@@ -508,6 +515,38 @@ export default function AdminConfigPage() {
             ))}
           </tbody>
         </table>
+      </section>
+
+      {/* ── Shipping / payment info box (shown on product page) ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>תיבת משלוח ותשלום</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          הטקסט המוצג בתיבה מתחת לכפתורי הקנייה בעמוד המוצר
+        </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>משלוח</label>
+            <input
+              type="text"
+              value={shippingInfo.deliveryText}
+              onChange={(e) => setShippingInfo((s) => ({ ...s, deliveryText: e.target.value }))}
+              placeholder="₪40"
+              className="px-4 py-3 rounded-xl border text-right outline-none"
+              style={inputStyle}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>תשלום</label>
+            <input
+              type="text"
+              value={shippingInfo.paymentText}
+              onChange={(e) => setShippingInfo((s) => ({ ...s, paymentText: e.target.value }))}
+              placeholder="HYP – מאובטח"
+              className="px-4 py-3 rounded-xl border text-right outline-none"
+              style={inputStyle}
+            />
+          </div>
+        </div>
       </section>
 
       {/* ── Admin phone numbers ── */}

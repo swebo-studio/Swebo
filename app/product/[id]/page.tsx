@@ -138,6 +138,8 @@ export default async function ProductPage(
             sizeGuideImages={sizeGuideImages.length > 0 ? sizeGuideImages : undefined}
             sizeGuideImage={sizeGuideImages[0] || undefined}
             detailsHe={product.detailsHe}
+            deliveryText={cfg["shippingInfo.deliveryText"] || undefined}
+            paymentText={cfg["shippingInfo.paymentText"] || undefined}
           />
         </Suspense>
 
