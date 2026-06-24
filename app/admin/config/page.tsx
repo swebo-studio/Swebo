@@ -471,7 +471,7 @@ export default function AdminConfigPage() {
             >
               <div
                 className="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow"
-                style={{ transform: showSizeChart ? "translateX(24px)" : "translateX(4px)" }}
+                style={{ transform: showSizeChart ? "translateX(-24px)" : "translateX(-4px)" }}
               />
             </div>
             <span className="text-sm" style={{ color: "var(--text-muted)" }}>

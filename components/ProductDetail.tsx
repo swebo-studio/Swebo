@@ -223,7 +223,9 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         {(selectedColor || !hasColors) && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              {showSizeChart && <SizeChartModal rows={sizeChart} imagePaths={sizeGuideImages} imagePath={sizeGuideImage} />}
+              {(showSizeChart || (sizeGuideImages && sizeGuideImages.length > 0) || sizeGuideImage) && (
+                <SizeChartModal rows={showSizeChart ? sizeChart : []} imagePaths={sizeGuideImages} imagePath={sizeGuideImage} />
+              )}
               <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>בחר מידה:</p>
             </div>
             <div className="flex gap-2 justify-end flex-wrap">
