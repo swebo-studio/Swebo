@@ -1,5 +1,20 @@
 import { prisma } from "@/lib/db";
 
+/**
+ * Combines a manual "compare at" price (admin-set sale price) with any active
+ * automatic % cart discount to produce the price pair shown on product cards/pages.
+ */
+export function computeDisplayPrice(
+  price: number,
+  comparePrice: number | null | undefined,
+  cartDiscountPct: number
+): { displayPrice: number; originalPrice?: number } {
+  const hasManualDiscount = comparePrice != null && comparePrice > price;
+  const displayPrice = cartDiscountPct > 0 ? Math.round(price * (1 - cartDiscountPct / 100)) : price;
+  const originalPrice = hasManualDiscount ? comparePrice : (cartDiscountPct > 0 ? price : undefined);
+  return { displayPrice, originalPrice };
+}
+
 export interface CartItemInput {
   productId: string;
   quantity: number;

@@ -25,7 +25,9 @@ interface Product {
   id: string;
   nameHe: string;
   descriptionHe: string;
+  detailsHe: string;
   price: number;
+  comparePrice: number | null;
   stock: number;
   image: string;
   active: boolean;
@@ -33,7 +35,7 @@ interface Product {
   colors: ProductColor[];
 }
 
-const EMPTY_FORM = { nameHe: "", descriptionHe: "", price: 150, stock: 0, active: true };
+const EMPTY_FORM = { nameHe: "", descriptionHe: "", detailsHe: "", price: 150, comparePrice: "" as number | "", stock: 0, active: true };
 
 export default function ProductsManager({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState(initialProducts);
@@ -75,6 +77,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   type CropContext = { type: "colorImage"; colorId: string } | { type: "newColorImage" };
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [cropContext, setCropContext] = useState<CropContext | null>(null);
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [cropQueueTotal, setCropQueueTotal] = useState(0);
 
   const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
 
@@ -87,7 +91,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   }
 
   function openEdit(p: Product) {
-    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, price: p.price, stock: p.stock, active: p.active });
+    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, detailsHe: p.detailsHe, price: p.price, comparePrice: p.comparePrice ?? "", stock: p.stock, active: p.active });
     setSelectedCategoryIds(p.categories.map((c) => c.id));
     setEditing(p);
     setCreating(false);
@@ -143,11 +147,21 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     return data.url as string;
   }
 
+  function advanceCropQueue() {
+    setCropQueue((queue) => {
+      if (queue.length === 0) {
+        setCropQueueTotal(0);
+        return queue;
+      }
+      const [next, ...rest] = queue;
+      setCropFile(next);
+      return rest;
+    });
+  }
+
   async function handleCropConfirm(blob: Blob) {
     const ctx = cropContext;
-    setCropFile(null);
-    setCropContext(null);
-    if (!ctx || !editing) return;
+    if (!ctx || !editing) { setCropFile(null); setCropContext(null); return; }
 
     const url = await uploadBlob(blob);
 
@@ -169,34 +183,49 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       }
       setEditing(updatedProduct);
       setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
-      // Reset file input
-      if (colorImageRefs.current[ctx.colorId]) colorImageRefs.current[ctx.colorId]!.value = "";
     }
 
     if (ctx.type === "newColorImage") {
       setNewColorImages((prev) => [...prev, url]);
-      if (newColorImageRef.current) newColorImageRef.current.value = "";
+    }
+
+    // Move to the next queued file (if any), keeping the same context
+    if (cropQueue.length > 0) {
+      advanceCropQueue();
+    } else {
+      setCropFile(null);
+      setCropContext(null);
+      setCropQueueTotal(0);
+      if (ctx.type === "colorImage" && colorImageRefs.current[ctx.colorId]) colorImageRefs.current[ctx.colorId]!.value = "";
+      if (ctx.type === "newColorImage" && newColorImageRef.current) newColorImageRef.current.value = "";
     }
   }
 
   function handleCropCancel() {
     setCropFile(null);
     setCropContext(null);
+    setCropQueue([]);
+    setCropQueueTotal(0);
     Object.values(colorImageRefs.current).forEach((ref) => { if (ref) ref.value = ""; });
+    if (newColorImageRef.current) newColorImageRef.current.value = "";
   }
 
   function handleColorImagePick(e: React.ChangeEvent<HTMLInputElement>, colorId: string) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     setCropContext({ type: "colorImage", colorId });
-    setCropFile(file);
+    setCropQueueTotal(files.length);
+    setCropFile(files[0]);
+    setCropQueue(files.slice(1));
   }
 
   function handleNewColorImagePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     setCropContext({ type: "newColorImage" });
-    setCropFile(file);
+    setCropQueueTotal(files.length);
+    setCropFile(files[0]);
+    setCropQueue(files.slice(1));
   }
 
   async function handleDeleteColorImage(colorId: string, imageId: string) {
@@ -214,11 +243,12 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
   async function handleSave() {
     setSaving(true);
+    const payload = { ...form, comparePrice: form.comparePrice === "" ? null : Number(form.comparePrice) };
     if (editing) {
       const res = await fetch(`/api/products/${editing.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, image: editing.image, categoryIds: selectedCategoryIds }),
+        body: JSON.stringify({ ...payload, image: editing.image, categoryIds: selectedCategoryIds }),
       });
       const updated = await res.json();
       const updatedProduct = { ...editing, ...updated };
@@ -228,7 +258,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, categoryIds: selectedCategoryIds }),
+        body: JSON.stringify({ ...payload, categoryIds: selectedCategoryIds }),
       });
       const created = await res.json();
       const full: Product = { ...created, colors: [], categories: created.categories ?? [] };
@@ -345,7 +375,17 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
       {/* Crop modal */}
       {cropFile && (
-        <ImageCropModal file={cropFile} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
+        <>
+          {cropQueueTotal > 1 && (
+            <div
+              className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] text-sm font-bold px-4 py-2 rounded-full"
+              style={{ background: "var(--text)", color: "var(--cream)" }}
+            >
+              תמונה {cropQueueTotal - cropQueue.length} מתוך {cropQueueTotal}
+            </div>
+          )}
+          <ImageCropModal file={cropFile} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
+        </>
       )}
 
       {/* Modal */}
@@ -395,6 +435,33 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       />
                     </div>
                   ))}
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>
+                      מחיר לפני הנחה (₪) — אופציונלי, יוצג עם קו חוצה
+                    </label>
+                    <input
+                      type="number"
+                      value={form.comparePrice}
+                      onChange={(e) => setForm((f) => ({ ...f, comparePrice: e.target.value === "" ? "" : Number(e.target.value) }))}
+                      placeholder="השאר ריק אם אין מחיר מבצע ידני"
+                      className="px-4 py-3 rounded-xl border text-right outline-none"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>
+                      פרטי מוצר (יוצג מתחת לכפתור &quot;קנה עכשיו&quot;)
+                    </label>
+                    <textarea
+                      value={form.detailsHe}
+                      onChange={(e) => setForm((f) => ({ ...f, detailsHe: e.target.value }))}
+                      rows={4}
+                      className="px-4 py-3 rounded-xl border text-right outline-none resize-none"
+                      style={inputStyle}
+                    />
+                  </div>
 
                   {/* Category multi-select */}
                   {categories.length > 0 && (
@@ -602,6 +669,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         <input
                           type="file"
                           accept="image/*"
+                          multiple
                           className="hidden"
                           ref={(el) => { colorImageRefs.current[c.id] = el; }}
                           onChange={(e) => handleColorImagePick(e, c.id)}
@@ -708,6 +776,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         <input
                           type="file"
                           accept="image/*"
+                          multiple
                           className="hidden"
                           ref={newColorImageRef}
                           onChange={handleNewColorImagePick}

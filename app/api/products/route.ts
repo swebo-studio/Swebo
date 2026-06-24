@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
     data: {
       nameHe: body.nameHe,
       descriptionHe: body.descriptionHe ?? "",
+      detailsHe: body.detailsHe ?? "",
       price: body.price ?? 150,
+      comparePrice: body.comparePrice ?? null,
       stock: body.stock ?? 0,
       image: body.image ?? "",
       active: body.active ?? true,

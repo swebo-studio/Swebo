@@ -34,9 +34,10 @@ interface Props {
   showSizeChart?: boolean;
   sizeGuideImage?: string;
   sizeGuideImages?: string[];
+  detailsHe?: string;
 }
 
-export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages }: Props) {
+export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe }: Props) {
   const { addItem } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -299,6 +300,13 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
             </svg>
             שלח הודעה לשמירת מקום
           </a>
+        )}
+
+        {/* Product details */}
+        {detailsHe && (
+          <div className="whitespace-pre-line text-sm" style={{ color: "var(--text-muted)" }}>
+            {detailsHe}
+          </div>
         )}
 
         {/* Shipping info */}

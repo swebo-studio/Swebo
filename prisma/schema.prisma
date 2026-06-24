@@ -18,7 +18,9 @@ model Product {
   id            String         @id @default(cuid())
   nameHe        String
   descriptionHe String         @default("")
+  detailsHe     String         @default("")
   price         Float          @default(150)
+  comparePrice  Float?
   stock         Int            @default(0)
   image         String         @default("")
   active        Boolean        @default(true)

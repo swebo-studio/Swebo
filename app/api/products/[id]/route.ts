@@ -33,7 +33,9 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     data: {
       nameHe: body.nameHe,
       descriptionHe: body.descriptionHe,
+      detailsHe: body.detailsHe,
       price: body.price,
+      comparePrice: body.comparePrice ?? null,
       stock: body.stock,
       image: body.image,
       active: body.active,

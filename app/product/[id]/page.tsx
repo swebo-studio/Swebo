@@ -5,6 +5,7 @@ import ProductDetail from "@/components/ProductDetail";
 import ProductCard from "@/components/ProductCard";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import { Suspense } from "react";
+import { computeDisplayPrice } from "@/lib/promotions";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,8 @@ export default async function ProductPage(
 
   if (!product || !product.active) notFound();
 
+  const { displayPrice, originalPrice } = computeDisplayPrice(product.price, product.comparePrice, cartDiscountPct);
+
   const cfg: Record<string, string> = {};
   configRows.forEach((r) => { cfg[r.key] = r.value; });
 
@@ -111,12 +114,10 @@ export default async function ProductPage(
           </p>
         )}
         <div className="text-right mb-6 flex items-baseline gap-3 justify-end">
-          {cartDiscountPct > 0 ? (
+          {originalPrice ? (
             <>
-              <span className="text-2xl line-through" style={{ color: "var(--text-muted)" }}>₪{product.price}</span>
-              <span className="text-4xl font-extrabold" style={{ color: "var(--maroon)" }}>
-                ₪{Math.round(product.price * (1 - cartDiscountPct / 100))}
-              </span>
+              <span className="text-2xl line-through" style={{ color: "var(--text-muted)" }}>₪{originalPrice}</span>
+              <span className="text-4xl font-extrabold" style={{ color: "var(--maroon)" }}>₪{displayPrice}</span>
             </>
           ) : (
             <span className="text-4xl font-extrabold" style={{ color: "var(--text)" }}>₪{product.price}</span>
@@ -136,6 +137,7 @@ export default async function ProductPage(
             showSizeChart={showSizeChart}
             sizeGuideImages={sizeGuideImages.length > 0 ? sizeGuideImages : undefined}
             sizeGuideImage={sizeGuideImages[0] || undefined}
+            detailsHe={product.detailsHe}
           />
         </Suspense>
 
@@ -150,15 +152,16 @@ export default async function ProductPage(
                 const totalStock = p.colors.length > 0
                   ? p.colors.reduce((s, c) => s + c.stock, 0)
                   : p.stock;
+                const related = computeDisplayPrice(p.price, p.comparePrice, cartDiscountPct);
                 return (
                   <ProductCard
                     key={p.id}
                     id={p.id}
                     nameHe={p.nameHe}
-                    price={p.price}
+                    price={related.originalPrice ?? p.price}
                     image={displayImg}
                     stock={totalStock}
-                    discountedPrice={cartDiscountPct > 0 ? Math.round(p.price * (1 - cartDiscountPct / 100)) : undefined}
+                    discountedPrice={related.originalPrice ? related.displayPrice : undefined}
                   />
                 );
               })}

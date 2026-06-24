@@ -4,6 +4,7 @@ import ProductCard from "@/components/ProductCard";
 import HeroSection from "@/components/HeroSection";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import NewsletterSection from "@/components/NewsletterSection";
+import { computeDisplayPrice } from "@/lib/promotions";
 
 export const dynamic = "force-dynamic";
 
@@ -128,15 +129,16 @@ export default async function HomePage({ searchParams }: Props) {
                     const totalStock = p.colors.length > 0
                       ? p.colors.reduce((s, c) => s + c.stock, 0)
                       : p.stock;
+                    const { displayPrice, originalPrice } = computeDisplayPrice(p.price, p.comparePrice, cartDiscountPct);
                     return (
                       <ProductCard
                         key={p.id}
                         id={p.id}
                         nameHe={p.nameHe}
-                        price={p.price}
+                        price={originalPrice ?? p.price}
                         image={displayImg}
                         stock={totalStock}
-                        discountedPrice={cartDiscountPct > 0 ? Math.round(p.price * (1 - cartDiscountPct / 100)) : undefined}
+                        discountedPrice={originalPrice ? displayPrice : undefined}
                       />
                     );
                   })}
