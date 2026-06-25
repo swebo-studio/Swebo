@@ -5,6 +5,8 @@ import ConfirmModal from "@/components/ConfirmModal";
 interface Order {
   id: string;
   customerName: string;
+  customerPhone: string;
+  customerEmail: string;
   city: string;
   total: number;
   status: string;
@@ -61,7 +63,7 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
             <table className="w-full text-sm text-right">
               <thead>
                 <tr style={{ borderBottom: `1px solid var(--border)`, background: "var(--cream-dark)" }}>
-                  {["#", "לקוח", "משלוח", "סכום", "סטטוס", "תאריך", ""].map((h) => (
+                  {["#", "לקוח", "טלפון", "אימייל", "משלוח", "סכום", "סטטוס", "תאריך", ""].map((h) => (
                     <th key={h} className="px-4 py-3 font-medium" style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
                 </tr>
@@ -73,6 +75,16 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
                       {order.id.slice(-6).toUpperCase()}
                     </td>
                     <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>{order.customerName}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                      <a href={`tel:${order.customerPhone}`} className="underline hover:opacity-70" style={{ color: "var(--text)" }}>
+                        {order.customerPhone}
+                      </a>
+                    </td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                      <a href={`mailto:${order.customerEmail}`} className="underline hover:opacity-70" style={{ color: "var(--text)" }}>
+                        {order.customerEmail}
+                      </a>
+                    </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>{deliveryLabel(order)}</td>
                     <td className="px-4 py-3 font-bold" style={{ color: "var(--text)" }}>₪{order.total}</td>
                     <td className="px-4 py-3">

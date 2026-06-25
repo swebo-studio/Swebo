@@ -119,6 +119,8 @@ export default async function AdminDashboard() {
       <RecentOrdersTable initial={recentOrders.map((o) => ({
         id: o.id,
         customerName: o.customerName,
+        customerPhone: o.customerPhone,
+        customerEmail: o.customerEmail,
         city: o.city,
         total: o.total,
         status: o.status,
