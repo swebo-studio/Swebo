@@ -61,6 +61,8 @@ export async function POST(req: NextRequest) {
       customerEmail: customer.email,
       customerPhone: customer.phone,
       address: customer.address,
+      floor: customer.floor ?? null,
+      apartment: customer.apartment ?? null,
       city: customer.city,
       subtotal,
       delivery,

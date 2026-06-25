@@ -58,6 +58,8 @@ export async function createHFDShipment(order: {
   customerPhone: string;
   customerEmail: string;
   address: string;
+  floor?: string | null;
+  apartment?: string | null;
   city: string;
   total: number;
   pudoCodeDestination?: number;
@@ -90,8 +92,8 @@ export async function createHFDShipment(order: {
     streetName: isEpost ? "" : streetName.slice(0, 30),
     houseNum: isEpost ? "" : houseNum.slice(0, 5),
     entrance: "",
-    floor: "",
-    apartment: "",
+    floor: isEpost ? "" : (order.floor ?? "").slice(0, 10),
+    apartment: isEpost ? "" : (order.apartment ?? "").slice(0, 10),
     telFirst: order.customerPhone.replace(/\D/g, "").slice(0, 20),
     telSecond: "",
     addressRemarks: "",

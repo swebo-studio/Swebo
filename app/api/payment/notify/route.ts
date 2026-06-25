@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         const deliveryLine =
           order.deliveryMode === "self" ? "איסוף עצמי" :
           order.deliveryMode === "epost" ? `נקודת איסוף: ${order.pudoPointName ?? ""} (${order.city})` :
-          `משלוח לכתובת: ${order.address}, ${order.city}`;
+          `משלוח לכתובת: ${order.address}${order.floor ? `, קומה ${order.floor}` : ""}${order.apartment ? `, דירה ${order.apartment}` : ""}, ${order.city}`;
         const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n${deliveryLine}\n\n${itemLines}`;
         await notifyAdmin("הזמנה חדשה", msg);
 
@@ -91,6 +91,8 @@ export async function GET(req: NextRequest) {
             customerPhone: order.customerPhone,
             customerEmail: order.customerEmail,
             address: order.address,
+            floor: order.floor,
+            apartment: order.apartment,
             city: order.city,
             total: order.total,
             pudoCodeDestination: order.pudoCodeDestination ? Number(order.pudoCodeDestination) : undefined,

@@ -26,6 +26,13 @@ const NEXT_STAGE: Record<Stage, Stage | null> = {
 
 const HFD_BASE = "https://api.hfd.co.il/rest/v2";
 
+function deliveryModeLabel(order: Pick<Order, "deliveryMode" | "pudoPointName">): string {
+  if (order.deliveryMode === "self") return "איסוף עצמי";
+  if (order.deliveryMode === "epost") return `נקודת איסוף${order.pudoPointName ? ` — ${order.pudoPointName}` : ""}`;
+  if (order.deliveryMode === "home") return "משלוח עד הבית";
+  return "משלוח עד הבית"; // legacy orders with no deliveryMode saved
+}
+
 interface OrderItem {
   id: string;
   quantity: number;
@@ -41,7 +48,11 @@ interface Order {
   customerEmail: string;
   customerPhone: string;
   address: string;
+  floor: string | null;
+  apartment: string | null;
   city: string;
+  deliveryMode: string | null;
+  pudoPointName: string | null;
   subtotal: number;
   delivery: number;
   total: number;
@@ -304,7 +315,17 @@ export default function AdminOrdersPage() {
                   <div className="border-t px-4 pb-4 pt-3 text-sm text-right" style={{ borderColor: "var(--border)" }}>
                     {/* Customer */}
                     <div className="mb-3" style={{ color: "var(--text-muted)" }}>
-                      <p>{order.address}, {order.city}</p>
+                      <p className="font-bold mb-0.5" style={{ color: "var(--text)" }}>
+                        {deliveryModeLabel(order)}
+                      </p>
+                      {order.deliveryMode !== "self" && (
+                        <p>
+                          {order.address}
+                          {order.floor ? `, קומה ${order.floor}` : ""}
+                          {order.apartment ? `, דירה ${order.apartment}` : ""}
+                          {`, ${order.city}`}
+                        </p>
+                      )}
                       <a
                         href={`tel:${order.customerPhone}`}
                         className="underline"

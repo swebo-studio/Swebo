@@ -95,7 +95,7 @@ export default function CheckoutPage() {
     setLoadingPoints(false);
   }
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", city: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", floor: "", apartment: "", city: "" });
 
   const hasFreeShipping = promotionRewards.some((r) => r.type === "free_shipping");
   const baseDelivery = deliveryMode === "home" ? (hasFreeShipping ? 0 : 40) : deliveryMode === "epost" ? 25 : 0;
@@ -155,7 +155,15 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           couponCode: couponDiscount > 0 ? couponInput.trim().toUpperCase() : undefined,
-          customer: { name: form.name, email: form.email, phone: form.phone, address, city },
+          customer: {
+            name: form.name,
+            email: form.email,
+            phone: form.phone,
+            address,
+            city,
+            floor: deliveryMode === "home" ? form.floor.trim() || undefined : undefined,
+            apartment: deliveryMode === "home" ? form.apartment.trim() || undefined : undefined,
+          },
           delivery,
           deliveryMode,
           pudoCodeDestination: deliveryMode === "epost" ? selectedPoint!.n_code : undefined,
@@ -265,24 +273,60 @@ export default function CheckoutPage() {
           {/* Home delivery address fields */}
           {deliveryMode === "home" && (
             <>
-              {[
-                { name: "address", label: "כתובת", placeholder: "רחוב הרצל 1, דירה 5" },
-                { name: "city",    label: "עיר",    placeholder: "תל אביב" },
-              ].map((field) => (
-                <div key={field.name} className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>{field.label}</label>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>רחוב ומספר בית</label>
+                <input
+                  type="text"
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  placeholder="רחוב הרצל 1"
+                  required
+                  className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>קומה (אופציונלי)</label>
                   <input
                     type="text"
-                    name={field.name}
-                    value={form[field.name as keyof typeof form]}
+                    name="floor"
+                    value={form.floor}
                     onChange={handleChange}
-                    placeholder={field.placeholder}
-                    required
+                    placeholder="3"
                     className="w-full px-4 py-3 rounded-xl border text-right outline-none"
                     style={inputStyle}
                   />
                 </div>
-              ))}
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>דירה (אופציונלי)</label>
+                  <input
+                    type="text"
+                    name="apartment"
+                    value={form.apartment}
+                    onChange={handleChange}
+                    placeholder="5"
+                    className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>עיר</label>
+                <input
+                  type="text"
+                  name="city"
+                  value={form.city}
+                  onChange={handleChange}
+                  placeholder="תל אביב"
+                  required
+                  className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                  style={inputStyle}
+                />
+              </div>
             </>
           )}
 

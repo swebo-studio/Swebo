@@ -110,7 +110,12 @@ export default async function OrderPage(
           </h2>
           <p className="text-sm" style={{ color: "var(--text)" }}>{order.customerName}</p>
           {!isSelfPickup && (
-            <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{order.address}, {order.city}</p>
+            <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
+              {order.address}
+              {order.floor ? `, קומה ${order.floor}` : ""}
+              {order.apartment ? `, דירה ${order.apartment}` : ""}
+              {`, ${order.city}`}
+            </p>
           )}
           <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>{order.customerPhone}</p>
           {order.shipmentNumber && (
