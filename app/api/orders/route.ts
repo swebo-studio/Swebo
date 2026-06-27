@@ -19,16 +19,16 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { customer, cartItems, delivery: requestedDelivery, couponCode, pudoCodeDestination, pudoPointName, deliveryMode } = body;
 
-  // Validate coupon
+  // Validate coupon (marked as used only once payment is confirmed — see /api/payment/notify)
   let discountPct = 0;
   let discountAmount = 0;
-  let couponId: string | null = null;
+  let appliedCouponCode: string | null = null;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode);
     if (coupon) {
       discountPct = coupon.discountPct ?? 0;
       discountAmount = coupon.discountAmount ?? 0;
-      couponId = coupon.singleUse ? coupon.id : null;
+      appliedCouponCode = couponCode.toUpperCase();
     }
   }
 
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
       pudoCodeDestination: pudoCodeDestination != null ? String(pudoCodeDestination) : null,
       pudoPointName: pudoPointName ?? null,
       deliveryMode: deliveryMode ?? null,
+      couponCode: appliedCouponCode,
       items: {
         create: effectiveItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
           productId: item.productId,
@@ -83,14 +84,8 @@ export async function POST(req: NextRequest) {
     include: { items: { include: { product: true } } },
   });
 
-  // Mark coupon used
-  if (couponId) {
-    await prisma.coupon.update({ where: { id: couponId }, data: { usedAt: new Date(), usedByEmail: customer.email } });
-    // Also mark the newsletter signup (if any) so the 24h reminder cron skips it
-    await prisma.newsletter.updateMany({ where: { couponCode: couponCode.toUpperCase() }, data: { usedAt: new Date() } });
-  }
-
-  // Stock is decremented in /api/payment/notify only after payment is confirmed
+  // Coupon is marked as used, and stock decremented, only in /api/payment/notify
+  // once payment is actually confirmed — not here at order creation.
 
   return Response.json(order, { status: 201 });
 }

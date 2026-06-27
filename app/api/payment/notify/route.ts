@@ -67,6 +67,20 @@ export async function GET(req: NextRequest) {
         console.error("[Post-payment] stock decrement failed:", order.id, e);
       }
 
+      // Mark the coupon as used now that payment is confirmed (not at order
+      // creation — an abandoned checkout must not burn the customer's code).
+      try {
+        if (order.couponCode) {
+          const coupon = await prisma.coupon.findUnique({ where: { code: order.couponCode } });
+          if (coupon && coupon.singleUse && !coupon.usedAt) {
+            await prisma.coupon.update({ where: { id: coupon.id }, data: { usedAt: new Date(), usedByEmail: order.customerEmail } });
+            await prisma.newsletter.updateMany({ where: { couponCode: order.couponCode }, data: { usedAt: new Date() } });
+          }
+        }
+      } catch (e) {
+        console.error("[Post-payment] coupon mark-used failed:", order.id, e);
+      }
+
       // 2. Customer confirmation SMS
       try {
         await notifyOrderConfirmation({

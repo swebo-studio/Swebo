@@ -93,6 +93,7 @@ model Order {
   pudoCodeDestination String?
   pudoPointName       String?
   deliveryMode        String?
+  couponCode          String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }
