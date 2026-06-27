@@ -154,7 +154,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          couponCode: couponDiscount > 0 ? couponInput.trim().toUpperCase() : undefined,
+          couponCode: (couponDiscount > 0 || couponDiscountAmount > 0) ? couponInput.trim().toUpperCase() : undefined,
           customer: {
             name: form.name,
             email: form.email,
