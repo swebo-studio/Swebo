@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
             pudoCodeDestination: order.pudoCodeDestination ? Number(order.pudoCodeDestination) : undefined,
             isEpost: order.deliveryMode === "epost",
           });
-          if (result && result.errorCode === "0" && result.shipmentNumber) {
+          if (result && result.shipmentNumber) {
             await prisma.order.update({
               where: { id: order.id },
               data: {
