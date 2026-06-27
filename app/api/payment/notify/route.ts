@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyHypayTransaction } from "@/lib/hypay";
 import { notifyOrderConfirmation, notifyAdmin } from "@/lib/notify";
@@ -32,16 +32,23 @@ export async function GET(req: NextRequest) {
   });
 
   if (verified) {
-    // Load the full order once, then fan out all post-payment actions
-    prisma.order
-      .findUnique({
+    // Run post-payment side effects via after() so the platform keeps this
+    // function alive until they finish, instead of risking termination
+    // right after the redirect response below is sent (which silently
+    // killed slower chains — e.g. multi-item orders or the HFD step that
+    // runs last — before SMS/HFD ever fired).
+    after(async () => {
+      const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: { items: { include: { product: true } } },
-      })
-      .then(async (order) => {
-        if (!order) return;
+      });
+      if (!order) return;
 
-        // 1. Decrement stock
+      // Each step is independent — one failing (e.g. ActiveTrail down) must
+      // never prevent the others (e.g. HFD shipment) from running.
+
+      // 1. Decrement stock
+      try {
         for (const item of order.items) {
           if (item.color) {
             const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
@@ -56,8 +63,12 @@ export async function GET(req: NextRequest) {
           }
           await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
         }
+      } catch (e) {
+        console.error("[Post-payment] stock decrement failed:", order.id, e);
+      }
 
-        // 2. Customer confirmation SMS
+      // 2. Customer confirmation SMS
+      try {
         await notifyOrderConfirmation({
           id: order.id,
           customerName: order.customerName,
@@ -71,8 +82,12 @@ export async function GET(req: NextRequest) {
             price: it.price,
           })),
         });
+      } catch (e) {
+        console.error("[Post-payment] customer SMS failed:", order.id, e);
+      }
 
-        // 3. Admin notification SMS
+      // 3. Admin notification SMS
+      try {
         const itemLines = order.items
           .map((i) => `• ${i.product.nameHe} × ${i.quantity} (${i.color ?? "ללא צבע"} / מידה ${i.size}) ₪${i.price * i.quantity}`)
           .join("\n");
@@ -82,8 +97,12 @@ export async function GET(req: NextRequest) {
           `משלוח לכתובת: ${order.address}${order.floor ? `, קומה ${order.floor}` : ""}${order.apartment ? `, דירה ${order.apartment}` : ""}, ${order.city}`;
         const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n${deliveryLine}\n\n${itemLines}`;
         await notifyAdmin("הזמנה חדשה", msg);
+      } catch (e) {
+        console.error("[Post-payment] admin SMS failed:", order.id, e);
+      }
 
-        // 4. Create HFD shipment
+      // 4. Create HFD shipment
+      try {
         if (order.delivery > 0 || order.pudoCodeDestination || order.deliveryMode === "epost") {
           const result = await createHFDShipment({
             id: order.id,
@@ -107,11 +126,15 @@ export async function GET(req: NextRequest) {
               },
             });
           } else if (result) {
-            console.error("[HFD] Shipment creation failed:", result.errorCode, result.errorMessage);
+            console.error("[HFD] Shipment creation failed:", order.id, result.errorCode, result.errorMessage);
+            await notifyAdmin("שגיאת HFD", `הזמנה #${order.id.slice(-6).toUpperCase()} — יצירת משלוח נכשלה (${result.errorCode}): ${result.errorMessage}`).catch(() => {});
           }
         }
-      })
-      .catch((e) => console.error("[Post-payment actions] failed:", e));
+      } catch (e) {
+        console.error("[Post-payment] HFD shipment failed:", order.id, e);
+        await notifyAdmin("שגיאת HFD", `הזמנה #${order.id.slice(-6).toUpperCase()} — יצירת משלוח נכשלה עם שגיאה`).catch(() => {});
+      }
+    });
 
     return Response.redirect(`${origin}/order/${orderId}?status=success`);
   } else {
