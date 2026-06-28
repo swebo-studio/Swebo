@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import RecentOrdersTable from "@/components/RecentOrdersTable";
+import LowStockPanel from "@/components/LowStockPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -95,26 +96,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Low stock warning */}
-      {lowStock.length > 0 && (
-        <div
-          className="mb-8 p-4 rounded-2xl border text-right"
-          style={{ background: "#fff3e0", borderColor: "#f59e0b" }}
-        >
-          <p className="font-bold mb-3" style={{ color: "#92400e" }}>
-            מלאי נמוך
-          </p>
-          <div className="flex flex-col gap-2">
-            {lowStock.map((item) => (
-              <div key={item.id}>
-                <p className="text-sm font-semibold" style={{ color: "#92400e" }}>{item.nameHe}</p>
-                {item.lines.map((line, i) => (
-                  <p key={i} className="text-xs mt-0.5" style={{ color: "#b45309" }}>{line}</p>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <LowStockPanel items={lowStock} />
 
       <RecentOrdersTable initial={recentOrders.map((o) => ({
         id: o.id,
