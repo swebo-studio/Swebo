@@ -183,6 +183,15 @@ export default function AdminOrdersPage() {
                   <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
                     {order.items.map((i) => `${i.product.nameHe} ×${i.quantity}`).join(" · ")}
                   </p>
+                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                    <a href={`tel:${order.customerPhone}`} className="underline hover:opacity-70" style={{ color: "var(--text)" }}>
+                      {order.customerPhone}
+                    </a>
+                    <span className="mx-1">·</span>
+                    <a href={`mailto:${order.customerEmail}`} className="underline hover:opacity-70" style={{ color: "var(--text)" }}>
+                      {order.customerEmail}
+                    </a>
+                  </p>
                 </div>
                 <div className="text-left flex-shrink-0">
                   <p className="font-extrabold text-sm" style={{ color: "var(--text)" }}>₪{order.total}</p>
