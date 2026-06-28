@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import ConfirmModal from "@/components/ConfirmModal";
 
 interface Order {
@@ -46,14 +47,28 @@ export default function RecentOrdersTable({ initial }: { initial: Order[] }) {
     <>
     <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
       {/* Header */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="w-full px-6 py-4 border-b flex items-center justify-between transition-opacity hover:opacity-70"
+      <div
+        className="w-full px-6 py-4 border-b flex items-center justify-between"
         style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
       >
-        <span className="text-sm" style={{ color: "var(--text-muted)" }}>{collapsed ? "הצג" : "הסתר"}</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            className="text-sm transition-opacity hover:opacity-70"
+            style={{ color: "var(--text-muted)" }}
+          >
+            {collapsed ? "הצג" : "הסתר"}
+          </button>
+          <Link
+            href="/admin/orders"
+            className="text-sm underline underline-offset-2 transition-opacity hover:opacity-70"
+            style={{ color: "var(--text)" }}
+          >
+            צפה בכל ההזמנות
+          </Link>
+        </div>
         <span className="font-bold text-right" style={{ color: "var(--text)" }}>הזמנות אחרונות</span>
-      </button>
+      </div>
 
       {!collapsed && (
         orders.length === 0 ? (

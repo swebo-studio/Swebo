@@ -95,7 +95,6 @@ export default function AdminOrdersPage() {
       setOrders((prev) =>
         prev.map((o) => o.id === order.id ? { ...o, orderStage: next } : o)
       );
-      setExpandedId(null);
     }
     setAdvancing(null);
   }
@@ -234,157 +233,145 @@ export default function AdminOrdersPage() {
         })}
       </div>
 
-      {/* Order list */}
+      {/* Order table */}
       {visible.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
           <span style={{ opacity: 0.3 }}>{STAGE_ICONS[activeStage]}</span>
           <p style={{ color: "var(--text-muted)" }}>אין הזמנות ב{STAGES.find((s) => s.key === activeStage)?.label}</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {visible.map((order) => {
-            const isExpanded = expandedId === order.id;
-            const next = NEXT_STAGE[order.orderStage];
-            const nextLabel = next ? STAGES.find((s) => s.key === next)?.label : null;
-
-            return (
-              <div
-                key={order.id}
-                className="rounded-2xl border overflow-hidden"
-                style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
-              >
-                {/* Card header — tap to expand */}
-                <div
-                  className="flex items-center gap-3 p-4 cursor-pointer active:opacity-70"
-                  onClick={() => setExpandedId(isExpanded ? null : order.id)}
-                >
-                  {/* Expand chevron */}
-                  <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
-                    {isExpanded
-                      ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
-                      : <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-                    }
-                  </span>
-
-                  {/* Order info */}
-                  <div className="flex-1 text-right min-w-0">
-                    <p className="font-bold text-base truncate" style={{ color: "var(--text)" }}>
-                      {order.customerName}
-                    </p>
-                    <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                      {order.items.map((i) =>
-                        `${i.product.nameHe} ×${i.quantity}${i.color ? ` ${i.color}` : ""} ${i.size}`
-                      ).join(" · ")}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                      {new Date(order.createdAt).toLocaleDateString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      {order.shipmentNumber && (
-                        <span className="mr-2 font-mono" style={{ color: "var(--green)" }}>
-                          #{order.shipmentNumber}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Total */}
-                  <div className="text-left flex-shrink-0">
-                    <p className="font-extrabold text-base" style={{ color: "var(--text)" }}>₪{order.total}</p>
-                  </div>
-                </div>
-
-                {/* Advance button — always visible */}
-                {next && (
-                  <div className="px-4 pb-4">
-                    <button
-                      onClick={() => advanceStage(order)}
-                      disabled={advancing === order.id}
-                      className="w-full py-3.5 rounded-xl font-bold text-base transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-                      style={{ background: "var(--text)", color: "var(--cream)" }}
-                    >
-                      {advancing === order.id ? (
-                        "מעדכן..."
-                      ) : (
-                        <span className="flex items-center gap-2">{next && STAGE_ICONS[next]} סמן כ{nextLabel}</span>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* Expanded details */}
-                {isExpanded && (
-                  <div className="border-t px-4 pb-4 pt-3 text-sm text-right" style={{ borderColor: "var(--border)" }}>
-                    {/* Customer */}
-                    <div className="mb-3" style={{ color: "var(--text-muted)" }}>
-                      <p className="font-bold mb-0.5" style={{ color: "var(--text)" }}>
-                        {deliveryModeLabel(order)}
-                      </p>
-                      {order.deliveryMode !== "self" && (
-                        <p>
-                          {order.address}
-                          {order.floor ? `, קומה ${order.floor}` : ""}
-                          {order.apartment ? `, דירה ${order.apartment}` : ""}
-                          {`, ${order.city}`}
-                        </p>
-                      )}
-                      <a
-                        href={`tel:${order.customerPhone}`}
-                        className="underline"
-                        style={{ color: "var(--text)" }}
+        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-right">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream-dark)" }}>
+                  {["#", "לקוח", "טלפון", "אימייל", "משלוח", "סכום", "תאריך", ""].map((h) => (
+                    <th key={h} className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((order) => {
+                  const isExpanded = expandedId === order.id;
+                  const next = NEXT_STAGE[order.orderStage];
+                  const nextLabel = next ? STAGES.find((s) => s.key === next)?.label : null;
+                  return (
+                    <React.Fragment key={order.id}>
+                      <tr
+                        className="cursor-pointer hover:opacity-80"
+                        style={{ borderBottom: "1px solid var(--border)" }}
+                        onClick={() => setExpandedId(isExpanded ? null : order.id)}
                       >
-                        {order.customerPhone}
-                      </a>
-                      <span className="mx-1">·</span>
-                      <span>{order.customerEmail}</span>
-                    </div>
+                        <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                          {order.id.slice(-6).toUpperCase()}
+                        </td>
+                        <td className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: "var(--text)" }}>{order.customerName}</td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <a href={`tel:${order.customerPhone}`} className="underline hover:opacity-70" style={{ color: "var(--text)" }}>
+                            {order.customerPhone}
+                          </a>
+                        </td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <a href={`mailto:${order.customerEmail}`} className="underline hover:opacity-70" style={{ color: "var(--text)" }}>
+                            {order.customerEmail}
+                          </a>
+                        </td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{deliveryModeLabel(order)}</td>
+                        <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: "var(--text)" }}>₪{order.total}</td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                          {new Date(order.createdAt).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
+                        </td>
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          {next && (
+                            <button
+                              onClick={() => advanceStage(order)}
+                              disabled={advancing === order.id}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-opacity disabled:opacity-50 whitespace-nowrap"
+                              style={{ background: "var(--text)", color: "var(--cream)" }}
+                            >
+                              {advancing === order.id ? "..." : `סמן כ${nextLabel}`}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
 
-                    {/* Items */}
-                    <div className="border rounded-xl overflow-hidden mb-3" style={{ borderColor: "var(--border)" }}>
-                      {order.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex justify-between px-3 py-2 border-b last:border-0 text-xs"
-                          style={{ borderColor: "var(--border)" }}
-                        >
-                          <span style={{ color: "var(--text-muted)" }}>₪{item.price * item.quantity}</span>
-                          <span style={{ color: "var(--text)" }}>
-                            {item.product.nameHe} ×{item.quantity}
-                            {item.color ? ` · ${item.color}` : ""} / מידה {item.size}
-                          </span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between px-3 py-2 font-extrabold text-xs" style={{ background: "var(--cream)", color: "var(--text)" }}>
-                        <span>₪{order.total}</span>
-                        <span>סה&quot;כ{order.delivery === 0 ? " (ללא משלוח)" : ""}</span>
-                      </div>
-                    </div>
+                      {isExpanded && (
+                        <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream)" }}>
+                          <td colSpan={8} className="px-4 py-4 text-right">
+                            <div className="flex flex-col gap-3 max-w-xl mr-0 ml-auto">
+                              {/* Delivery details */}
+                              <div style={{ color: "var(--text-muted)" }}>
+                                <p className="font-bold mb-0.5" style={{ color: "var(--text)" }}>
+                                  {deliveryModeLabel(order)}
+                                </p>
+                                {order.deliveryMode !== "self" && (
+                                  <p className="text-sm">
+                                    {order.address}
+                                    {order.floor ? `, קומה ${order.floor}` : ""}
+                                    {order.apartment ? `, דירה ${order.apartment}` : ""}
+                                    {`, ${order.city}`}
+                                  </p>
+                                )}
+                                {order.shipmentNumber && (
+                                  <p className="text-xs mt-1 font-mono" style={{ color: "var(--green)" }}>
+                                    מספר משלוח: {order.shipmentNumber}
+                                  </p>
+                                )}
+                              </div>
 
-                    {/* HFD label */}
-                    {order.shipmentNumber && (
-                      <a
-                        href={`${HFD_BASE}/shipments/${order.shipmentNumber}/label`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70 mb-2"
-                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                      >
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                        הדפס תווית HFD
-                      </a>
-                    )}
+                              {/* Items */}
+                              <div className="border rounded-xl overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                                {order.items.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="flex justify-between px-3 py-2 border-b last:border-0 text-xs"
+                                    style={{ borderColor: "var(--border)" }}
+                                  >
+                                    <span style={{ color: "var(--text-muted)" }}>₪{item.price * item.quantity}</span>
+                                    <span style={{ color: "var(--text)" }}>
+                                      {item.product.nameHe} ×{item.quantity}
+                                      {item.color ? ` · ${item.color}` : ""} / מידה {item.size}
+                                    </span>
+                                  </div>
+                                ))}
+                                <div className="flex justify-between px-3 py-2 font-extrabold text-xs" style={{ background: "var(--cream-dark)", color: "var(--text)" }}>
+                                  <span>₪{order.total}</span>
+                                  <span>סה&quot;כ{order.delivery === 0 ? " (ללא משלוח)" : ""}</span>
+                                </div>
+                              </div>
 
-                    {/* Delete */}
-                    <button
-                      onClick={() => setPendingDelete(order)}
-                      className="w-full py-2.5 rounded-xl text-sm font-bold border transition-opacity hover:opacity-70"
-                      style={{ borderColor: "var(--maroon)", color: "var(--maroon)", background: "transparent" }}
-                    >
-                      מחק הזמנה
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                              {/* HFD label */}
+                              {order.shipmentNumber && (
+                                <a
+                                  href={`${HFD_BASE}/shipments/${order.shipmentNumber}/label`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border font-medium transition-opacity hover:opacity-70"
+                                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                                >
+                                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                  הדפס תווית HFD
+                                </a>
+                              )}
+
+                              {/* Delete */}
+                              <button
+                                onClick={() => setPendingDelete(order)}
+                                className="w-full py-2.5 rounded-xl text-sm font-bold border transition-opacity hover:opacity-70"
+                                style={{ borderColor: "var(--maroon)", color: "var(--maroon)", background: "transparent" }}
+                              >
+                                מחק הזמנה
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
