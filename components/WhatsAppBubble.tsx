@@ -1,9 +1,9 @@
 "use client";
+import { buildWhatsAppHref } from "@/lib/whatsapp";
 
 export default function WhatsAppBubble({ number }: { number: string }) {
   if (!number) return null;
-  const digits = number.replace(/\D/g, "");
-  const href = `https://wa.me/${digits}?text=${encodeURIComponent("היי SWEBO🤍\nהגעתי דרך האתר אשמח לקבל עזרה")}`;
+  const href = buildWhatsAppHref(number, "היי SWEBO🤍\nהגעתי דרך האתר אשמח לקבל עזרה");
   return (
     <a
       href={href}

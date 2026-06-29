@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCart } from "./CartProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import SizeChartModal from "./SizeChartModal";
+import { buildWhatsAppHref } from "@/lib/whatsapp";
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
@@ -37,13 +38,6 @@ interface Props {
   detailsHe?: string;
   shippingInfoText?: string;
   whatsappLink?: string;
-}
-
-function buildWhatsAppHref(link: string, text: string): string {
-  if (!link) return "";
-  const encoded = encodeURIComponent(text);
-  if (link.startsWith("http")) return `${link}${link.includes("?") ? "&" : "?"}text=${encoded}`;
-  return `https://wa.me/${link}?text=${encoded}`;
 }
 
 const DEFAULT_SHIPPING_INFO = "משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP";

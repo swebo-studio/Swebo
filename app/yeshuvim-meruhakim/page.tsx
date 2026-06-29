@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import Header from "@/components/Header";
 import Link from "next/link";
+import { buildWhatsAppHref } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ const LOCALITIES: string[] = ["אבו גוש","אבו סנאן","אבטין","א
 export default async function YeshuvimMerukhakimPage() {
   const contactRow = await prisma.siteConfig.findUnique({ where: { key: "contact.whatsapp" } });
   const waLink = contactRow?.value || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "";
-  const waHref = waLink.startsWith("http") ? waLink : waLink ? `https://wa.me/${waLink}` : "";
+  const waHref = buildWhatsAppHref(waLink);
 
   return (
     <>

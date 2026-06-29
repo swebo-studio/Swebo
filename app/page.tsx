@@ -5,6 +5,7 @@ import HeroSection from "@/components/HeroSection";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import NewsletterSection from "@/components/NewsletterSection";
 import { computeDisplayPrice } from "@/lib/promotions";
+import { buildWhatsAppHref } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -180,7 +181,7 @@ export default async function HomePage({ searchParams }: Props) {
           <div className="flex justify-center gap-6 flex-wrap">
             {(cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER) && (
               <a
-                href={(() => { const v = cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ""; return v.startsWith("http") ? v : `https://wa.me/${v}`; })()}
+                href={buildWhatsAppHref(cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-white transition-opacity hover:opacity-80"
