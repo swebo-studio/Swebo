@@ -15,7 +15,7 @@ const DEFAULT_SIZES: SizeRow[] = [
 ];
 
 export default function AdminConfigPage() {
-  const [hero, setHero] = useState({ slogan: "", catalogName: "", imagePath: "", videoPath: "" });
+  const [hero, setHero] = useState({ slogan: "", catalogName: "", imagePath: "", videoPath: "", imagePathMobile: "", videoPathMobile: "" });
   const [contact, setContact] = useState({ whatsapp: "", instagram: "", tiktok: "", email: "" });
   const [sizes, setSizes] = useState<SizeRow[]>(DEFAULT_SIZES);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -32,9 +32,11 @@ export default function AdminConfigPage() {
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState<"image" | "video" | "sizeGuide" | null>(null);
+  const [uploading, setUploading] = useState<"image" | "video" | "imageMobile" | "videoMobile" | "sizeGuide" | null>(null);
   const heroImageRef = useRef<HTMLInputElement>(null);
   const heroVideoRef = useRef<HTMLInputElement>(null);
+  const heroImageMobileRef = useRef<HTMLInputElement>(null);
+  const heroVideoMobileRef = useRef<HTMLInputElement>(null);
   const sizeGuideRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -44,6 +46,8 @@ export default function AdminConfigPage() {
         catalogName: cfg["hero.catalogName"] || "",
         imagePath: cfg["hero.imagePath"] || "",
         videoPath: cfg["hero.videoPath"] || "",
+        imagePathMobile: cfg["hero.imagePathMobile"] || "",
+        videoPathMobile: cfg["hero.videoPathMobile"] || "",
       });
       setContact({
         whatsapp: cfg["contact.whatsapp"] || "",
@@ -111,7 +115,7 @@ export default function AdminConfigPage() {
     }});
   }
 
-  async function uploadFile(file: File, type: "image" | "video" | "sizeGuide") {
+  async function uploadFile(file: File, type: "image" | "video" | "imageMobile" | "videoMobile" | "sizeGuide") {
     setUploading(type);
     const fd = new FormData();
     fd.append("file", file);
@@ -119,6 +123,8 @@ export default function AdminConfigPage() {
     const data = await res.json();
     if (type === "image") setHero((h) => ({ ...h, imagePath: data.url, videoPath: "" }));
     else if (type === "video") setHero((h) => ({ ...h, videoPath: data.url, imagePath: "" }));
+    else if (type === "imageMobile") setHero((h) => ({ ...h, imagePathMobile: data.url, videoPathMobile: "" }));
+    else if (type === "videoMobile") setHero((h) => ({ ...h, videoPathMobile: data.url, imagePathMobile: "" }));
     else setSizeGuideImages((prev) => [...prev, data.url]);
     setUploading(null);
   }
@@ -133,6 +139,8 @@ export default function AdminConfigPage() {
         "hero.catalogName": hero.catalogName,
         "hero.imagePath": hero.imagePath,
         "hero.videoPath": hero.videoPath,
+        "hero.imagePathMobile": hero.imagePathMobile,
+        "hero.videoPathMobile": hero.videoPathMobile,
         "sizeChart": JSON.stringify(sizes),
         "sizeChart.showTable": showSizeChart ? "true" : "false",
         "sizeGuide.imagePaths": JSON.stringify(sizeGuideImages),
@@ -274,10 +282,10 @@ export default function AdminConfigPage() {
             </div>
           ))}
 
-          {/* Media: image or video — mutually exclusive */}
+          {/* Media: image or video — mutually exclusive — desktop */}
           <div className="mt-2 flex flex-col gap-3">
             <p className="text-sm text-right font-medium" style={{ color: "var(--text-muted)" }}>
-              מדיה לרקע (תמונה או וידאו — אחד בלבד)
+              מדיה לרקע — מחשב (תמונה או וידאו — אחד בלבד)
             </p>
 
             {/* Preview */}
@@ -316,6 +324,57 @@ export default function AdminConfigPage() {
               {(hero.imagePath || hero.videoPath) && (
                 <button
                   onClick={() => setHero((h) => ({ ...h, imagePath: "", videoPath: "" }))}
+                  className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70"
+                  style={{ borderColor: "var(--maroon)", color: "var(--maroon)" }}
+                >
+                  הסר
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Media: image or video — mutually exclusive — mobile */}
+          <div className="mt-2 flex flex-col gap-3 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+            <p className="text-sm text-right font-medium" style={{ color: "var(--text-muted)" }}>
+              מדיה לרקע — נייד (אופציונלי, אחרת מוצגת מדיית המחשב)
+            </p>
+
+            {/* Preview */}
+            {hero.videoPathMobile && (
+              <video src={hero.videoPathMobile} muted loop autoPlay playsInline className="w-32 h-40 object-cover rounded-xl border mr-0 ml-auto" style={{ borderColor: "var(--border)" }} />
+            )}
+            {hero.imagePathMobile && !hero.videoPathMobile && (
+              <div className="relative w-32 h-40 rounded-xl overflow-hidden border mr-0 ml-auto" style={{ borderColor: "var(--border)" }}>
+                <Image src={hero.imagePathMobile} alt="hero preview mobile" fill className="object-cover" />
+              </div>
+            )}
+
+            <div className="flex gap-2 flex-wrap justify-end">
+              <input type="file" accept="image/*" ref={heroImageMobileRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "imageMobile"); }} />
+              <input type="file" accept="video/mp4,video/webm" ref={heroVideoMobileRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "videoMobile"); }} />
+
+              <button
+                onClick={() => heroImageMobileRef.current?.click()}
+                disabled={uploading !== null}
+                className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+                style={{ borderColor: "var(--border)", color: "var(--text)" }}
+              >
+                {uploading === "imageMobile" ? "מעלה..." : "העלה תמונה"}
+              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  onClick={() => heroVideoMobileRef.current?.click()}
+                  disabled={uploading !== null}
+                  className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  {uploading === "videoMobile" ? "מעלה..." : "העלה וידאו"}
+                </button>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>MP4 בלבד (לא MOV)</span>
+              </div>
+              {(hero.imagePathMobile || hero.videoPathMobile) && (
+                <button
+                  onClick={() => setHero((h) => ({ ...h, imagePathMobile: "", videoPathMobile: "" }))}
                   className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70"
                   style={{ borderColor: "var(--maroon)", color: "var(--maroon)" }}
                 >

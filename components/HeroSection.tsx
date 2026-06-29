@@ -7,12 +7,29 @@ interface Props {
   catalogName?: string;
   imagePath?: string;
   videoPath?: string;
+  imagePathMobile?: string;
+  videoPathMobile?: string;
 }
 
-export default function HeroSection({ slogan, catalogName, imagePath, videoPath }: Props) {
+const MOBILE_BREAKPOINT = 768;
+
+export default function HeroSection({ slogan, catalogName, imagePath, videoPath, imagePathMobile, videoPathMobile }: Props) {
   const [videoError, setVideoError] = useState(false);
-  const effectiveVideo = videoError ? undefined : videoPath;
-  const hasMedia = effectiveVideo || imagePath;
+  // Default to desktop media on the server/first paint to avoid a hydration
+  // mismatch; switches to the mobile variant right after mount if needed.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const effectiveImagePath = isMobile ? (imagePathMobile || imagePath) : imagePath;
+  const effectiveVideoPathRaw = isMobile ? (videoPathMobile || videoPath) : videoPath;
+  useEffect(() => { setVideoError(false); }, [effectiveVideoPathRaw]);
+  const effectiveVideo = videoError ? undefined : effectiveVideoPathRaw;
+  const hasMedia = effectiveVideo || effectiveImagePath;
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -33,6 +50,7 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath 
       {/* Background: video or image */}
       {effectiveVideo ? (
         <video
+          key={effectiveVideo}
           ref={videoRef}
           src={effectiveVideo}
           autoPlay
@@ -43,9 +61,10 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath 
           onError={() => setVideoError(true)}
           className="absolute inset-0 w-full h-full object-cover"
         />
-      ) : imagePath ? (
+      ) : effectiveImagePath ? (
         <Image
-          src={imagePath}
+          key={effectiveImagePath}
+          src={effectiveImagePath}
           alt="hero"
           fill
           className="object-cover"

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 
-const PUBLIC_KEYS = ["announcement.items", "hero.slogan", "hero.catalogName", "hero.imagePath", "hero.videoPath", "contact.whatsapp", "contact.instagram", "contact.tiktok", "contact.email", "sizeChart", "sizeChart.showTable"];
+const PUBLIC_KEYS = ["announcement.items", "hero.slogan", "hero.catalogName", "hero.imagePath", "hero.videoPath", "hero.imagePathMobile", "hero.videoPathMobile", "contact.whatsapp", "contact.instagram", "contact.tiktok", "contact.email", "sizeChart", "sizeChart.showTable"];
 
 export async function GET() {
   const rows = await prisma.siteConfig.findMany({ where: { key: { in: PUBLIC_KEYS } } });

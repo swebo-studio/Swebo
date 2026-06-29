@@ -89,6 +89,8 @@ export default async function HomePage({ searchParams }: Props) {
         catalogName={cfg["hero.catalogName"]}
         imagePath={cfg["hero.imagePath"]}
         videoPath={cfg["hero.videoPath"]}
+        imagePathMobile={cfg["hero.imagePathMobile"]}
+        videoPathMobile={cfg["hero.videoPathMobile"]}
       />
 
       <main id="main-content" className="max-w-6xl mx-auto px-4 py-10">
