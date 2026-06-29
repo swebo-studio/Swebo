@@ -31,6 +31,7 @@ interface Product {
   stock: number;
   image: string;
   active: boolean;
+  sizeGuideImages: string | null;
   categories: { id: string; nameHe: string }[];
   colors: ProductColor[];
 }
@@ -42,7 +43,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [tab, setTab] = useState<"details" | "colors">("details");
+  const [tab, setTab] = useState<"details" | "colors" | "sizeguide">("details");
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -80,7 +81,27 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [cropQueue, setCropQueue] = useState<File[]>([]);
   const [cropQueueTotal, setCropQueueTotal] = useState(0);
 
+  // Per-product size guide override
+  const [productSizeGuideImages, setProductSizeGuideImages] = useState<string[]>([]);
+  const [productSizeGuideIsCustom, setProductSizeGuideIsCustom] = useState(false);
+  const [savingSizeGuide, setSavingSizeGuide] = useState(false);
+  const [uploadingSizeGuide, setUploadingSizeGuide] = useState(false);
+  const productSizeGuideRef = useRef<HTMLInputElement>(null);
+
   const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
+
+  function loadSizeGuideOverride(p: Product) {
+    try {
+      const parsed = p.sizeGuideImages ? JSON.parse(p.sizeGuideImages) : null;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setProductSizeGuideImages(parsed);
+        setProductSizeGuideIsCustom(true);
+        return;
+      }
+    } catch {}
+    setProductSizeGuideImages([]);
+    setProductSizeGuideIsCustom(false);
+  }
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -102,6 +123,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       if (c.sizes && c.sizes.length > 0) preloaded[c.id] = c.sizes;
     }
     setSizeStocks(preloaded);
+    loadSizeGuideOverride(p);
   }
 
   function closeForm() {
@@ -111,6 +133,54 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setColorForm({ nameHe: "", hex: "#000000", stock: 0 });
     setNewColorImages([]);
     setNewColorSizes([]);
+    setProductSizeGuideImages([]);
+    setProductSizeGuideIsCustom(false);
+  }
+
+  async function uploadSizeGuideImage(file: File) {
+    setUploadingSizeGuide(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    setProductSizeGuideImages((prev) => [...prev, data.url]);
+    setUploadingSizeGuide(false);
+  }
+
+  function removeSizeGuideImage(url: string) {
+    setProductSizeGuideImages((prev) => prev.filter((u) => u !== url));
+  }
+
+  async function saveSizeGuide() {
+    if (!editing) return;
+    setSavingSizeGuide(true);
+    const value = productSizeGuideImages.length > 0 ? JSON.stringify(productSizeGuideImages) : null;
+    await fetch(`/api/products/${editing.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sizeGuideImages: value }),
+    });
+    const updatedProduct = { ...editing, sizeGuideImages: value };
+    setEditing(updatedProduct);
+    setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
+    setProductSizeGuideIsCustom(productSizeGuideImages.length > 0);
+    setSavingSizeGuide(false);
+  }
+
+  async function resetSizeGuideToDefault() {
+    if (!editing) return;
+    setSavingSizeGuide(true);
+    await fetch(`/api/products/${editing.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sizeGuideImages: null }),
+    });
+    const updatedProduct = { ...editing, sizeGuideImages: null };
+    setEditing(updatedProduct);
+    setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
+    setProductSizeGuideImages([]);
+    setProductSizeGuideIsCustom(false);
+    setSavingSizeGuide(false);
   }
 
   async function loadSizeStocks(colorId: string) {
@@ -394,9 +464,9 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
           <div className="w-full max-w-lg rounded-3xl overflow-hidden" style={{ background: "var(--cream)" }}>
             {/* Tab bar */}
             <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
-              {(["details", "colors"] as const).map((t) => {
-                const labels = { details: "פרטים", colors: "צבעים" };
-                const disabled = !isEdit && t === "colors";
+              {(["details", "colors", "sizeguide"] as const).map((t) => {
+                const labels = { details: "פרטים", colors: "צבעים", sizeguide: "מדריך מידות" };
+                const disabled = !isEdit && t !== "details";
                 return (
                   <button
                     key={t}
@@ -793,6 +863,95 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       {addingColor ? "מוסיף..." : "+ הוסף צבע"}
                     </button>
                   </div>
+
+                  <button onClick={closeForm} className="w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>סגור</button>
+                </div>
+              )}
+
+              {/* ── SIZE GUIDE TAB ── */}
+              {tab === "sizeguide" && editing && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-xs font-bold px-2.5 py-1 rounded-full"
+                      style={{
+                        background: productSizeGuideIsCustom ? "#e8f5e9" : "var(--cream-dark)",
+                        color: productSizeGuideIsCustom ? "var(--green)" : "var(--text-muted)",
+                      }}
+                    >
+                      {productSizeGuideIsCustom ? "מדריך מותאם למוצר זה" : "מציג את מדריך ברירת המחדל"}
+                    </span>
+                    <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>מדריך מידות למוצר</p>
+                  </div>
+                  <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>
+                    ניתן להעלות תמונות מדריך מידות ספציפיות למוצר זה. אם לא יועלו תמונות, יוצג מדריך המידות הכללי של האתר.
+                  </p>
+
+                  {productSizeGuideImages.length > 0 && (
+                    <div className="flex flex-wrap gap-3">
+                      {productSizeGuideImages.map((url, i) => (
+                        <div key={url} className="relative w-28 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)", background: "#fff" }}>
+                          <Image src={url} alt={`מדריך מידות ${i + 1}`} width={200} height={300} className="w-full h-auto" />
+                          <button
+                            onClick={() => removeSizeGuideImage(url)}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                            style={{ background: "var(--maroon)", color: "#fff" }}
+                            title="הסר תמונה"
+                          >
+                            ✕
+                          </button>
+                          <div className="absolute bottom-1 left-0 right-0 text-center">
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}>
+                              {i + 1}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    ref={productSizeGuideRef}
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      files.forEach(uploadSizeGuideImage);
+                      if (productSizeGuideRef.current) productSizeGuideRef.current.value = "";
+                    }}
+                  />
+
+                  <div className="flex gap-2 justify-end">
+                    {productSizeGuideImages.length > 0 && (
+                      <button
+                        onClick={resetSizeGuideToDefault}
+                        disabled={savingSizeGuide}
+                        className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+                        style={{ borderColor: "var(--maroon)", color: "var(--maroon)" }}
+                      >
+                        אפס לברירת מחדל
+                      </button>
+                    )}
+                    <button
+                      onClick={() => productSizeGuideRef.current?.click()}
+                      disabled={uploadingSizeGuide}
+                      className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+                      style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                    >
+                      {uploadingSizeGuide ? "מעלה..." : "+ הוסף תמונה"}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={saveSizeGuide}
+                    disabled={savingSizeGuide}
+                    className="w-full py-3 rounded-xl font-bold text-sm transition-opacity disabled:opacity-50"
+                    style={{ background: "var(--text)", color: "var(--cream)" }}
+                  >
+                    {savingSizeGuide ? "שומר..." : "שמור מדריך מידות"}
+                  </button>
 
                   <button onClick={closeForm} className="w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>סגור</button>
                 </div>

@@ -76,9 +76,14 @@ export default async function ProductPage(
 
   let sizeGuideImages: string[] = [];
   try {
-    const parsed = cfg["sizeGuide.imagePaths"] ? JSON.parse(cfg["sizeGuide.imagePaths"]) : null;
-    if (Array.isArray(parsed) && parsed.length > 0) sizeGuideImages = parsed;
-    else if (cfg["sizeGuide.imagePath"]) sizeGuideImages = [cfg["sizeGuide.imagePath"]];
+    const productOverride = product.sizeGuideImages ? JSON.parse(product.sizeGuideImages) : null;
+    if (Array.isArray(productOverride) && productOverride.length > 0) {
+      sizeGuideImages = productOverride;
+    } else {
+      const parsed = cfg["sizeGuide.imagePaths"] ? JSON.parse(cfg["sizeGuide.imagePaths"]) : null;
+      if (Array.isArray(parsed) && parsed.length > 0) sizeGuideImages = parsed;
+      else if (cfg["sizeGuide.imagePath"]) sizeGuideImages = [cfg["sizeGuide.imagePath"]];
+    }
   } catch { if (cfg["sizeGuide.imagePath"]) sizeGuideImages = [cfg["sizeGuide.imagePath"]]; }
 
   // Other products from the same catalog/categories

@@ -39,6 +39,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       stock: body.stock,
       image: body.image,
       active: body.active,
+      sizeGuideImages: body.sizeGuideImages !== undefined ? body.sizeGuideImages : undefined,
       categories: { set: categoryIds.map((cid) => ({ id: cid })) },
     },
     include: { categories: true },
