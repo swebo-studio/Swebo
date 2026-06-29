@@ -69,6 +69,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [activeStage, setActiveStage] = useState<Stage>("received");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingCollapsed, setPendingCollapsed] = useState(false);
   const [advancing, setAdvancing] = useState<string | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Order | null>(null);
@@ -147,13 +148,21 @@ export default function AdminOrdersPage() {
       {/* Pending orders — awaiting payment confirmation */}
       {pendingOrders.length > 0 && (
         <div className="mb-5 rounded-2xl border overflow-hidden" style={{ borderColor: "#f59e0b", background: "#fffbeb" }}>
-          <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "#f59e0b" }}>
-            <span className="text-xs font-medium" style={{ color: "#92400e" }}>ממתינות לאישור תשלום — לחץ לסמן כשולם לאחר בדיקה</span>
+          <button
+            onClick={() => setPendingCollapsed((c) => !c)}
+            className="w-full px-4 py-3 border-b flex items-center justify-between transition-opacity hover:opacity-70"
+            style={{ borderColor: "#f59e0b" }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xs" style={{ color: "#92400e" }}>{pendingCollapsed ? "הצג" : "הסתר"}</span>
+              <span className="text-xs font-medium" style={{ color: "#92400e" }}>לחץ לסמן כשולם לאחר בדיקה</span>
+            </div>
             <span className="font-bold text-sm flex items-center gap-1.5" style={{ color: "#92400e" }}>
               <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              {pendingOrders.length} הזמנות
+              {pendingOrders.length} הזמנות ממתינות לאישור תשלום
             </span>
-          </div>
+          </button>
+          {!pendingCollapsed && (
           <div className="flex flex-col divide-y" style={{ borderColor: "#fde68a" }}>
             {pendingOrders.map((order) => (
               <div key={order.id} className="flex items-center gap-3 px-4 py-3">
@@ -202,6 +211,7 @@ export default function AdminOrdersPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 
