@@ -26,7 +26,7 @@ interface Props {
 export default async function HomePage({ searchParams }: Props) {
   const { category: filterCategoryId } = await searchParams;
 
-  const [allCategories, products, configRows, activePromotions] = await Promise.all([
+  const [allCategories, products, configRows, activePromotions, categoryProductOrders] = await Promise.all([
     prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.product.findMany({
       where: {
@@ -48,7 +48,24 @@ export default async function HomePage({ searchParams }: Props) {
       where: { active: true },
       include: { rewards: true },
     }),
+    prisma.categoryProductOrder.findMany(),
   ]);
+
+  // categoryId -> (productId -> sortOrder), for ordering products within each category
+  const orderByCategory = new Map<string, Map<string, number>>();
+  for (const o of categoryProductOrders) {
+    if (!orderByCategory.has(o.categoryId)) orderByCategory.set(o.categoryId, new Map());
+    orderByCategory.get(o.categoryId)!.set(o.productId, o.sortOrder);
+  }
+  function sortByCategoryOrder(categoryId: string, items: typeof products) {
+    const orderMap = orderByCategory.get(categoryId);
+    if (!orderMap) return items;
+    return [...items].sort((a, b) => {
+      const aOrder = orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return aOrder - bOrder;
+    });
+  }
 
   // Find the best active cart % discount to advertise on product cards
   const cartDiscountPct = activePromotions
@@ -64,14 +81,14 @@ export default async function HomePage({ searchParams }: Props) {
 
   if (filterCategoryId) {
     // Single category view — no grouping header needed
-    grouped.push({ id: filterCategoryId, nameHe: allCategories.find((c) => c.id === filterCategoryId)?.nameHe ?? "", products });
+    grouped.push({ id: filterCategoryId, nameHe: allCategories.find((c) => c.id === filterCategoryId)?.nameHe ?? "", products: sortByCategoryOrder(filterCategoryId, products) });
   } else if (allCategories.length === 0) {
     grouped.push({ id: null, nameHe: "", products });
   } else {
     // Group: each category (product can appear in multiple groups), then uncategorised
     for (const cat of allCategories) {
       const catProducts = products.filter((p) => p.categories.some((c) => c.id === cat.id));
-      if (catProducts.length > 0) grouped.push({ id: cat.id, nameHe: cat.nameHe, products: catProducts });
+      if (catProducts.length > 0) grouped.push({ id: cat.id, nameHe: cat.nameHe, products: sortByCategoryOrder(cat.id, catProducts) });
     }
     const uncategorised = products.filter((p) => p.categories.length === 0);
     if (uncategorised.length > 0) grouped.push({ id: null, nameHe: "מוצרים נוספים", products: uncategorised });

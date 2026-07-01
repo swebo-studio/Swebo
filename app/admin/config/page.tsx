@@ -4,7 +4,6 @@ import Image from "next/image";
 import ConfirmModal from "@/components/ConfirmModal";
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
-interface Category { id: string; nameHe: string; sortOrder: number }
 interface AdminPhone { id: string; phone: string; label: string | null }
 
 const DEFAULT_SIZES: SizeRow[] = [
@@ -18,8 +17,6 @@ export default function AdminConfigPage() {
   const [hero, setHero] = useState({ slogan: "", catalogName: "", imagePath: "", videoPath: "", imagePathMobile: "", videoPathMobile: "" });
   const [contact, setContact] = useState({ whatsapp: "", instagram: "", tiktok: "", email: "" });
   const [sizes, setSizes] = useState<SizeRow[]>(DEFAULT_SIZES);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [newCatName, setNewCatName] = useState("");
   const [announcementItems, setAnnouncementItems] = useState<{ text: string; url: string }[]>([]);
   const [sizeGuideImages, setSizeGuideImages] = useState<string[]>([]);
   const [showSizeChart, setShowSizeChart] = useState(true);
@@ -77,13 +74,8 @@ export default function AdminConfigPage() {
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
       if (cfg["shippingInfo.text"]) setShippingInfoText(cfg["shippingInfo.text"]);
     });
-    fetchCategories();
     fetchPhones();
   }, []);
-
-  function fetchCategories() {
-    fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
-  }
 
   function fetchPhones() {
     fetch("/api/admin/phones").then((r) => r.json()).then(setPhones).catch(() => {});
@@ -161,46 +153,6 @@ export default function AdminConfigPage() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }
-
-  async function addCategory() {
-    if (!newCatName.trim()) return;
-    await fetch("/api/admin/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nameHe: newCatName.trim(), sortOrder: categories.length }),
-    });
-    setNewCatName("");
-    fetchCategories();
-  }
-
-  async function deleteCategory(id: string) {
-    setConfirmState({ message: "למחוק קטגוריה זו? המוצרים שלה יישארו ללא קטגוריה.", onConfirm: async () => {
-      setConfirmState(null);
-      await fetch("/api/admin/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-      fetchCategories();
-    }});
-  }
-
-  async function moveCategory(id: string, direction: "up" | "down") {
-    const idx = categories.findIndex((c) => c.id === id);
-    if (direction === "up" && idx === 0) return;
-    if (direction === "down" && idx === categories.length - 1) return;
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    const updated = categories.map((c, i) => {
-      if (i === idx) return { ...c, sortOrder: categories[swapIdx].sortOrder };
-      if (i === swapIdx) return { ...c, sortOrder: categories[idx].sortOrder };
-      return c;
-    });
-    setCategories([...updated].sort((a, b) => a.sortOrder - b.sortOrder));
-    await fetch("/api/admin/categories", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([
-        { id: updated[idx].id, sortOrder: updated[idx].sortOrder },
-        { id: updated[swapIdx].id, sortOrder: updated[swapIdx].sortOrder },
-      ]),
-    });
   }
 
   const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
@@ -383,58 +335,6 @@ export default function AdminConfigPage() {
               )}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ── Categories ── */}
-      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
-        <h2 className="font-bold text-lg mb-4 text-right" style={{ color: "var(--text)" }}>קטגוריות</h2>
-
-        <div className="flex flex-col gap-2 mb-4">
-          {categories.length === 0 && (
-            <p className="text-sm text-right" style={{ color: "var(--text-muted)" }}>אין קטגוריות עדיין</p>
-          )}
-          {categories.map((cat, idx) => (
-            <div key={cat.id} className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-              <div className="flex items-center gap-2">
-                <button onClick={() => deleteCategory(cat.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
-                <div className="flex flex-col gap-0.5">
-                  <button
-                    onClick={() => moveCategory(cat.id, "up")}
-                    disabled={idx === 0}
-                    className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
-                    style={{ color: "var(--text)" }}
-                  ><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
-                  <button
-                    onClick={() => moveCategory(cat.id, "down")}
-                    disabled={idx === categories.length - 1}
-                    className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
-                    style={{ color: "var(--text)" }}
-                  ><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
-                </div>
-              </div>
-              <span className="font-medium text-right" style={{ color: "var(--text)" }}>{cat.nameHe}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={addCategory}
-            className="px-4 py-2.5 rounded-xl font-medium text-sm transition-opacity hover:opacity-70 flex-shrink-0"
-            style={{ background: "var(--text)", color: "var(--cream)" }}
-          >
-            הוסף
-          </button>
-          <input
-            type="text"
-            value={newCatName}
-            onChange={(e) => setNewCatName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") addCategory(); }}
-            placeholder="שם קטגוריה חדשה..."
-            className="flex-1 px-4 py-2.5 rounded-xl border text-right outline-none text-sm"
-            style={inputStyle}
-          />
         </div>
       </section>
 

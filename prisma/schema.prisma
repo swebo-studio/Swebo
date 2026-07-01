@@ -8,10 +8,22 @@ datasource db {
 }
 
 model Category {
-  id        String    @id @default(cuid())
-  nameHe    String
-  sortOrder Int       @default(0)
-  products  Product[] @relation("ProductCategories")
+  id            String                 @id @default(cuid())
+  nameHe        String
+  sortOrder     Int                    @default(0)
+  products      Product[]              @relation("ProductCategories")
+  productOrders CategoryProductOrder[]
+}
+
+model CategoryProductOrder {
+  id         String   @id @default(cuid())
+  categoryId String
+  productId  String
+  sortOrder  Int      @default(0)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, productId])
 }
 
 model Product {
@@ -26,6 +38,7 @@ model Product {
   active        Boolean        @default(true)
   sizeGuideImages String?
   categories    Category[]     @relation("ProductCategories")
+  categoryOrders CategoryProductOrder[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   orderItems    OrderItem[]
