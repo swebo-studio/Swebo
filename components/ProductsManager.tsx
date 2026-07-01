@@ -156,7 +156,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setSavingSizeGuide(true);
     const value = productSizeGuideImages.length > 0 ? JSON.stringify(productSizeGuideImages) : null;
     await fetch(`/api/products/${editing.id}`, {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sizeGuideImages: value }),
     });
@@ -171,7 +171,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     if (!editing) return;
     setSavingSizeGuide(true);
     await fetch(`/api/products/${editing.id}`, {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sizeGuideImages: null }),
     });

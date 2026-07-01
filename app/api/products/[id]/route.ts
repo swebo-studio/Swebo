@@ -55,7 +55,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const body = await req.json();
   const product = await prisma.product.update({
     where: { id },
-    data: { ...(body.active !== undefined && { active: body.active }) },
+    data: {
+      ...(body.active !== undefined && { active: body.active }),
+      ...(body.sizeGuideImages !== undefined && { sizeGuideImages: body.sizeGuideImages }),
+    },
   });
   return Response.json(product);
 }
