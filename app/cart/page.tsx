@@ -3,9 +3,47 @@ import { useCart } from "@/components/CartProvider";
 import Header from "@/components/Header";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export default function CartPage() {
   const { items, removeItem, updateQty, totalPrice, clearCart } = useCart();
+
+  // Fetch live stock for every product in the cart so the + button
+  // is always capped at the real available quantity — even for items
+  // that were added before maxQty was introduced.
+  const [liveStock, setLiveStock] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    const ids = [...new Set(items.map((i) => i.productId))];
+    Promise.all(ids.map((id) => fetch(`/api/products/${id}`).then((r) => r.json())))
+      .then((products) => {
+        const map: Record<string, number> = {};
+        for (const p of products) {
+          for (const color of p.colors ?? []) {
+            for (const sizeRow of color.sizes ?? []) {
+              map[`${p.id}|${color.nameHe}|${sizeRow.size}`] = sizeRow.stock;
+            }
+            // color with no per-size stock
+            if (!color.sizes?.length) {
+              map[`${p.id}|${color.nameHe}|`] = color.stock;
+            }
+          }
+          // product with no colors
+          if (!p.colors?.length) {
+            map[`${p.id}||`] = p.stock;
+          }
+        }
+        setLiveStock(map);
+      })
+      .catch(() => {});
+  }, [items.length]); // re-fetch only when item count changes, not on every qty tweak
+
+  function availableFor(item: (typeof items)[0]): number {
+    const key = `${item.productId}|${item.color ?? ""}|${item.size}`;
+    if (key in liveStock) return liveStock[key];
+    return item.maxQty ?? Infinity;
+  }
 
   if (items.length === 0) {
     return (
@@ -37,76 +75,88 @@ export default function CartPage() {
         </h1>
 
         <div className="flex flex-col gap-4">
-          {items.map((item) => (
-            <div
-              key={`${item.productId}-${item.size}-${item.color ?? ""}`}
-              className="p-4 rounded-2xl border"
-              style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
-            >
-              {/* Top row: image + info + remove */}
-              <div className="flex gap-3">
-                {/* Image */}
-                <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-white">
-                  {item.image ? (
-                    <Image src={item.image} alt={item.nameHe} fill className="object-cover" />
-                  ) : (
-                    <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
-                  )}
-                </div>
-
-                {/* Details */}
-                <div className="flex-1 text-right min-w-0">
-                  <p className="font-bold leading-snug" style={{ color: "var(--text)" }}>
-                    {item.nameHe}
-                  </p>
-                  <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                    {item.colorHex && (
-                      <span
-                        className="w-3.5 h-3.5 rounded-full inline-block border flex-shrink-0"
-                        style={{ background: item.colorHex, borderColor: "var(--border)" }}
-                      />
+          {items.map((item) => {
+            const available = availableFor(item);
+            const overStock = available !== Infinity && item.quantity > available;
+            return (
+              <div
+                key={`${item.productId}-${item.size}-${item.color ?? ""}`}
+                className="p-4 rounded-2xl border"
+                style={{
+                  background: "var(--cream-dark)",
+                  borderColor: overStock ? "var(--maroon)" : "var(--border)",
+                }}
+              >
+                {/* Top row: image + info + remove */}
+                <div className="flex gap-3">
+                  {/* Image */}
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-white">
+                    {item.image ? (
+                      <Image src={item.image} alt={item.nameHe} fill className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
                     )}
-                    <p className="text-sm truncate" style={{ color: "var(--text-muted)" }}>
-                      {item.color ? `${item.color} · ` : ""}מידה {item.size}
-                    </p>
                   </div>
-                  <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
-                    ₪{item.price * item.quantity}
-                  </p>
+
+                  {/* Details */}
+                  <div className="flex-1 text-right min-w-0">
+                    <p className="font-bold leading-snug" style={{ color: "var(--text)" }}>
+                      {item.nameHe}
+                    </p>
+                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                      {item.colorHex && (
+                        <span
+                          className="w-3.5 h-3.5 rounded-full inline-block border flex-shrink-0"
+                          style={{ background: item.colorHex, borderColor: "var(--border)" }}
+                        />
+                      )}
+                      <p className="text-sm truncate" style={{ color: "var(--text-muted)" }}>
+                        {item.color ? `${item.color} · ` : ""}מידה {item.size}
+                      </p>
+                    </div>
+                    <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
+                      ₪{item.price * item.quantity}
+                    </p>
+                    {overStock && (
+                      <p className="text-xs mt-1 font-medium" style={{ color: "var(--maroon)" }}>
+                        נותרו {available} במלאי — עדכן כמות
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Remove */}
+                  <button
+                    onClick={() => removeItem(item.productId, item.size, item.color)}
+                    className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full opacity-40 hover:opacity-100 transition-opacity"
+                    aria-label="הסר"
+                    style={{ color: "var(--text)" }}
+                  >
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
                 </div>
 
-                {/* Remove */}
-                <button
-                  onClick={() => removeItem(item.productId, item.size, item.color)}
-                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full opacity-40 hover:opacity-100 transition-opacity"
-                  aria-label="הסר"
-                  style={{ color: "var(--text)" }}
-                >
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
+                {/* Bottom row: qty controls */}
+                <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                  <button
+                    onClick={() => updateQty(item.productId, item.size, item.quantity + 1, item.color)}
+                    disabled={item.quantity >= available}
+                    className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    +
+                  </button>
+                  <span className="w-6 text-center font-bold text-base">{item.quantity}</span>
+                  <button
+                    onClick={() => updateQty(item.productId, item.size, item.quantity - 1, item.color)}
+                    className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    −
+                  </button>
+                </div>
               </div>
-
-              {/* Bottom row: qty controls */}
-              <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                <button
-                  onClick={() => updateQty(item.productId, item.size, item.quantity + 1, item.color)}
-                  disabled={item.maxQty !== undefined && item.quantity >= item.maxQty}
-                  className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  +
-                </button>
-                <span className="w-6 text-center font-bold text-base">{item.quantity}</span>
-                <button
-                  onClick={() => updateQty(item.productId, item.size, item.quantity - 1, item.color)}
-                  className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  −
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Summary */}
