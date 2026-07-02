@@ -178,7 +178,10 @@ export default function CheckoutPage() {
         }),
       });
 
-      if (!orderRes.ok) throw new Error("שגיאה ביצירת הזמנה");
+      if (!orderRes.ok) {
+        const errData = await orderRes.json().catch(() => ({}));
+        throw new Error(errData.error || "שגיאה ביצירת הזמנה");
+      }
       const order = await orderRes.json();
 
       const payRes = await fetch("/api/payment", {

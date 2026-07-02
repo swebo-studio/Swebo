@@ -19,6 +19,39 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { customer, cartItems, delivery: requestedDelivery, couponCode, pudoCodeDestination, pudoPointName, deliveryMode } = body;
 
+  // Validate stock before accepting the order
+  {
+    const productIds: string[] = [...new Set(cartItems.map((i: { productId: string }) => i.productId))];
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      include: { colors: { include: { sizes: true } } },
+    });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    for (const item of cartItems as { productId: string; quantity: number; size: string; color?: string }[]) {
+      const product = productMap.get(item.productId);
+      if (!product) return Response.json({ error: "מוצר לא נמצא" }, { status: 400 });
+
+      let available = 0;
+      if (item.color) {
+        const colorRow = product.colors.find((c) => c.nameHe === item.color);
+        if (colorRow) {
+          const sizeRow = colorRow.sizes.find((s) => s.size === item.size);
+          available = sizeRow ? sizeRow.stock : colorRow.stock;
+        }
+      } else {
+        available = product.stock;
+      }
+
+      if (available < item.quantity) {
+        return Response.json(
+          { error: `המוצר "${product.nameHe}" לא זמין בכמות המבוקשת (נותרו ${available} במלאי)`, outOfStock: true },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   // Validate coupon (marked as used only once payment is confirmed — see /api/payment/notify)
   let discountPct = 0;
   let discountAmount = 0;
