@@ -10,6 +10,7 @@ export interface CartItem {
   colorHex?: string;
   quantity: number;
   image: string;
+  maxQty?: number; // stock at time of adding — used to cap +/- in cart
 }
 
 interface CartContextType {
@@ -46,7 +47,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => {
       const existing = prev.find((i) => match(i, item));
       if (existing) {
-        return prev.map((i) => match(i, item) ? { ...i, quantity: i.quantity + item.quantity } : i);
+        const cap = item.maxQty ?? existing.maxQty ?? Infinity;
+        const next = Math.min(existing.quantity + item.quantity, cap);
+        return prev.map((i) => match(i, item) ? { ...i, quantity: next, maxQty: item.maxQty ?? i.maxQty } : i);
       }
       return [...prev, item];
     });
@@ -61,11 +64,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   function updateQty(productId: string, size: string, quantity: number, color?: string) {
     if (quantity < 1) { removeItem(productId, size, color); return; }
     setItems((prev) =>
-      prev.map((i) =>
-        i.productId === productId && i.size === size && (i.color ?? "") === (color ?? "")
-          ? { ...i, quantity }
-          : i
-      )
+      prev.map((i) => {
+        if (!(i.productId === productId && i.size === size && (i.color ?? "") === (color ?? ""))) return i;
+        const capped = i.maxQty ? Math.min(quantity, i.maxQty) : quantity;
+        return { ...i, quantity: capped };
+      })
     );
   }
 

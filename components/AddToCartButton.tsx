@@ -83,6 +83,7 @@ export default function AddToCartButton({ product, sizes, colors = [] }: Props) 
       colorHex: selectedColor?.hex,
       quantity: 1,
       image: product.image,
+      maxQty: hasColors ? (selectedColor?.stock ?? undefined) : undefined,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);

@@ -90,7 +90,8 @@ export default function CartPage() {
               <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
                 <button
                   onClick={() => updateQty(item.productId, item.size, item.quantity + 1, item.color)}
-                  className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center"
+                  disabled={item.maxQty !== undefined && item.quantity >= item.maxQty}
+                  className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
                   style={{ borderColor: "var(--border)" }}
                 >
                   +

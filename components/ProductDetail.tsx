@@ -43,7 +43,7 @@ interface Props {
 const DEFAULT_SHIPPING_INFO = "משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP";
 
 export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe, shippingInfoText = DEFAULT_SHIPPING_INFO, whatsappLink = "" }: Props) {
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -94,7 +94,12 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
     ? sizeStock(selectedSize)
     : (selectedColor ? selectedColor.stock : product.stock);
 
-  const canAdd = selectedSize && effectiveStock > 0 && (!hasColors || selectedColor !== null);
+  // How many of this exact variant (product + size + color) the user already has in cart
+  const cartQty = items.find(
+    (i) => i.productId === product.id && i.size === selectedSize && (i.color ?? "") === (selectedColor?.nameHe ?? "")
+  )?.quantity ?? 0;
+
+  const canAdd = selectedSize && effectiveStock > 0 && cartQty < effectiveStock && (!hasColors || selectedColor !== null);
 
   // WhatsApp reserve message for out-of-stock
   const reserveMsg = `היי, אני רוצה להזמין: ${product.nameHe}${selectedColor ? ` – ${selectedColor.nameHe}` : ""}${selectedSize ? ` / מידה ${selectedSize}` : ""}`;
@@ -111,6 +116,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
       colorHex: selectedColor?.hex,
       quantity: 1,
       image: mainImg || product.image,
+      maxQty: effectiveStock,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
