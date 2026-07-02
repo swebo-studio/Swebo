@@ -21,14 +21,15 @@ export async function POST(req: NextRequest) {
 
   // Validate stock before accepting the order
   {
-    const productIds: string[] = [...new Set(cartItems.map((i: { productId: string }) => i.productId))];
+    const typedItems = cartItems as { productId: string; quantity: number; size: string; color?: string }[];
+    const productIds = [...new Set(typedItems.map((i) => i.productId))];
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       include: { colors: { include: { sizes: true } } },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    for (const item of cartItems as { productId: string; quantity: number; size: string; color?: string }[]) {
+    for (const item of typedItems) {
       const product = productMap.get(item.productId);
       if (!product) return Response.json({ error: "מוצר לא נמצא" }, { status: 400 });
 
