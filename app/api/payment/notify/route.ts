@@ -47,41 +47,50 @@ export async function GET(req: NextRequest) {
       // Each step is independent — one failing (e.g. ActiveTrail down) must
       // never prevent the others (e.g. HFD shipment) from running.
 
-      // 1. Decrement stock — each item is wrapped in a transaction that
-      //    reads and decrements atomically, so concurrent orders for the
-      //    same last item cannot both succeed and drive stock negative.
+      // 1. Decrement stock.
+      //    The stock check is embedded directly in the UPDATE WHERE clause
+      //    (stock >= quantity). PostgreSQL acquires a row-level lock on UPDATE,
+      //    so a concurrent payment hitting the same row will block, then
+      //    re-evaluate the WHERE with the committed value — and get 0 rows
+      //    updated if stock was already taken. This is the only truly atomic
+      //    pattern at Read Committed isolation; a separate SELECT then UPDATE
+      //    inside a transaction does NOT prevent concurrent oversell.
       const oversoldItems: string[] = [];
       for (const item of order.items) {
         try {
-          await prisma.$transaction(async (tx) => {
-            if (item.color) {
-              const colorRow = await tx.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
-              if (colorRow) {
-                const sizeRow = await tx.productColorSize.findUnique({ where: { colorId_size: { colorId: colorRow.id, size: item.size } } });
-                if (sizeRow) {
-                  if (sizeRow.stock < item.quantity) {
-                    oversoldItems.push(`${item.product.nameHe} (${item.color} / ${item.size})`);
-                    // Clamp to zero instead of going negative
-                    await tx.productColorSize.update({ where: { colorId_size: { colorId: colorRow.id, size: item.size } }, data: { stock: 0 } });
-                  } else {
-                    await tx.productColorSize.update({ where: { colorId_size: { colorId: colorRow.id, size: item.size } }, data: { stock: { decrement: item.quantity } } });
-                  }
-                }
-                // Mirror decrement on the color-level stock aggregate
-                await tx.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
-                return;
+          if (item.color) {
+            const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
+            if (colorRow) {
+              // Atomic: only decrements if stock >= quantity right now
+              const sizeResult = await prisma.productColorSize.updateMany({
+                where: { colorId: colorRow.id, size: item.size, stock: { gte: item.quantity } },
+                data: { stock: { decrement: item.quantity } },
+              });
+              if (sizeResult.count === 0) {
+                // Another concurrent payment took the last stock — clamp to 0
+                await prisma.productColorSize.updateMany({
+                  where: { colorId: colorRow.id, size: item.size, stock: { gt: 0 } },
+                  data: { stock: 0 },
+                });
+                oversoldItems.push(`${item.product.nameHe} (${item.color} / מידה ${item.size})`);
               }
+              // Mirror on color-level aggregate (informational, not source of truth)
+              await prisma.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
+              continue;
             }
-            const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true } });
-            if (product) {
-              if (product.stock < item.quantity) {
-                oversoldItems.push(item.product.nameHe);
-                await tx.product.update({ where: { id: item.productId }, data: { stock: 0 } });
-              } else {
-                await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
-              }
-            }
+          }
+          // No color: product-level stock
+          const result = await prisma.product.updateMany({
+            where: { id: item.productId, stock: { gte: item.quantity } },
+            data: { stock: { decrement: item.quantity } },
           });
+          if (result.count === 0) {
+            await prisma.product.updateMany({
+              where: { id: item.productId, stock: { gt: 0 } },
+              data: { stock: 0 },
+            });
+            oversoldItems.push(item.product.nameHe);
+          }
         } catch (e) {
           console.error("[Post-payment] stock decrement failed for item:", item.productId, e);
         }
