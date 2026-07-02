@@ -20,18 +20,13 @@ export default function CartPage() {
       .then((products) => {
         const map: Record<string, number> = {};
         for (const p of products) {
+          if (!p?.id) continue;
+          map[`${p.id}||`] = p.stock ?? 0;
           for (const color of p.colors ?? []) {
+            map[`${p.id}|${color.nameHe}|`] = color.stock ?? 0;
             for (const sizeRow of color.sizes ?? []) {
               map[`${p.id}|${color.nameHe}|${sizeRow.size}`] = sizeRow.stock;
             }
-            // color with no per-size stock
-            if (!color.sizes?.length) {
-              map[`${p.id}|${color.nameHe}|`] = color.stock;
-            }
-          }
-          // product with no colors
-          if (!p.colors?.length) {
-            map[`${p.id}||`] = p.stock;
           }
         }
         setLiveStock(map);
@@ -40,8 +35,13 @@ export default function CartPage() {
   }, [items.length]); // re-fetch only when item count changes, not on every qty tweak
 
   function availableFor(item: (typeof items)[0]): number {
-    const key = `${item.productId}|${item.color ?? ""}|${item.size}`;
-    if (key in liveStock) return liveStock[key];
+    // Most specific match wins: exact size → color total → product total
+    const keys = item.color
+      ? [`${item.productId}|${item.color}|${item.size}`, `${item.productId}|${item.color}|`]
+      : [`${item.productId}||`];
+    for (const key of keys) {
+      if (key in liveStock) return liveStock[key];
+    }
     return item.maxQty ?? Infinity;
   }
 

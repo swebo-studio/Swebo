@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       images: { orderBy: { sortOrder: "asc" } },
       colors: {
         orderBy: { sortOrder: "asc" },
-        include: { images: { orderBy: { sortOrder: "asc" } } },
+        include: { images: { orderBy: { sortOrder: "asc" } }, sizes: true },
       },
     },
   });
