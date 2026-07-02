@@ -222,8 +222,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
           </div>
         )}
         {effectiveStock > 0 && effectiveStock <= 3 && (
-          <div className="text-sm px-3 py-1.5 rounded-full self-end bg-orange-400 text-white font-bold">
-            אחרונים במלאי
+          <div className="text-sm px-4 py-2 rounded-full self-end font-bold" style={{ background: "#fff3e0", color: "#e65100", border: "1.5px solid #ffb74d" }}>
+            נשארו {effectiveStock} אחרונים בלבד❗️
           </div>
         )}
 
