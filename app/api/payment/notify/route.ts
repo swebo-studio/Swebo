@@ -47,24 +47,51 @@ export async function GET(req: NextRequest) {
       // Each step is independent — one failing (e.g. ActiveTrail down) must
       // never prevent the others (e.g. HFD shipment) from running.
 
-      // 1. Decrement stock
-      try {
-        for (const item of order.items) {
-          if (item.color) {
-            const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
-            if (colorRow) {
-              const sizeRow = await prisma.productColorSize.findUnique({ where: { colorId_size: { colorId: colorRow.id, size: item.size } } });
-              if (sizeRow) {
-                await prisma.productColorSize.update({ where: { colorId_size: { colorId: colorRow.id, size: item.size } }, data: { stock: { decrement: item.quantity } } });
+      // 1. Decrement stock — each item is wrapped in a transaction that
+      //    reads and decrements atomically, so concurrent orders for the
+      //    same last item cannot both succeed and drive stock negative.
+      const oversoldItems: string[] = [];
+      for (const item of order.items) {
+        try {
+          await prisma.$transaction(async (tx) => {
+            if (item.color) {
+              const colorRow = await tx.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
+              if (colorRow) {
+                const sizeRow = await tx.productColorSize.findUnique({ where: { colorId_size: { colorId: colorRow.id, size: item.size } } });
+                if (sizeRow) {
+                  if (sizeRow.stock < item.quantity) {
+                    oversoldItems.push(`${item.product.nameHe} (${item.color} / ${item.size})`);
+                    // Clamp to zero instead of going negative
+                    await tx.productColorSize.update({ where: { colorId_size: { colorId: colorRow.id, size: item.size } }, data: { stock: 0 } });
+                  } else {
+                    await tx.productColorSize.update({ where: { colorId_size: { colorId: colorRow.id, size: item.size } }, data: { stock: { decrement: item.quantity } } });
+                  }
+                }
+                // Mirror decrement on the color-level stock aggregate
+                await tx.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
+                return;
               }
-              await prisma.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
-              continue;
             }
-          }
-          await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
+            const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true } });
+            if (product) {
+              if (product.stock < item.quantity) {
+                oversoldItems.push(item.product.nameHe);
+                await tx.product.update({ where: { id: item.productId }, data: { stock: 0 } });
+              } else {
+                await tx.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
+              }
+            }
+          });
+        } catch (e) {
+          console.error("[Post-payment] stock decrement failed for item:", item.productId, e);
         }
-      } catch (e) {
-        console.error("[Post-payment] stock decrement failed:", order.id, e);
+      }
+      if (oversoldItems.length > 0) {
+        console.error("[Post-payment] OVERSELL detected on order", order.id, oversoldItems);
+        await notifyAdmin(
+          "אזהרת מלאי",
+          `הזמנה #${order.id.slice(-6).toUpperCase()} — נמכר מלאי ביתר:\n${oversoldItems.map((n) => `• ${n}`).join("\n")}\nיש לבדוק מלאי ולצור קשר עם הלקוח.`
+        ).catch(() => {});
       }
 
       // Mark the coupon as used now that payment is confirmed (not at order
