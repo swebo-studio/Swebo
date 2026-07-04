@@ -26,6 +26,13 @@ export default function AdminConfigPage() {
   const [phoneError, setPhoneError] = useState("");
   const [legal, setLegal] = useState({ privacy: "", terms: "" });
   const [shippingInfoText, setShippingInfoText] = useState("משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP");
+  const [orderSteps, setOrderSteps] = useState({
+    step1: "ההזמנה התקבלה",
+    step2: "ארוז ונשלח תוך 1-2 ימי עסקים",
+    step3Home: "משלוח עד הבית",
+    step3Epost: "זמין לאיסוף בנקודת EPOST",
+    step3Self: "מוכן לאיסוף",
+  });
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [saved, setSaved] = useState(false);
@@ -73,6 +80,13 @@ export default function AdminConfigPage() {
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
       if (cfg["shippingInfo.text"]) setShippingInfoText(cfg["shippingInfo.text"]);
+      setOrderSteps((prev) => ({
+        step1: cfg["orderSteps.step1"] || prev.step1,
+        step2: cfg["orderSteps.step2"] || prev.step2,
+        step3Home: cfg["orderSteps.step3Home"] || prev.step3Home,
+        step3Epost: cfg["orderSteps.step3Epost"] || prev.step3Epost,
+        step3Self: cfg["orderSteps.step3Self"] || prev.step3Self,
+      }));
     });
     fetchPhones();
   }, []);
@@ -148,6 +162,11 @@ export default function AdminConfigPage() {
         "legal.privacy": legal.privacy,
         "legal.terms": legal.terms,
         "shippingInfo.text": shippingInfoText,
+        "orderSteps.step1": orderSteps.step1,
+        "orderSteps.step2": orderSteps.step2,
+        "orderSteps.step3Home": orderSteps.step3Home,
+        "orderSteps.step3Epost": orderSteps.step3Epost,
+        "orderSteps.step3Self": orderSteps.step3Self,
       }),
     });
     setSaving(false);
@@ -486,6 +505,34 @@ export default function AdminConfigPage() {
           className="w-full px-4 py-3 rounded-xl border text-right outline-none resize-none"
           style={inputStyle}
         />
+      </section>
+
+      {/* ── Order confirmation "what's next" steps ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>שלבי הזמנה (מה הלאה?)</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          הטקסטים המוצגים בתיבת &quot;מה הלאה?&quot; בעמוד אישור ההזמנה. השלב השלישי משתנה לפי סוג המשלוח.
+        </p>
+        <div className="flex flex-col gap-3">
+          {([
+            ["step1", "שלב 1 — ההזמנה התקבלה"],
+            ["step2", "שלב 2 — אריזה ומשלוח"],
+            ["step3Home", "שלב 3 — משלוח עד הבית"],
+            ["step3Epost", "שלב 3 — נקודת איסוף (EPOST)"],
+            ["step3Self", "שלב 3 — איסוף עצמי"],
+          ] as const).map(([key, label]) => (
+            <div key={key}>
+              <label className="block text-xs font-medium mb-1 text-right" style={{ color: "var(--text-muted)" }}>{label}</label>
+              <input
+                type="text"
+                value={orderSteps[key]}
+                onChange={(e) => setOrderSteps((prev) => ({ ...prev, [key]: e.target.value }))}
+                className="w-full px-4 py-2.5 rounded-xl border text-right outline-none"
+                style={inputStyle}
+              />
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ── Admin phone numbers ── */}

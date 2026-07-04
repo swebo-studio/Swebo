@@ -10,16 +10,30 @@ export default async function OrderPage(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: { items: { include: { product: true } } },
-  });
+  const [order, configRows] = await Promise.all([
+    prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { product: true } } },
+    }),
+    prisma.siteConfig.findMany({ where: { key: { startsWith: "orderSteps." } } }),
+  ]);
   if (!order) notFound();
+
+  const cfg: Record<string, string> = {};
+  configRows.forEach((r) => { cfg[r.key] = r.value; });
 
   const isPaid = order.status === "paid";
   const isEpost = order.deliveryMode === "epost";
   const isSelfPickup = order.deliveryMode === "self" || order.address === "איסוף עצמי";
   const orderCode = order.id.slice(-6).toUpperCase();
+
+  const stepTexts = {
+    step1: cfg["orderSteps.step1"] || "ההזמנה התקבלה",
+    step2: cfg["orderSteps.step2"] || "ארוז ונשלח תוך 1-2 ימי עסקים",
+    step3Home: cfg["orderSteps.step3Home"] || "משלוח עד הבית",
+    step3Epost: cfg["orderSteps.step3Epost"] || "זמין לאיסוף בנקודת EPOST",
+    step3Self: cfg["orderSteps.step3Self"] || "מוכן לאיסוף",
+  };
 
   return (
     <>
@@ -142,15 +156,15 @@ export default async function OrderPage(
             <h2 className="font-bold text-base mb-4" style={{ color: "var(--text)" }}>מה הלאה?</h2>
             <div className="flex flex-col gap-4">
               {[
-                { icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/></svg>, title: "ההזמנה התקבלה", done: true },
-                { icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>, title: "ארוז ונשלח תוך 1-2 ימי עסקים", done: false },
+                { icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/></svg>, title: stepTexts.step1, done: true },
+                { icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>, title: stepTexts.step2, done: false },
                 {
                   icon: isSelfPickup
                     ? <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     : isEpost
                     ? <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
                     : <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
-                  title: isSelfPickup ? "מוכן לאיסוף" : isEpost ? "זמין לאיסוף בנקודת EPOST" : "משלוח עד הבית",
+                  title: isSelfPickup ? stepTexts.step3Self : isEpost ? stepTexts.step3Epost : stepTexts.step3Home,
                   done: false,
                 },
               ].map((step, i) => (
