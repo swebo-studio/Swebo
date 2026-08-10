@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { SMS_TEMPLATES, renderSmsTemplate } from "./smsTemplates";
+import { SMS_TEMPLATES, stageSmsTemplateKey, renderSmsTemplate } from "./smsTemplates";
 
 export { renderSmsTemplate };
 
@@ -119,6 +119,44 @@ export async function notifyOrderConfirmation(order: {
       orderId: order.id.slice(-6).toUpperCase(),
       items: itemsSummary,
       total: order.total.toFixed(2),
+    })
+  );
+}
+
+// ── notifyOrderStage: "your order moved to X" SMS ────────────────────────
+/**
+ * Text the buyer when the admin advances the order to a new fulfilment stage.
+ * Each delivery mode has its own wording — home delivery, pickup point, and
+ * self-pickup all describe "shipped" differently. No-ops for stages without a
+ * template (e.g. "received" — already covered by the order-confirmation SMS)
+ * and when the admin has blanked the template.
+ */
+export async function notifyOrderStage(
+  order: {
+    id: string;
+    customerName: string;
+    customerPhone: string;
+    deliveryMode?: string | null;
+    shipmentNumber?: string | null;
+    pudoPointName?: string | null;
+  },
+  stage: string
+): Promise<void> {
+  if (!order.customerPhone) return;
+
+  const templateKey = stageSmsTemplateKey(stage, order.deliveryMode);
+  if (!templateKey) return;
+
+  const template = (await getSmsTemplate(templateKey)).trim();
+  if (!template) return;
+
+  await sendSMS(
+    order.customerPhone,
+    renderSmsTemplate(template, {
+      name: order.customerName,
+      orderId: order.id.slice(-6).toUpperCase(),
+      shipment: order.shipmentNumber ?? "",
+      pudo: order.pudoPointName ?? "",
     })
   );
 }
