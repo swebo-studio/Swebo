@@ -75,6 +75,14 @@ export async function POST(req: NextRequest) {
   const baseDelivery = requestedDelivery === 0 ? 0 : requestedDelivery === 25 ? 25 : 40;
   const { subtotal: promoSubtotal, delivery: promoDelivery, itemPrices } = applyRewards(cartItems, rawSubtotal, baseDelivery, rewards);
 
+  // Same rule the checkout enforces: a cart whose price is already cut by a
+  // promotion cannot also redeem a coupon.
+  if (promoSubtotal < rawSubtotal) {
+    discountPct = 0;
+    discountAmount = 0;
+    appliedCouponCode = null;
+  }
+
   // Apply coupon on top of promotion-adjusted subtotal
   const couponSavings = discountAmount > 0
     ? Math.min(discountAmount, promoSubtotal)

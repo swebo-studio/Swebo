@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCart } from "./CartProvider";
 import { useState, useEffect, useRef } from "react";
 import AnnouncementBar from "./AnnouncementBar";
+import CartPromoBar from "./CartPromoBar";
 
 interface Category { id: string; nameHe: string }
 
@@ -113,6 +114,7 @@ export default function Header() {
 
         </div>
       </header>
+      <CartPromoBar />
       </div>
 
       {/* Overlay */}

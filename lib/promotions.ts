@@ -32,10 +32,38 @@ export interface AppliedReward {
   productName?: string;
 }
 
+/**
+ * A reward the shopper does not have yet but is one small step away from:
+ * either the promotion is already unlocked and they just have to add the
+ * discounted product, or they are short of a minimum-cart threshold.
+ */
+export interface PotentialReward {
+  kind: "add_product" | "spend_more";
+  promotionName: string;
+  reward: AppliedReward;
+  /** shekels still missing from the cart — "spend_more" only */
+  remaining?: number;
+}
+
+export interface PromotionEvaluation {
+  /** rewards that affect what this cart costs right now */
+  applied: AppliedReward[];
+  /** rewards still on the table */
+  potential: PotentialReward[];
+}
+
+/** Rewards that are already changing this cart's price — used for pricing. */
 export async function evaluatePromotions(
   cartItems: CartItemInput[],
   subtotal: number
 ): Promise<AppliedReward[]> {
+  return (await evaluateCartPromotions(cartItems, subtotal)).applied;
+}
+
+export async function evaluateCartPromotions(
+  cartItems: CartItemInput[],
+  subtotal: number
+): Promise<PromotionEvaluation> {
   const promotions = await prisma.promotion.findMany({
     where: { active: true },
     include: {
@@ -57,31 +85,49 @@ export async function evaluatePromotions(
     : [];
   const productName = (id: string) => products.find((p) => p.id === id)?.nameHe ?? id;
 
-  const rewards: AppliedReward[] = [];
+  const applied: AppliedReward[] = [];
+  const potential: PotentialReward[] = [];
 
   for (const promotion of promotions) {
-    // All conditions must be met (AND)
-    const conditionsMet = promotion.conditions.every((c) => {
-      if (c.type === "min_cart_total") return subtotal >= (c.minTotal ?? 0);
-      if (c.type === "product_in_cart") return cartProductIds.includes(c.productId ?? "");
-      return false;
+    const toReward = (r: (typeof promotion.rewards)[number]): AppliedReward => ({
+      type: r.type as AppliedReward["type"],
+      promotionName: promotion.name,
+      discountPct: r.discountPct ?? undefined,
+      discountAmount: r.discountAmount ?? undefined,
+      productId: r.productId ?? undefined,
+      productName: r.productId ? productName(r.productId) : undefined,
     });
 
-    if (!conditionsMet) continue;
+    // All conditions must be met (AND)
+    const unmet = promotion.conditions.filter((c) => {
+      if (c.type === "min_cart_total") return subtotal < (c.minTotal ?? 0);
+      if (c.type === "product_in_cart") return !cartProductIds.includes(c.productId ?? "");
+      return true;
+    });
 
-    for (const reward of promotion.rewards) {
-      rewards.push({
-        type: reward.type as AppliedReward["type"],
-        promotionName: promotion.name,
-        discountPct: reward.discountPct ?? undefined,
-        discountAmount: reward.discountAmount ?? undefined,
-        productId: reward.productId ?? undefined,
-        productName: reward.productId ? productName(reward.productId) : undefined,
-      });
+    if (unmet.length === 0) {
+      for (const r of promotion.rewards) {
+        const reward = toReward(r);
+        // A discount on a product that isn't in the cart saves nothing yet —
+        // it's an offer the shopper can still take, not money off this cart.
+        if (reward.type === "product_discount" && reward.productId && !cartProductIds.includes(reward.productId)) {
+          potential.push({ kind: "add_product", promotionName: promotion.name, reward });
+        } else {
+          applied.push(reward);
+        }
+      }
+      continue;
+    }
+
+    // Near miss: everything satisfied except a spend threshold
+    if (!unmet.every((c) => c.type === "min_cart_total")) continue;
+    const remaining = Math.ceil(Math.max(...unmet.map((c) => (c.minTotal ?? 0) - subtotal)));
+    for (const r of promotion.rewards) {
+      potential.push({ kind: "spend_more", promotionName: promotion.name, reward: toReward(r), remaining });
     }
   }
 
-  return rewards;
+  return { applied, potential };
 }
 
 export function applyRewards(

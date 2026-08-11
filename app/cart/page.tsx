@@ -4,9 +4,12 @@ import Header from "@/components/Header";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { promotionPricing } from "@/lib/cartPricing";
 
 export default function CartPage() {
-  const { items, removeItem, updateQty, totalPrice, clearCart } = useCart();
+  const { items, removeItem, updateQty, clearCart, promotions } = useCart();
+  const pricing = promotionPricing(items, promotions.applied);
+  const cartLevelDiscount = pricing.itemSubtotal - pricing.subtotal;
 
   // Fetch live stock for every product in the cart so the + button
   // is always capped at the real available quantity — even for items
@@ -78,6 +81,9 @@ export default function CartPage() {
           {items.map((item) => {
             const available = availableFor(item);
             const overStock = available !== Infinity && item.quantity > available;
+            const discountPct = pricing.productDiscountPct[item.productId] ?? 0;
+            const unitPrice = pricing.productUnitPrice[item.productId] ?? item.price;
+            const promoNames = pricing.productPromotionNames[item.productId] ?? [];
             return (
               <div
                 key={`${item.productId}-${item.size}-${item.color ?? ""}`}
@@ -114,9 +120,32 @@ export default function CartPage() {
                         {item.color ? `${item.color} · ` : ""}מידה {item.size}
                       </p>
                     </div>
-                    <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
-                      ₪{item.price * item.quantity}
-                    </p>
+                    {discountPct > 0 ? (
+                      <>
+                        <div className="flex items-center justify-end gap-2 mt-1">
+                          <p className="font-extrabold" style={{ color: "var(--green)" }}>
+                            ₪{unitPrice * item.quantity}
+                          </p>
+                          <p className="text-sm line-through" style={{ color: "var(--text-muted)" }}>
+                            ₪{item.price * item.quantity}
+                          </p>
+                        </div>
+                        <span
+                          className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-xs font-bold"
+                          style={{ background: "var(--green)", color: "var(--cream)" }}
+                        >
+                          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="flex-shrink-0">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+                            <line x1="7" y1="7" x2="7.01" y2="7" />
+                          </svg>
+                          {Math.round(discountPct)}% הנחה{promoNames.length > 0 ? ` · ${promoNames.join(" · ")}` : ""}
+                        </span>
+                      </>
+                    ) : (
+                      <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
+                        ₪{item.price * item.quantity}
+                      </p>
+                    )}
                     {overStock && (
                       <p className="text-xs mt-1 font-medium" style={{ color: "var(--maroon)" }}>
                         נותרו {available} במלאי — עדכן כמות
@@ -164,13 +193,37 @@ export default function CartPage() {
           className="mt-8 p-6 rounded-2xl border"
           style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
         >
+          {cartLevelDiscount > 0 && (
+            <div className="flex justify-between text-sm font-bold mb-2" style={{ color: "var(--green)" }}>
+              <span>−₪{cartLevelDiscount}</span>
+              <span>הנחת מבצע על הסל</span>
+            </div>
+          )}
+          {pricing.freeShipping && (
+            <div className="flex justify-between text-sm font-bold mb-2" style={{ color: "var(--green)" }}>
+              <span>חינם</span>
+              <span>משלוח</span>
+            </div>
+          )}
           <div
             className="flex justify-between font-extrabold text-xl"
             style={{ color: "var(--text)" }}
           >
-            <span>₪{totalPrice}</span>
+            <span className="flex items-center gap-2">
+              {pricing.savings > 0 && (
+                <span className="text-base font-medium line-through" style={{ color: "var(--text-muted)" }}>
+                  ₪{pricing.rawSubtotal}
+                </span>
+              )}
+              <span style={{ color: pricing.savings > 0 ? "var(--green)" : "var(--text)" }}>₪{pricing.subtotal}</span>
+            </span>
             <span>סה&quot;כ</span>
           </div>
+          {pricing.savings > 0 && (
+            <p className="text-xs text-right mt-2 font-bold" style={{ color: "var(--green)" }}>
+              חסכת ₪{pricing.savings} במבצע
+            </p>
+          )}
           <p className="text-xs text-right mt-2" style={{ color: "var(--text-muted)" }}>
             עלות המשלוח תחושב בשלב התשלום
           </p>

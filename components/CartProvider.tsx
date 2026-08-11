@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import type { PromotionEvaluation } from "@/lib/promotions";
 
 export interface CartItem {
   productId: string;
@@ -21,7 +22,11 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
+  /** promotions this cart currently earns, plus the ones still within reach */
+  promotions: PromotionEvaluation;
 }
+
+const NO_PROMOTIONS: PromotionEvaluation = { applied: [], potential: [] };
 
 const CartContext = createContext<CartContextType | null>(null);
 
@@ -77,9 +82,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
   const totalPrice = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
+  // Evaluated once here rather than in every consumer, so the promo bar, the
+  // cart lines and the checkout summary always show the same rewards.
+  const [promotions, setPromotions] = useState<PromotionEvaluation>(NO_PROMOTIONS);
+
+  useEffect(() => {
+    if (items.length === 0) { setPromotions(NO_PROMOTIONS); return; }
+    // Small delay so tapping +/− a few times fires one request, not five
+    const handle = setTimeout(() => {
+      fetch("/api/promotions/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cartItems: items.map((i) => ({ productId: i.productId, quantity: i.quantity, price: i.price })),
+          subtotal: totalPrice,
+        }),
+      })
+        .then((r) => r.json())
+        .then((data) => setPromotions({ applied: data.applied ?? [], potential: data.potential ?? [] }))
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [items, totalPrice]);
+
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, totalPrice }}
+      value={{ items, addItem, removeItem, updateQty, clearCart, totalItems, totalPrice, promotions }}
     >
       {children}
     </CartContext.Provider>

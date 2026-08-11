@@ -5,7 +5,7 @@ import { useCart } from "@/components/CartProvider";
 import Header from "@/components/Header";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { AppliedReward } from "@/lib/promotions";
+import { promotionPricing } from "@/lib/cartPricing";
 
 const EpostMap = dynamic(() => import("@/components/EpostMap"), { ssr: false });
 
@@ -26,7 +26,8 @@ interface EpostPoint {
 }
 
 export default function CheckoutPage() {
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, promotions } = useCart();
+  const promotionRewards = promotions.applied;
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +37,6 @@ export default function CheckoutPage() {
   const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
   const [couponError, setCouponError] = useState("");
   const [validatingCoupon, setValidatingCoupon] = useState(false);
-  const [promotionRewards, setPromotionRewards] = useState<AppliedReward[]>([]);
 
   // EPOST state
   const [epostCity, setEpostCity] = useState("");
@@ -44,15 +44,6 @@ export default function CheckoutPage() {
   const [selectedPoint, setSelectedPoint] = useState<EpostPoint | null>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
   const [pointsError, setPointsError] = useState("");
-
-  useEffect(() => {
-    if (items.length === 0) { setPromotionRewards([]); return; }
-    fetch("/api/promotions/evaluate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cartItems: items.map((i) => ({ productId: i.productId, quantity: i.quantity, price: i.price })), subtotal: totalPrice }),
-    }).then((r) => r.json()).then(setPromotionRewards).catch(() => {});
-  }, [items, totalPrice]);
 
   async function applyCoupon() {
     if (!couponInput.trim()) return;
@@ -97,29 +88,29 @@ export default function CheckoutPage() {
 
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", floor: "", apartment: "", city: "" });
 
-  const hasFreeShipping = promotionRewards.some((r) => r.type === "free_shipping");
+  const pricing = promotionPricing(items, promotionRewards);
+  const hasFreeShipping = pricing.freeShipping;
   const baseDelivery = deliveryMode === "home" ? (hasFreeShipping ? 0 : 40) : deliveryMode === "epost" ? 25 : 0;
 
-  const itemDiscountMap: Record<string, number> = {};
-  promotionRewards.filter((r) => r.type === "product_discount" && r.productId && r.discountPct).forEach((r) => {
-    const prev = itemDiscountMap[r.productId!] ?? 0;
-    itemDiscountMap[r.productId!] = prev + r.discountPct! - (prev * r.discountPct!) / 100;
-  });
-  const promotionSubtotal = items.reduce((sum, item) => {
-    const disc = itemDiscountMap[item.productId] ?? 0;
-    const effectivePrice = disc ? Math.round(item.price * (1 - disc / 100)) : item.price;
-    return sum + effectivePrice * item.quantity;
-  }, 0);
-  const cartDiscountPct = promotionRewards.filter((r) => r.type === "cart_discount").reduce((sum, r) => sum + ((r.discountPct ?? 0)), 0);
-  const cartDiscountAmountPromo = promotionRewards.filter((r) => r.type === "cart_discount").reduce((sum, r) => sum + ((r.discountAmount ?? 0)), 0);
-  const afterCartDiscountPct = cartDiscountPct > 0 ? Math.round(promotionSubtotal * (1 - Math.min(cartDiscountPct, 100) / 100)) : promotionSubtotal;
-  const afterCartDiscount = cartDiscountAmountPromo > 0 ? Math.max(0, afterCartDiscountPct - cartDiscountAmountPromo) : afterCartDiscountPct;
-  const couponSavings = couponDiscountAmount > 0
-    ? Math.min(couponDiscountAmount, afterCartDiscount)
-    : couponDiscount > 0 ? Math.round(afterCartDiscount * couponDiscount / 100) : 0;
-  const finalSubtotal = afterCartDiscount - couponSavings;
+  const cartLevelDiscount = pricing.itemSubtotal - pricing.subtotal;
+  // A promotion that already cuts the price blocks the coupon box. Free
+  // shipping on its own doesn't — the shopper can still redeem a code.
+  const discountAlreadyActive = pricing.savings > 0;
+  const couponSavings = discountAlreadyActive ? 0 : couponDiscountAmount > 0
+    ? Math.min(couponDiscountAmount, pricing.subtotal)
+    : couponDiscount > 0 ? Math.round(pricing.subtotal * couponDiscount / 100) : 0;
+  const finalSubtotal = pricing.subtotal - couponSavings;
   const delivery = baseDelivery;
   const total = finalSubtotal + delivery;
+
+  // Drop anything already typed/applied the moment a promotion takes over
+  useEffect(() => {
+    if (!discountAlreadyActive) return;
+    setCouponInput("");
+    setCouponDiscount(0);
+    setCouponDiscountAmount(0);
+    setCouponError("");
+  }, [discountAlreadyActive]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -154,7 +145,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          couponCode: (couponDiscount > 0 || couponDiscountAmount > 0) ? couponInput.trim().toUpperCase() : undefined,
+          couponCode: (!discountAlreadyActive && (couponDiscount > 0 || couponDiscountAmount > 0)) ? couponInput.trim().toUpperCase() : undefined,
           customer: {
             name: form.name,
             email: form.email,
@@ -418,7 +409,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={applyCoupon}
-              disabled={validatingCoupon || couponSavings > 0}
+              disabled={validatingCoupon || couponSavings > 0 || discountAlreadyActive}
               className="px-4 py-3 rounded-xl border font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
               style={{ borderColor: "var(--border)", color: "var(--text)" }}
             >
@@ -426,12 +417,17 @@ export default function CheckoutPage() {
             </button>
             <input
               type="text"
-              value={couponInput}
+              value={discountAlreadyActive ? "הנחה כבר פעילה" : couponInput}
               onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponError(""); }}
               placeholder="קוד קופון (אופציונלי)"
-              disabled={couponSavings > 0}
-              className="flex-1 px-4 py-3 rounded-xl border text-right outline-none text-sm"
-              style={{ background: "var(--cream-dark)", borderColor: couponSavings > 0 ? "var(--green)" : "var(--border)", color: "var(--text)" }}
+              disabled={couponSavings > 0 || discountAlreadyActive}
+              readOnly={discountAlreadyActive}
+              className="flex-1 px-4 py-3 rounded-xl border text-right outline-none text-sm disabled:cursor-not-allowed"
+              style={{
+                background: "var(--cream-dark)",
+                borderColor: (couponSavings > 0 || discountAlreadyActive) ? "var(--green)" : "var(--border)",
+                color: discountAlreadyActive ? "var(--text-muted)" : "var(--text)",
+              }}
             />
           </div>
           {couponError && <p className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
@@ -469,12 +465,31 @@ export default function CheckoutPage() {
             >
               יישובים מרוחקים
             </Link>
-            {items.map((item) => (
-              <div key={`${item.productId}-${item.size}-${item.color ?? ""}`} className="flex justify-between text-sm mb-1" style={{ color: "var(--text-muted)" }}>
-                <span>₪{item.price * item.quantity}</span>
-                <span>{item.nameHe} × {item.quantity} ({item.color ? `${item.color} · ` : ""}מידה {item.size})</span>
+            {items.map((item) => {
+              const unitPrice = pricing.productUnitPrice[item.productId] ?? item.price;
+              const discounted = unitPrice !== item.price;
+              return (
+                <div key={`${item.productId}-${item.size}-${item.color ?? ""}`} className="flex justify-between text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                  <span className="flex items-center gap-1.5">
+                    {discounted && <span className="line-through">₪{item.price * item.quantity}</span>}
+                    <span style={discounted ? { color: "var(--green)", fontWeight: 700 } : undefined}>₪{unitPrice * item.quantity}</span>
+                  </span>
+                  <span>{item.nameHe} × {item.quantity} ({item.color ? `${item.color} · ` : ""}מידה {item.size})</span>
+                </div>
+              );
+            })}
+            {cartLevelDiscount > 0 && (
+              <div className="flex justify-between text-sm mt-2 font-bold" style={{ color: "var(--green)" }}>
+                <span>−₪{cartLevelDiscount}</span>
+                <span>הנחת מבצע על הסל</span>
               </div>
-            ))}
+            )}
+            {couponSavings > 0 && (
+              <div className="flex justify-between text-sm mt-2 font-bold" style={{ color: "var(--green)" }}>
+                <span>−₪{couponSavings}</span>
+                <span>הנחת קופון</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm mt-2" style={{ color: "var(--text-muted)" }}>
               <span style={{ color: (hasFreeShipping && deliveryMode === "home") ? "var(--green)" : "inherit" }}>
                 {deliveryMode === "self" ? "חינם" : deliveryMode === "epost" ? "₪25" : hasFreeShipping ? "חינם 🎉" : "₪40"}
