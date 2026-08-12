@@ -1,1 +1,0 @@
-ALTER TABLE "PromotionReward" ADD COLUMN IF NOT EXISTS "maxUnits" INTEGER;
