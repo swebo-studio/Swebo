@@ -186,6 +186,7 @@ model PromotionReward {
   productId      String?
   discountPct    Int?
   discountAmount Int?
+  maxUnits       Int?      // product_discount: units the discount reaches; null = every unit in the cart
 }
 
 model Coupon {

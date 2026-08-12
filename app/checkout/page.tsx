@@ -465,16 +465,19 @@ export default function CheckoutPage() {
             >
               יישובים מרוחקים
             </Link>
-            {items.map((item) => {
-              const unitPrice = pricing.productUnitPrice[item.productId] ?? item.price;
-              const discounted = unitPrice !== item.price;
+            {items.map((item, index) => {
+              const line = pricing.lines[index];
+              const discounted = line.discountedUnits > 0;
               return (
                 <div key={`${item.productId}-${item.size}-${item.color ?? ""}`} className="flex justify-between text-sm mb-1" style={{ color: "var(--text-muted)" }}>
                   <span className="flex items-center gap-1.5">
-                    {discounted && <span className="line-through">₪{item.price * item.quantity}</span>}
-                    <span style={discounted ? { color: "var(--green)", fontWeight: 700 } : undefined}>₪{unitPrice * item.quantity}</span>
+                    {discounted && <span className="line-through">₪{line.rawTotal}</span>}
+                    <span style={discounted ? { color: "var(--green)", fontWeight: 700 } : undefined}>₪{line.total}</span>
                   </span>
-                  <span>{item.nameHe} × {item.quantity} ({item.color ? `${item.color} · ` : ""}מידה {item.size})</span>
+                  <span>
+                    {item.nameHe} × {item.quantity} ({item.color ? `${item.color} · ` : ""}מידה {item.size})
+                    {discounted && line.discountedUnits < item.quantity && ` — ההנחה על ${line.discountedUnits}`}
+                  </span>
                 </div>
               );
             })}

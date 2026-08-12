@@ -30,6 +30,8 @@ export interface AppliedReward {
   discountAmount?: number;
   productId?: string;
   productName?: string;
+  /** product_discount: units the discount reaches; undefined = every unit */
+  maxUnits?: number;
 }
 
 /**
@@ -96,6 +98,7 @@ export async function evaluateCartPromotions(
       discountAmount: r.discountAmount ?? undefined,
       productId: r.productId ?? undefined,
       productName: r.productId ? productName(r.productId) : undefined,
+      maxUnits: r.maxUnits ?? undefined,
     });
 
     // All conditions must be met (AND)
@@ -128,61 +131,4 @@ export async function evaluateCartPromotions(
   }
 
   return { applied, potential };
-}
-
-export function applyRewards(
-  cartItems: CartItemInput[],
-  baseSubtotal: number,
-  baseDelivery: number,
-  rewards: AppliedReward[]
-): { subtotal: number; delivery: number; itemPrices: Record<string, number> } {
-  let subtotal = baseSubtotal;
-  let delivery = baseDelivery;
-  // productId → effective price per unit (take the best discount per product)
-  const itemDiscounts: Record<string, number> = {};
-
-  for (const reward of rewards) {
-    if (reward.type === "free_shipping") {
-      delivery = 0;
-    } else if (reward.type === "cart_discount") {
-      if (reward.discountAmount) {
-        subtotal = Math.max(0, subtotal - reward.discountAmount);
-      } else if (reward.discountPct) {
-        subtotal = Math.round(subtotal * (1 - reward.discountPct / 100));
-      }
-    } else if (reward.type === "product_discount" && reward.productId && reward.discountPct) {
-      const existing = itemDiscounts[reward.productId] ?? 0;
-      // Stack discounts: apply on top of each other
-      itemDiscounts[reward.productId] = existing + reward.discountPct - (existing * reward.discountPct) / 100;
-    }
-  }
-
-  // Rebuild effective per-unit prices
-  const itemPrices: Record<string, number> = {};
-  for (const item of cartItems) {
-    const discount = itemDiscounts[item.productId];
-    if (discount) {
-      itemPrices[item.productId] = Math.round(item.price * (1 - discount / 100));
-    }
-  }
-
-  // Recalculate subtotal with item discounts
-  if (Object.keys(itemDiscounts).length > 0) {
-    subtotal = cartItems.reduce((sum, item) => {
-      const effectivePrice = itemPrices[item.productId] ?? item.price;
-      return sum + effectivePrice * item.quantity;
-    }, 0);
-    // Re-apply cart_discount on top of item-discounted subtotal if any
-    for (const reward of rewards) {
-      if (reward.type === "cart_discount") {
-        if (reward.discountAmount) {
-          subtotal = Math.max(0, subtotal - reward.discountAmount);
-        } else if (reward.discountPct) {
-          subtotal = Math.round(subtotal * (1 - reward.discountPct / 100));
-        }
-      }
-    }
-  }
-
-  return { subtotal, delivery, itemPrices };
 }

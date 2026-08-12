@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { validateCoupon } from "@/lib/coupon";
-import { evaluatePromotions, applyRewards } from "@/lib/promotions";
+import { evaluatePromotions } from "@/lib/promotions";
+import { promotionPricing } from "@/lib/cartPricing";
 
 export async function GET() {
   const session = await auth();
@@ -73,7 +74,9 @@ export async function POST(req: NextRequest) {
   // Evaluate promotions server-side
   const rewards = await evaluatePromotions(cartItems, rawSubtotal);
   const baseDelivery = requestedDelivery === 0 ? 0 : requestedDelivery === 25 ? 25 : 40;
-  const { subtotal: promoSubtotal, delivery: promoDelivery, itemPrices } = applyRewards(cartItems, rawSubtotal, baseDelivery, rewards);
+  const pricing = promotionPricing(cartItems, rewards);
+  const promoSubtotal = pricing.subtotal;
+  const promoDelivery = pricing.freeShipping ? 0 : baseDelivery;
 
   // Same rule the checkout enforces: a cart whose price is already cut by a
   // promotion cannot also redeem a coupon.
@@ -91,11 +94,17 @@ export async function POST(req: NextRequest) {
   const delivery = promoDelivery;
   const total = subtotal + delivery;
 
-  // Merge effective prices into cartItems
-  const effectiveItems = cartItems.map((item: { productId: string; price: number; quantity: number; size: string; color?: string }) => ({
-    ...item,
-    price: itemPrices[item.productId] ?? item.price,
-  }));
+  // Merge effective prices into cartItems. A discount capped below the line's
+  // quantity ("50% off one shirt" with three in the cart) becomes two lines, so
+  // every stored unit price is the price actually charged for that unit.
+  type CartLine = { productId: string; price: number; quantity: number; size: string; color?: string };
+  const effectiveItems = (cartItems as CartLine[]).flatMap((item, i) => {
+    const line = pricing.lines[i];
+    if (!line || line.discountedUnits === 0) return [item];
+    const discounted = { ...item, quantity: line.discountedUnits, price: line.discountedUnitPrice };
+    if (line.discountedUnits >= item.quantity) return [discounted];
+    return [discounted, { ...item, quantity: item.quantity - line.discountedUnits }];
+  });
 
   const order = await prisma.order.create({
     data: {

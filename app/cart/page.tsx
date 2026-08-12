@@ -78,12 +78,15 @@ export default function CartPage() {
         </h1>
 
         <div className="flex flex-col gap-4">
-          {items.map((item) => {
+          {items.map((item, index) => {
             const available = availableFor(item);
             const overStock = available !== Infinity && item.quantity > available;
-            const discountPct = pricing.productDiscountPct[item.productId] ?? 0;
-            const unitPrice = pricing.productUnitPrice[item.productId] ?? item.price;
-            const promoNames = pricing.productPromotionNames[item.productId] ?? [];
+            const line = pricing.lines[index];
+            // "50% off one shirt" with three in the cart discounts part of the line
+            const partial = line.discountedUnits > 0 && line.discountedUnits < item.quantity;
+            const unitsNote = !partial ? "" : line.discountedUnits === 1
+              ? " על פריט אחד"
+              : ` על ${line.discountedUnits} פריטים`;
             return (
               <div
                 key={`${item.productId}-${item.size}-${item.color ?? ""}`}
@@ -120,14 +123,14 @@ export default function CartPage() {
                         {item.color ? `${item.color} · ` : ""}מידה {item.size}
                       </p>
                     </div>
-                    {discountPct > 0 ? (
+                    {line.discountPct > 0 ? (
                       <>
                         <div className="flex items-center justify-end gap-2 mt-1">
                           <p className="font-extrabold" style={{ color: "var(--green)" }}>
-                            ₪{unitPrice * item.quantity}
+                            ₪{line.total}
                           </p>
                           <p className="text-sm line-through" style={{ color: "var(--text-muted)" }}>
-                            ₪{item.price * item.quantity}
+                            ₪{line.rawTotal}
                           </p>
                         </div>
                         <span
@@ -138,12 +141,13 @@ export default function CartPage() {
                             <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
                             <line x1="7" y1="7" x2="7.01" y2="7" />
                           </svg>
-                          {Math.round(discountPct)}% הנחה{promoNames.length > 0 ? ` · ${promoNames.join(" · ")}` : ""}
+                          {Math.round(line.discountPct)}% הנחה{unitsNote}
+                          {line.promotionNames.length > 0 ? ` · ${line.promotionNames.join(" · ")}` : ""}
                         </span>
                       </>
                     ) : (
                       <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
-                        ₪{item.price * item.quantity}
+                        ₪{line.rawTotal}
                       </p>
                     )}
                     {overStock && (

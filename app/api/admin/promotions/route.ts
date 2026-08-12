@@ -14,13 +14,14 @@ export async function GET() {
 }
 
 type ConditionInput = { type: string; minTotal?: number | null; productId?: string | null };
-type RewardInput = { type: string; discountPct?: number | null; discountAmount?: number | null; productId?: string | null };
+type RewardInput = { type: string; discountPct?: number | null; discountAmount?: number | null; productId?: string | null; maxUnits?: number | null };
 
 function mapCondition(c: ConditionInput) {
   return { type: c.type, minTotal: c.minTotal ?? null, productId: c.productId ?? null };
 }
 function mapReward(r: RewardInput) {
-  return { type: r.type, discountPct: r.discountPct ?? null, discountAmount: r.discountAmount ?? null, productId: r.productId ?? null };
+  const maxUnits = r.type === "product_discount" && r.maxUnits && r.maxUnits > 0 ? Math.floor(r.maxUnits) : null;
+  return { type: r.type, discountPct: r.discountPct ?? null, discountAmount: r.discountAmount ?? null, productId: r.productId ?? null, maxUnits };
 }
 
 export async function POST(req: NextRequest) {

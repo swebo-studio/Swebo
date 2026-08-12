@@ -17,6 +17,8 @@ interface Reward {
   discountPct?: number | null;
   discountAmount?: number | null;
   productId?: string | null;
+  /** product_discount: units the discount reaches; null = every unit in the cart */
+  maxUnits?: number | null;
 }
 
 interface Promotion {
@@ -58,13 +60,14 @@ function rewardText(r: Reward, products: Product[]) {
   if (r.type === "product_discount") {
     const p = products.find((x) => x.id === r.productId);
     const pct = r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`;
-    return `${pct} על ${p?.nameHe ?? r.productId}`;
+    const scope = !r.maxUnits ? "כל הפריטים בסל" : r.maxUnits === 1 ? "פריט אחד בלבד" : `עד ${r.maxUnits} פריטים`;
+    return `${pct} על ${p?.nameHe ?? r.productId} · ${scope}`;
   }
   return r.type;
 }
 
 function emptyCondition(): Condition { return { type: "min_cart_total", minTotal: 300, productId: null }; }
-function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null }; }
+function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null, maxUnits: null }; }
 
 export default function AdminPromotionsPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -268,7 +271,7 @@ export default function AdminPromotionsPage() {
                         <button onClick={() => removeReward(i)} className="text-xs" style={{ color: "var(--maroon)" }} aria-label="הסר פרס"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                         <select
                           value={r.type}
-                          onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, discountAmount: null, productId: null })}
+                          onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, discountAmount: null, productId: null, maxUnits: null })}
                           className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
                           style={inputStyle}
                         >
@@ -363,6 +366,45 @@ export default function AdminPromotionsPage() {
                             className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
                             style={inputStyle}
                           />
+
+                          {/* How many units of the product the discount reaches */}
+                          <p className="text-xs text-right font-medium" style={{ color: "var(--text-muted)" }}>
+                            על כמה פריטים ההנחה חלה?
+                          </p>
+                          <div className="flex gap-2">
+                            {([
+                              { limited: false, label: "כל הפריטים בסל" },
+                              { limited: true,  label: "כמות מוגבלת" },
+                            ]).map(({ limited, label }) => {
+                              const selected = limited ? r.maxUnits != null : r.maxUnits == null;
+                              return (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={() => setReward(i, { maxUnits: limited ? (r.maxUnits ?? 1) : null })}
+                                  className="flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all"
+                                  style={{
+                                    borderColor: selected ? "var(--text)" : "var(--border)",
+                                    background: selected ? "var(--text)" : "transparent",
+                                    color: selected ? "var(--cream)" : "var(--text-muted)",
+                                  }}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {r.maxUnits != null && (
+                            <input
+                              type="number"
+                              min={1}
+                              value={r.maxUnits}
+                              onChange={(e) => setReward(i, { maxUnits: Math.max(1, Number(e.target.value) || 1) })}
+                              placeholder="כמה פריטים מקבלים את ההנחה"
+                              className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                              style={inputStyle}
+                            />
+                          )}
                         </>
                       )}
                     </div>

@@ -8,7 +8,10 @@ function rewardLabel(r: AppliedReward): string {
   if (r.type === "cart_discount") {
     return r.discountAmount ? `₪${r.discountAmount} הנחה על כל הסל` : `${r.discountPct}% הנחה על כל הסל`;
   }
-  return r.discountPct === 100 ? `${r.productName} חינם` : `${r.discountPct}% הנחה על ${r.productName}`;
+  const scope = !r.maxUnits ? "" : r.maxUnits === 1 ? " (פריט אחד)" : ` (עד ${r.maxUnits} פריטים)`;
+  return r.discountPct === 100
+    ? `${r.productName} חינם${scope}`
+    : `${r.discountPct}% הנחה על ${r.productName}${scope}`;
 }
 
 function potentialLabel(p: PotentialReward): string {

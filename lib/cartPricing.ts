@@ -1,10 +1,13 @@
 import type { AppliedReward } from "./promotions";
 
 /**
- * Client-safe pricing maths for a cart that has promotions applied to it.
- * Mirrors `applyRewards` (the server-side source of truth) so the cart,
- * the checkout summary and the created order all agree on the numbers.
- * Kept out of lib/promotions.ts so the browser never pulls in Prisma.
+ * Pricing maths for a cart that has promotions applied to it. Used by the
+ * cart, the checkout summary and the order route, so all three agree on the
+ * numbers. Kept free of Prisma imports so the browser can use it too.
+ *
+ * A product_discount may carry a `maxUnits` cap. The cap is spent across the
+ * whole cart in line order — three shirts under a "50% off one" promotion get
+ * one discounted unit between them, not one per line.
  */
 
 export interface PricedLine {
@@ -13,13 +16,22 @@ export interface PricedLine {
   quantity: number;
 }
 
+export interface LinePricing {
+  /** combined % off reaching this line's discounted units (0 when none) */
+  discountPct: number;
+  /** how many of this line's units the discount reaches */
+  discountedUnits: number;
+  /** unit price for those units */
+  discountedUnitPrice: number;
+  /** what the line costs once the discount is applied */
+  total: number;
+  rawTotal: number;
+  promotionNames: string[];
+}
+
 export interface PromotionPricing {
-  /** productId → combined % off from product_discount rewards */
-  productDiscountPct: Record<string, number>;
-  /** productId → discounted unit price (discounted products only) */
-  productUnitPrice: Record<string, number>;
-  /** productId → names of the promotions discounting it */
-  productPromotionNames: Record<string, string[]>;
+  /** one entry per input line, in the same order */
+  lines: LinePricing[];
   rawSubtotal: number;
   /** after per-product discounts, before cart-wide ones */
   itemSubtotal: number;
@@ -31,28 +43,47 @@ export interface PromotionPricing {
 }
 
 export function promotionPricing(items: PricedLine[], rewards: AppliedReward[]): PromotionPricing {
-  const productDiscountPct: Record<string, number> = {};
-  const productPromotionNames: Record<string, string[]> = {};
+  const pctByProduct: Record<string, number> = {};
+  const unitsLeft: Record<string, number> = {};
+  const namesByProduct: Record<string, string[]> = {};
 
   for (const r of rewards) {
     if (r.type !== "product_discount" || !r.productId || !r.discountPct) continue;
-    const prev = productDiscountPct[r.productId] ?? 0;
+    const prev = pctByProduct[r.productId] ?? 0;
     // Stack discounts: apply on top of each other
-    productDiscountPct[r.productId] = prev + r.discountPct - (prev * r.discountPct) / 100;
-    const names = productPromotionNames[r.productId] ?? [];
+    pctByProduct[r.productId] = prev + r.discountPct - (prev * r.discountPct) / 100;
+    // When several promotions hit one product, the tightest cap wins
+    const cap = r.maxUnits && r.maxUnits > 0 ? r.maxUnits : Infinity;
+    unitsLeft[r.productId] = Math.min(unitsLeft[r.productId] ?? Infinity, cap);
+    const names = namesByProduct[r.productId] ?? [];
     names.push(r.promotionName);
-    productPromotionNames[r.productId] = names;
+    namesByProduct[r.productId] = names;
   }
 
-  const productUnitPrice: Record<string, number> = {};
+  const lines: LinePricing[] = [];
   let rawSubtotal = 0;
   let itemSubtotal = 0;
+
   for (const item of items) {
-    const pct = productDiscountPct[item.productId] ?? 0;
-    const unit = pct ? Math.round(item.price * (1 - pct / 100)) : item.price;
-    if (pct) productUnitPrice[item.productId] = unit;
-    rawSubtotal += item.price * item.quantity;
-    itemSubtotal += unit * item.quantity;
+    const pct = pctByProduct[item.productId] ?? 0;
+    const available = unitsLeft[item.productId] ?? Infinity;
+    const discountedUnits = pct > 0 ? Math.min(item.quantity, available) : 0;
+    if (discountedUnits > 0) unitsLeft[item.productId] = available - discountedUnits;
+
+    const discountedUnitPrice = discountedUnits > 0 ? Math.round(item.price * (1 - pct / 100)) : item.price;
+    const rawTotal = item.price * item.quantity;
+    const total = discountedUnitPrice * discountedUnits + item.price * (item.quantity - discountedUnits);
+
+    lines.push({
+      discountPct: discountedUnits > 0 ? pct : 0,
+      discountedUnits,
+      discountedUnitPrice,
+      total,
+      rawTotal,
+      promotionNames: discountedUnits > 0 ? (namesByProduct[item.productId] ?? []) : [],
+    });
+    rawSubtotal += rawTotal;
+    itemSubtotal += total;
   }
 
   const cartRewards = rewards.filter((r) => r.type === "cart_discount");
@@ -62,9 +93,7 @@ export function promotionPricing(items: PricedLine[], rewards: AppliedReward[]):
   const subtotal = cartAmount > 0 ? Math.max(0, afterPct - cartAmount) : afterPct;
 
   return {
-    productDiscountPct,
-    productUnitPrice,
-    productPromotionNames,
+    lines,
     rawSubtotal,
     itemSubtotal,
     subtotal,
