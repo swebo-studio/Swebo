@@ -95,15 +95,15 @@ export async function POST(req: NextRequest) {
   const total = subtotal + delivery;
 
   // Merge effective prices into cartItems. A discount capped below the line's
-  // quantity ("50% off one shirt" with three in the cart) becomes two lines, so
-  // every stored unit price is the price actually charged for that unit.
+  // quantity ("50% off one shirt" with three in the cart) splits the line, so
+  // every stored unit price is the price actually charged for that unit. The
+  // engine already grouped each line's units by the price they pay, so the
+  // stored lines are just those buckets.
   type CartLine = { productId: string; price: number; quantity: number; size: string; color?: string };
   const effectiveItems = (cartItems as CartLine[]).flatMap((item, i) => {
     const line = pricing.lines[i];
-    if (!line || line.discountedUnits === 0) return [item];
-    const discounted = { ...item, quantity: line.discountedUnits, price: line.discountedUnitPrice };
-    if (line.discountedUnits >= item.quantity) return [discounted];
-    return [discounted, { ...item, quantity: item.quantity - line.discountedUnits }];
+    if (!line || line.buckets.length === 0) return [item];
+    return line.buckets.map((bucket) => ({ ...item, quantity: bucket.quantity, price: bucket.unitPrice }));
   });
 
   const order = await prisma.order.create({

@@ -25,7 +25,11 @@ export interface CartItemInput {
 
 export interface AppliedReward {
   type: "free_shipping" | "cart_discount" | "product_discount";
+  /** which promotion granted this — two promotions offering the same % are not the same offer */
+  promotionId: string;
   promotionName: string;
+  /** true = no other promotion may discount the products this one discounts */
+  exclusive: boolean;
   discountPct?: number;
   discountAmount?: number;
   productId?: string;
@@ -93,7 +97,9 @@ export async function evaluateCartPromotions(
   for (const promotion of promotions) {
     const toReward = (r: (typeof promotion.rewards)[number]): AppliedReward => ({
       type: r.type as AppliedReward["type"],
+      promotionId: promotion.id,
       promotionName: promotion.name,
+      exclusive: promotion.exclusive,
       discountPct: r.discountPct ?? undefined,
       discountAmount: r.discountAmount ?? undefined,
       productId: r.productId ?? undefined,
@@ -101,14 +107,19 @@ export async function evaluateCartPromotions(
       maxUnits: r.maxUnits ?? undefined,
     });
 
-    // All conditions must be met (AND)
-    const unmet = promotion.conditions.filter((c) => {
-      if (c.type === "min_cart_total") return subtotal < (c.minTotal ?? 0);
-      if (c.type === "product_in_cart") return !cartProductIds.includes(c.productId ?? "");
-      return true;
-    });
+    const meetsCondition = (c: (typeof promotion.conditions)[number]) => {
+      if (c.type === "min_cart_total") return subtotal >= (c.minTotal ?? 0);
+      if (c.type === "product_in_cart") return cartProductIds.includes(c.productId ?? "");
+      return false; // an unrecognised condition never qualifies a promotion
+    };
 
-    if (unmet.length === 0) {
+    // "any" = one condition is enough (OR); "all" = every one must hold (AND).
+    // A promotion with no conditions qualifies under either reading.
+    const anyLogic = promotion.conditionLogic === "any";
+    const unmet = promotion.conditions.filter((c) => !meetsCondition(c));
+    const qualifies = promotion.conditions.length === 0 || (anyLogic ? unmet.length < promotion.conditions.length : unmet.length === 0);
+
+    if (qualifies) {
       for (const r of promotion.rewards) {
         const reward = toReward(r);
         // A discount on a product that isn't in the cart saves nothing yet —
@@ -122,9 +133,14 @@ export async function evaluateCartPromotions(
       continue;
     }
 
-    // Near miss: everything satisfied except a spend threshold
-    if (!unmet.every((c) => c.type === "min_cart_total")) continue;
-    const remaining = Math.ceil(Math.max(...unmet.map((c) => (c.minTotal ?? 0) - subtotal)));
+    // Near miss: the shopper is only short of a spend threshold. Under "all"
+    // they have to clear every outstanding threshold, so quote the largest gap;
+    // under "any" clearing the nearest one is enough, so quote the smallest.
+    const thresholds = unmet.filter((c) => c.type === "min_cart_total");
+    if (thresholds.length === 0) continue;
+    if (!anyLogic && thresholds.length !== unmet.length) continue; // a non-spend condition is also missing
+    const gaps = thresholds.map((c) => (c.minTotal ?? 0) - subtotal);
+    const remaining = Math.ceil(anyLogic ? Math.min(...gaps) : Math.max(...gaps));
     for (const r of promotion.rewards) {
       potential.push({ kind: "spend_more", promotionName: promotion.name, reward: toReward(r), remaining });
     }

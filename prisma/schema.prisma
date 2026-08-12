@@ -161,12 +161,18 @@ model Newsletter {
 }
 
 model Promotion {
-  id         String               @id @default(cuid())
-  name       String
-  active     Boolean              @default(true)
-  createdAt  DateTime             @default(now())
-  conditions PromotionCondition[]
-  rewards    PromotionReward[]
+  id     String  @id @default(cuid())
+  name   String
+  active Boolean @default(true)
+  /// "all" = every condition must hold (AND) · "any" = one is enough (OR)
+  conditionLogic String  @default("all")
+  /// true = once this promotion discounts a product, no other promotion may
+  /// discount that same product in the same cart. Safe default: it is what
+  /// stops several overlapping offers from gutting one item's price.
+  exclusive      Boolean @default(true)
+  createdAt      DateTime             @default(now())
+  conditions     PromotionCondition[]
+  rewards        PromotionReward[]
 }
 
 model PromotionCondition {

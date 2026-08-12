@@ -21,10 +21,16 @@ interface Reward {
   maxUnits?: number | null;
 }
 
+type ConditionLogic = "all" | "any";
+
 interface Promotion {
   id: string;
   name: string;
   active: boolean;
+  /** "all" = every condition must hold (AND) · "any" = one is enough (OR) */
+  conditionLogic: ConditionLogic;
+  /** true = no other promotion may discount the products this one discounts */
+  exclusive: boolean;
   conditions: Condition[];
   rewards: Reward[];
 }
@@ -69,6 +75,11 @@ function rewardText(r: Reward, products: Product[]) {
 function emptyCondition(): Condition { return { type: "min_cart_total", minTotal: 300, productId: null }; }
 function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null, maxUnits: null }; }
 
+const LOGIC_OPTIONS: { value: ConditionLogic; label: string; hint: string }[] = [
+  { value: "all", label: "כל התנאים (וגם)", hint: "המבצע יחול רק אם כל התנאים מתקיימים" },
+  { value: "any", label: "לפחות תנאי אחד (או)", hint: "מספיק שתנאי אחד יתקיים כדי שהמבצע יחול" },
+];
+
 export default function AdminPromotionsPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -79,6 +90,8 @@ export default function AdminPromotionsPage() {
   // Form state
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
+  const [conditionLogic, setConditionLogic] = useState<ConditionLogic>("all");
+  const [exclusive, setExclusive] = useState(true);
   const [conditions, setConditions] = useState<Condition[]>([emptyCondition()]);
   const [rewards, setRewards] = useState<Reward[]>([emptyReward()]);
   const [saving, setSaving] = useState(false);
@@ -100,6 +113,8 @@ export default function AdminPromotionsPage() {
     setEditing(null);
     setName("");
     setActive(true);
+    setConditionLogic("all");
+    setExclusive(true);
     setConditions([emptyCondition()]);
     setRewards([emptyReward()]);
     setModalOpen(true);
@@ -109,6 +124,8 @@ export default function AdminPromotionsPage() {
     setEditing(p);
     setName(p.name);
     setActive(p.active);
+    setConditionLogic(p.conditionLogic ?? "all");
+    setExclusive(p.exclusive ?? true);
     setConditions(p.conditions.length ? p.conditions : [emptyCondition()]);
     setRewards(p.rewards.length ? p.rewards : [emptyReward()]);
     setModalOpen(true);
@@ -117,7 +134,7 @@ export default function AdminPromotionsPage() {
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
-    const body = { name: name.trim(), active, conditions, rewards };
+    const body = { name: name.trim(), active, conditionLogic, exclusive, conditions, rewards };
     if (editing) {
       await fetch("/api/admin/promotions", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editing.id, ...body }) });
     } else {
@@ -138,7 +155,17 @@ export default function AdminPromotionsPage() {
     await fetch("/api/admin/promotions", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: p.id, name: p.name, active: !p.active, conditions: p.conditions, rewards: p.rewards }),
+      // PUT replaces the whole promotion, so every field has to be sent back —
+      // omitting one silently resets it to its default.
+      body: JSON.stringify({
+        id: p.id,
+        name: p.name,
+        active: !p.active,
+        conditionLogic: p.conditionLogic ?? "all",
+        exclusive: p.exclusive ?? true,
+        conditions: p.conditions,
+        rewards: p.rewards,
+      }),
     });
     load();
   }
@@ -212,8 +239,31 @@ export default function AdminPromotionsPage() {
                     className="text-xs px-3 py-1.5 rounded-lg font-bold"
                     style={{ background: "var(--text)", color: "var(--cream)" }}
                   >+ הוסף תנאי</button>
-                  <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>תנאים (כל התנאים חייבים להתקיים)</p>
+                  <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>תנאים</p>
                 </div>
+
+                {/* AND / OR — lets one promotion replace several near-identical ones */}
+                <div className="flex gap-2 mb-2">
+                  {LOGIC_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setConditionLogic(opt.value)}
+                      className="flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all"
+                      style={{
+                        borderColor: conditionLogic === opt.value ? "var(--text)" : "var(--border)",
+                        background: conditionLogic === opt.value ? "var(--text)" : "transparent",
+                        color: conditionLogic === opt.value ? "var(--cream)" : "var(--text-muted)",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-right mb-2" style={{ color: "var(--text-muted)" }}>
+                  {LOGIC_OPTIONS.find((o) => o.value === conditionLogic)?.hint}
+                </p>
+
                 <div className="flex flex-col gap-2">
                   {conditions.map((c, i) => (
                     <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
@@ -263,6 +313,28 @@ export default function AdminPromotionsPage() {
                     style={{ background: "var(--text)", color: "var(--cream)" }}
                   >+ הוסף פרס</button>
                   <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>פרסים (כולם יחולו)</p>
+                </div>
+
+                {/* Exclusivity — the guard against several offers gutting one item */}
+                <div className="mb-3 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+                  <label className="flex items-center justify-end gap-3 cursor-pointer">
+                    <span className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                      {exclusive ? "לא משתלב עם מבצעים אחרים" : "ניתן לשילוב עם מבצעים אחרים"}
+                    </span>
+                    <div
+                      className="relative w-12 h-6 rounded-full transition-colors cursor-pointer flex-shrink-0"
+                      style={{ background: exclusive ? "var(--green)" : "var(--border)" }}
+                      onClick={() => setExclusive((v) => !v)}
+                    >
+                      <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow"
+                        style={{ transform: exclusive ? "translateX(-28px)" : "translateX(-4px)" }} />
+                    </div>
+                  </label>
+                  <p className="text-xs text-right mt-1.5" style={{ color: "var(--text-muted)" }}>
+                    {exclusive
+                      ? "מבצע אחר לא יוכל להוסיף הנחה על מוצר שהמבצע הזה כבר מוזיל."
+                      : "מבצע אחר יוכל להוזיל פריטים נוספים של אותו מוצר. הנחות לעולם לא מצטברות על אותו פריט — תמיד חלה ההנחה הגבוהה ביותר."}
+                  </p>
                 </div>
                 <div className="flex flex-col gap-2">
                   {rewards.map((r, i) => (
@@ -440,6 +512,11 @@ export default function AdminPromotionsPage() {
                   <button onClick={() => openEdit(p)} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
                 </div>
                 <div className="flex items-center gap-3">
+                  {!p.exclusive && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#fff4e5", color: "var(--maroon)" }}>
+                      משתלב
+                    </span>
+                  )}
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: p.active ? "#e8f5e9" : "#f0f0f0", color: p.active ? "var(--green)" : "#888" }}>
                     {p.active ? "פעיל" : "מושבת"}
                   </span>
@@ -457,11 +534,20 @@ export default function AdminPromotionsPage() {
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl p-3" style={{ background: "var(--cream-dark)" }}>
-                  <p className="font-bold mb-1.5 text-right text-xs" style={{ color: "var(--text-muted)" }}>תנאים</p>
+                  <p className="font-bold mb-1.5 text-right text-xs" style={{ color: "var(--text-muted)" }}>
+                    תנאים {p.conditions.length > 1 && (p.conditionLogic === "any" ? "· מספיק אחד" : "· כולם")}
+                  </p>
                   {p.conditions.length === 0
                     ? <p className="text-right text-xs" style={{ color: "var(--text-muted)" }}>ללא תנאים</p>
                     : p.conditions.map((c, i) => (
-                        <p key={i} className="text-right text-xs mb-0.5" style={{ color: "var(--text)" }}>• {conditionText(c, products)}</p>
+                        <p key={i} className="text-right text-xs mb-0.5" style={{ color: "var(--text)" }}>
+                          {i > 0 && (
+                            <span className="font-bold" style={{ color: "var(--text-muted)" }}>
+                              {p.conditionLogic === "any" ? "או " : "וגם "}
+                            </span>
+                          )}
+                          {conditionText(c, products)}
+                        </p>
                       ))
                   }
                 </div>
