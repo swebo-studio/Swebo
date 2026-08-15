@@ -16,13 +16,18 @@ import type { AppliedReward } from "./promotions";
  *  2. A product_discount reward reaches at most `maxUnits` units across the
  *     whole cart — three shirts under a "50% off one" promotion get one
  *     discounted unit between them, not one per line.
- *  3. An `exclusive` promotion (the default) owns the products it discounts:
- *     no other promotion may discount those products in the same cart.
+ *  3. An `exclusive` promotion (the default) applies on its own: it never
+ *     shares a product with another promotion. Promotions marked stackable may
+ *     share. For each product the engine prices every legal combination — each
+ *     exclusive promotion alone, or all the stackable ones together — and keeps
+ *     whichever is cheapest for the shopper.
  *  4. At most one cart-wide discount applies — whichever is worth the most.
  *  5. Free shipping is granted if any qualifying promotion grants it.
  *
- * Rules 1-4 are all "best one wins", so a shopper is never worse off than the
- * single best offer they qualify for, and never better off than it either.
+ * Rule 3 is deliberately a search rather than a priority order. Letting the
+ * "first" exclusive promotion claim a product meant switching on a small
+ * capped offer could knock out a broader one and *raise* the price — a
+ * merchant turning a promotion on must never cost a shopper money.
  */
 
 export interface PricedLine {
@@ -128,6 +133,33 @@ function toOffers(rewards: AppliedReward[]): Offer[] {
   );
 }
 
+const unitPriceAt = (price: number, pct: number) =>
+  pct > 0 ? Math.max(0, Math.round(price * (1 - pct / 100))) : price;
+
+/**
+ * Spends one set of offers over one product's units. Deepest discount first,
+ * dearest unit first — that pairing is what makes a capped offer save the most
+ * it can — and a unit already discounted is never revisited, so offers within
+ * a set fill each other's gaps instead of compounding.
+ */
+function spend(offers: Offer[], units: Unit[]): { pct: number; promotionName?: string }[] {
+  const out = units.map(() => ({ pct: 0 }) as { pct: number; promotionName?: string });
+  const dearestFirst = units
+    .map((u, index) => ({ price: u.price, index }))
+    .sort((a, b) => b.price - a.price || a.index - b.index);
+
+  for (const offer of offers) {
+    let taken = 0;
+    for (const { index } of dearestFirst) {
+      if (taken >= offer.maxUnits) break;
+      if (out[index].pct > 0) continue;
+      out[index] = { pct: offer.pct, promotionName: offer.promotionName };
+      taken++;
+    }
+  }
+  return out;
+}
+
 /**
  * Hands out product discounts unit by unit. Returns the units of every line,
  * each stamped with the discount (if any) that reached it.
@@ -148,39 +180,40 @@ function allocateProductDiscounts(items: PricedLine[], rewards: AppliedReward[])
     unitsByProduct.set(item.productId, bucket);
   });
 
-  /** productId → promotions that have already discounted it */
-  const claimants = new Map<string, Set<string>>();
-  /** productId → the promotion holding it exclusively */
-  const exclusiveLock = new Map<string, string>();
+  const offers = toOffers(rewards);
 
-  for (const offer of toOffers(rewards)) {
-    const units = unitsByProduct.get(offer.productId);
-    if (!units) continue;
+  for (const [productId, units] of unitsByProduct) {
+    const forProduct = offers.filter((o) => o.productId === productId);
+    if (forProduct.length === 0) continue;
 
-    // Someone else already owns this product outright.
-    const lock = exclusiveLock.get(offer.productId);
-    if (lock && lock !== offer.promotionId) continue;
-
-    // We want it to ourselves, but another promotion got here first.
-    const others = [...(claimants.get(offer.productId) ?? [])].filter((id) => id !== offer.promotionId);
-    if (offer.exclusive && others.length > 0) continue;
-
-    // Only units that carry no discount yet are up for grabs — this is what
-    // stops rewards compounding. Dearest units first, so a capped offer is
-    // spent where it saves the shopper the most.
-    const free = units.filter((u) => u.pct === 0).sort((a, b) => b.price - a.price);
-    const take = Math.min(offer.maxUnits, free.length);
-    if (take <= 0) continue;
-
-    for (let i = 0; i < take; i++) {
-      free[i].pct = offer.pct;
-      free[i].promotionName = offer.promotionName;
+    // The legal combinations: every stackable promotion together, or any one
+    // exclusive promotion on its own. A promotion's own rewards always travel
+    // together — sharing with yourself is not sharing.
+    const candidates: Offer[][] = [];
+    const stackable = forProduct.filter((o) => !o.exclusive);
+    if (stackable.length > 0) candidates.push(stackable);
+    for (const promotionId of [...new Set(forProduct.filter((o) => o.exclusive).map((o) => o.promotionId))].sort()) {
+      candidates.push(forProduct.filter((o) => o.promotionId === promotionId));
     }
 
-    const claimed = claimants.get(offer.productId) ?? new Set<string>();
-    claimed.add(offer.promotionId);
-    claimants.set(offer.productId, claimed);
-    if (offer.exclusive) exclusiveLock.set(offer.productId, offer.promotionId);
+    // Cheapest for the shopper wins. Ties keep the earlier candidate, and the
+    // candidate order above is fixed, so the outcome is deterministic.
+    let best: { pct: number; promotionName?: string }[] | null = null;
+    let bestCost = Infinity;
+    for (const candidate of candidates) {
+      const assignment = spend(candidate, units);
+      const cost = assignment.reduce((sum, a, i) => sum + unitPriceAt(units[i].price, a.pct), 0);
+      if (cost < bestCost) {
+        bestCost = cost;
+        best = assignment;
+      }
+    }
+    if (!best) continue;
+
+    best.forEach((a, i) => {
+      units[i].pct = a.pct;
+      units[i].promotionName = a.promotionName;
+    });
   }
 
   return unitsByLine;
@@ -190,7 +223,7 @@ function allocateProductDiscounts(items: PricedLine[], rewards: AppliedReward[])
 function toBuckets(units: Unit[]): LineBucket[] {
   const byKey = new Map<string, LineBucket>();
   for (const unit of units) {
-    const unitPrice = unit.pct > 0 ? Math.max(0, Math.round(unit.price * (1 - unit.pct / 100))) : unit.price;
+    const unitPrice = unitPriceAt(unit.price, unit.pct);
     const key = `${unit.pct}|${unitPrice}|${unit.promotionName ?? ""}`;
     const bucket = byKey.get(key);
     if (bucket) {
