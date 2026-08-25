@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import RecentOrdersTable from "@/components/RecentOrdersTable";
 import LowStockPanel from "@/components/LowStockPanel";
+import DashboardKpis from "@/components/DashboardKpis";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,16 @@ export default async function AdminDashboard() {
   ]);
 
   const paidOrders = orders.filter((o) => o.status === "paid");
-  const revenue = paidOrders.reduce((s, o) => s + o.total, 0);
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const paidLast30 = paidOrders.filter((o) => o.createdAt >= cutoff);
+  const allTime = {
+    revenue: paidOrders.reduce((s, o) => s + o.total, 0),
+    paidCount: paidOrders.length,
+  };
+  const last30 = {
+    revenue: paidLast30.reduce((s, o) => s + o.total, 0),
+    paidCount: paidLast30.length,
+  };
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
 
   // Build per-size low-stock report for active products only
@@ -73,27 +83,12 @@ export default async function AdminDashboard() {
       </Link>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        {[
-          { label: "הכנסות (שולמו)", value: `₪${revenue.toLocaleString()}`, color: "var(--green)" },
-          { label: "הזמנות שולמו", value: paidOrders.length, color: "var(--text)" },
-          { label: "ממתינות לתשלום", value: pendingOrders, color: "#b08c00" },
-          { label: "מוצרים פעילים", value: products.filter((p) => p.active).length, color: "var(--text)" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="p-5 rounded-2xl border text-right"
-            style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
-          >
-            <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
-              {card.label}
-            </p>
-            <p className="text-2xl font-extrabold" style={{ color: card.color }}>
-              {card.value}
-            </p>
-          </div>
-        ))}
-      </div>
+      <DashboardKpis
+        allTime={allTime}
+        last30={last30}
+        pendingOrders={pendingOrders}
+        activeProducts={products.filter((p) => p.active).length}
+      />
 
       {/* Low stock warning */}
       <LowStockPanel items={lowStock} />
