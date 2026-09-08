@@ -70,3 +70,28 @@ export function parseSizePresets(raw: string | undefined | null): SizePreset[] {
     return DEFAULT_SIZE_PRESETS;
   }
 }
+
+/** Labels repeated within one colour, lower-cased. The server keeps the first
+ *  of each, so the admin is asked to resolve them rather than have a row's
+ *  stock silently discarded. */
+export function duplicateSizeLabels(rows: { size: string }[]): Set<string> {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const row of rows) {
+    const key = normalizeSizeLabel(row.size).toLowerCase();
+    if (!key) continue;
+    if (seen.has(key)) dupes.add(key);
+    seen.add(key);
+  }
+  return dupes;
+}
+
+/** A row whose label is blank would be dropped on save, taking its stock with it. */
+export function hasBlankSizeLabel(rows: { size: string }[]): boolean {
+  return rows.some((row) => !normalizeSizeLabel(row.size));
+}
+
+/** True when the list cannot be saved as typed. */
+export function sizeRowsAreValid(rows: { size: string }[]): boolean {
+  return duplicateSizeLabels(rows).size === 0 && !hasBlankSizeLabel(rows);
+}

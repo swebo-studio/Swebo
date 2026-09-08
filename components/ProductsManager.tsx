@@ -4,7 +4,7 @@ import Image from "next/image";
 import ImageCropModal from "@/components/ImageCropModal";
 import ConfirmModal from "@/components/ConfirmModal";
 import SizeStockEditor from "@/components/SizeStockEditor";
-import { parseSizePresets, type SizePreset } from "@/lib/sizes";
+import { parseSizePresets, sizeRowsAreValid, type SizePreset } from "@/lib/sizes";
 
 interface Category { id: string; nameHe: string }
 
@@ -73,6 +73,10 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   // Size stocks per color: colorId → SizeStock[]
   const [sizeStocks, setSizeStocks] = useState<Record<string, SizeStock[]>>({});
   const [savingSizes, setSavingSizes] = useState<Record<string, boolean>>({});
+  // Size rows save on their own button, so leaving the product would otherwise
+  // drop them without a word.
+  const [unsavedSizeColors, setUnsavedSizeColors] = useState<Record<string, boolean>>({});
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   // Which color's "add photo" input is active
   const colorImageRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -133,11 +137,12 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       if (c.sizes && c.sizes.length > 0) preloaded[c.id] = c.sizes;
     }
     setSizeStocks(preloaded);
+    setUnsavedSizeColors({});
     setProductShowSizeChart(p.showSizeChart);
     loadSizeGuideOverride(p);
   }
 
-  function closeForm() {
+  function discardAndClose() {
     setEditing(null);
     setCreating(false);
     setEditingColor(null);
@@ -147,6 +152,16 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setProductSizeGuideImages([]);
     setProductSizeGuideIsCustom(false);
     setProductShowSizeChart(null);
+    setUnsavedSizeColors({});
+    setConfirmDiscard(false);
+  }
+
+  function closeForm() {
+    if (Object.values(unsavedSizeColors).some(Boolean)) {
+      setConfirmDiscard(true);
+      return;
+    }
+    discardAndClose();
   }
 
   async function uploadSizeGuideImage(file: File) {
@@ -216,6 +231,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     const updatedColors = editing.colors.map((c) => c.id === colorId ? { ...c, stock: total } : c);
     setEditing((p) => p ? { ...p, colors: updatedColors } : p);
     setProducts((list) => list.map((p) => p.id === editing.id ? { ...p, colors: updatedColors } : p));
+    setUnsavedSizeColors((prev) => ({ ...prev, [colorId]: false }));
     setSavingSizes((prev) => ({ ...prev, [colorId]: false }));
   }
 
@@ -665,17 +681,20 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         <div className="flex items-center justify-between mb-1.5">
                           <button
                             onClick={() => saveSizeStocks(c.id)}
-                            disabled={savingSizes[c.id]}
+                            disabled={savingSizes[c.id] || !sizeRowsAreValid(sizeStocks[c.id] ?? [])}
                             className="text-xs px-3 py-1 rounded-lg font-bold transition-opacity disabled:opacity-40"
                             style={{ background: "var(--text)", color: "var(--cream)" }}
                           >
-                            {savingSizes[c.id] ? "שומר..." : "שמור מלאי"}
+                            {savingSizes[c.id] ? "שומר..." : unsavedSizeColors[c.id] ? "שמור מלאי •" : "שמור מלאי"}
                           </button>
                           <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה</span>
                         </div>
                         <SizeStockEditor
                           rows={sizeStocks[c.id] ?? []}
-                          onChange={(rows) => setSizeStocks((prev) => ({ ...prev, [c.id]: rows }))}
+                          onChange={(rows) => {
+                            setSizeStocks((prev) => ({ ...prev, [c.id]: rows }));
+                            setUnsavedSizeColors((prev) => ({ ...prev, [c.id]: true }));
+                          }}
                           presets={sizePresets}
                           copySources={editing.colors
                             .filter((other) => other.id !== c.id && (sizeStocks[other.id]?.length ?? 0) > 0)
@@ -797,7 +816,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
                     <button
                       onClick={handleAddColor}
-                      disabled={!colorForm.nameHe || addingColor}
+                      disabled={!colorForm.nameHe || addingColor || !sizeRowsAreValid(newColorSizes)}
                       className="w-full py-2.5 rounded-xl font-bold text-sm transition-opacity disabled:opacity-40"
                       style={{ background: "var(--text)", color: "var(--cream)" }}
                     >
@@ -1042,6 +1061,16 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
         confirmLabel="מחק"
         onConfirm={() => doDeleteColor(colorDeleteId)}
         onCancel={() => setColorDeleteId(null)}
+      />
+    )}
+
+    {/* Size rows save on their own button — warn before dropping them */}
+    {confirmDiscard && (
+      <ConfirmModal
+        message="יש שינויי מידות שלא נשמרו. לסגור בלי לשמור?"
+        confirmLabel="סגור בלי לשמור"
+        onConfirm={discardAndClose}
+        onCancel={() => setConfirmDiscard(false)}
       />
     )}
 

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { LEGACY_FALLBACK_SIZES, MAX_SIZE_LABEL, normalizeSizeLabel, parseSizeLabels, type SizePreset } from "@/lib/sizes";
+import { duplicateSizeLabels, hasBlankSizeLabel, LEGACY_FALLBACK_SIZES, MAX_SIZE_LABEL, normalizeSizeLabel, parseSizeLabels, type SizePreset } from "@/lib/sizes";
 
 export interface SizeStock { size: string; stock: number }
 
@@ -20,11 +20,8 @@ interface Props {
 export default function SizeStockEditor({ rows, onChange, presets, copySources = [], inputStyle }: Props) {
   const [draft, setDraft] = useState("");
 
-  const duplicates = new Set(
-    rows
-      .map((r) => normalizeSizeLabel(r.size).toLowerCase())
-      .filter((label, i, all) => label && all.indexOf(label) !== i)
-  );
+  const duplicates = duplicateSizeLabels(rows);
+  const blank = hasBlankSizeLabel(rows);
 
   function addLabels(labels: string[]) {
     const taken = new Set(rows.map((r) => normalizeSizeLabel(r.size).toLowerCase()));
@@ -107,7 +104,7 @@ export default function SizeStockEditor({ rows, onChange, presets, copySources =
                   onChange={(e) => onChange(rows.map((r, j) => j === i ? { ...r, size: e.target.value } : r))}
                   placeholder="מידה"
                   className="flex-1 px-2 py-1.5 rounded-lg border text-right outline-none text-sm font-bold"
-                  style={{ ...inputStyle, borderColor: isDuplicate ? "var(--maroon)" : inputStyle.borderColor }}
+                  style={{ ...inputStyle, borderColor: isDuplicate || !normalizeSizeLabel(row.size) ? "var(--maroon)" : inputStyle.borderColor }}
                 />
               </div>
             );
@@ -137,8 +134,10 @@ export default function SizeStockEditor({ rows, onChange, presets, copySources =
         />
       </div>
 
-      {duplicates.size > 0 && (
-        <p className="text-xs text-right" style={{ color: "var(--maroon)" }}>מידות כפולות יאוחדו בשמירה.</p>
+      {(duplicates.size > 0 || blank) && (
+        <p className="text-xs text-right" style={{ color: "var(--maroon)" }}>
+          {duplicates.size > 0 ? "יש מידות כפולות — תקן או הסר כדי לשמור." : "יש מידה ללא שם — תקן או הסר כדי לשמור."}
+        </p>
       )}
     </div>
   );
