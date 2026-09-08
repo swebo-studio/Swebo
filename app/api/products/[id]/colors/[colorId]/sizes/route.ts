@@ -5,6 +5,17 @@ import { dedupeSizeLabels, normalizeSizeLabel } from "@/lib/sizes";
 
 type Ctx = { params: Promise<{ id: string; colorId: string }> };
 
+/** Generous for shoes and waist/length grids, but bounded — the writes below
+ *  run as one transaction and the labels come straight from a text box. */
+const MAX_SIZES_PER_COLOR = 100;
+const MAX_STOCK = 1_000_000;
+
+function clampStock(value: unknown): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(n, MAX_STOCK);
+}
+
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const { colorId } = await params;
   const sizes = await prisma.productColorSize.findMany({
@@ -18,40 +29,52 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { colorId } = await params;
-  const body: { size: string; stock: number }[] = await req.json();
+  const { id, colorId } = await params;
+
+  // The route took colorId on trust, so a wrong URL wrote sizes onto another
+  // product's colour without complaint.
+  const colour = await prisma.productColor.findFirst({ where: { id: colorId, productId: id } });
+  if (!colour) return Response.json({ error: "Color not found on this product" }, { status: 404 });
+
+  const body: unknown = await req.json();
   if (!Array.isArray(body)) return Response.json({ error: "Expected an array" }, { status: 400 });
+  if (body.length > MAX_SIZES_PER_COLOR) {
+    return Response.json({ error: `עד ${MAX_SIZES_PER_COLOR} מידות לצבע` }, { status: 400 });
+  }
+
+  const rawRows = body as { size?: unknown; stock?: unknown }[];
 
   // Labels are free-form ("M", "42", "34/32"), so clean them here rather than
   // matching a fixed list. Array order becomes the order customers see.
-  const kept = dedupeSizeLabels(body.map((r) => r?.size ?? ""));
+  const kept = dedupeSizeLabels(rawRows.map((r) => String(r?.size ?? "")));
   const rows = kept.map((size, sortOrder) => {
-    const match = body.find((r) => normalizeSizeLabel(r?.size ?? "") === size);
-    const stock = Math.max(0, Math.round(Number(match?.stock ?? 0)) || 0);
-    return { size, stock, sortOrder };
+    const match = rawRows.find((r) => normalizeSizeLabel(String(r?.size ?? "")) === size);
+    return { size, stock: clampStock(match?.stock), sortOrder };
   });
 
-  // Delete sizes no longer in the list
-  await prisma.productColorSize.deleteMany({
-    where: { colorId, size: { notIn: rows.map((r) => r.size) } },
-  });
-  await Promise.all(
-    rows.map(({ size, stock, sortOrder }) =>
+  const total = rows.reduce((s, r) => s + r.stock, 0);
+
+  // One transaction: a half-written size list would misreport stock on the
+  // storefront until the shop noticed and saved again.
+  await prisma.$transaction([
+    // Sizes dropped from the list. An empty list clears them all, which is the
+    // admin saying "this colour has no size breakdown".
+    prisma.productColorSize.deleteMany({
+      where: { colorId, size: { notIn: rows.map((r) => r.size) } },
+    }),
+    ...rows.map(({ size, stock, sortOrder }) =>
       prisma.productColorSize.upsert({
         where: { colorId_size: { colorId, size } },
         update: { stock, sortOrder },
         create: { colorId, size, stock, sortOrder },
       })
-    )
-  );
-
-  // Colour stock mirrors the per-size total. Clearing every size instead means
-  // "this colour has no size breakdown", so leave its own stock figure alone —
-  // zeroing it there would make the colour unbuyable.
-  if (rows.length > 0) {
-    const total = rows.reduce((s, r) => s + r.stock, 0);
-    await prisma.productColor.update({ where: { id: colorId }, data: { stock: total } });
-  }
+    ),
+    // Colour stock mirrors the per-size total. With no sizes left, leave the
+    // colour's own figure alone — zeroing it there would make it unbuyable.
+    ...(rows.length > 0
+      ? [prisma.productColor.update({ where: { id: colorId }, data: { stock: total } })]
+      : []),
+  ]);
 
   return Response.json({ ok: true });
 }

@@ -14,6 +14,7 @@ export default function Header() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [announcementItems, setAnnouncementItems] = useState<{ text: string; url?: string }[]>([]);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     try {
@@ -33,15 +34,53 @@ export default function Header() {
     }).catch(() => {});
   }, []);
 
-  // close on outside click
+  // close on outside click / tap
   useEffect(() => {
-    function handler(e: MouseEvent) {
+    function handler(e: MouseEvent | TouchEvent) {
       if (open && drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [open]);
+
+  // Freeze the page behind the drawer. Without this a touch drag on mobile —
+  // one starting on the drawer header, or continuing past the end of the list —
+  // scrolls the document instead of the menu.
+  //
+  // `overflow: hidden` covers wheel and Android touch scrolling while leaving the
+  // scroll position (and so the sticky header) untouched; pinning the body with
+  // `position: fixed` would drop that header out of its sticky context. iOS Safari
+  // ignores the overflow for touch, so touchmove outside the scrollable list is
+  // cancelled outright, and `overscroll-contain` on the list stops it chaining to
+  // the page once it hits either end.
+  useEffect(() => {
+    if (!open) return;
+    const { body } = document;
+    const previous = { overflow: body.style.overflow, paddingRight: body.style.paddingRight };
+    const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    // Keep the scrollbar gutter so the page does not jump sideways on desktop.
+    if (scrollbar > 0) body.style.paddingRight = `${scrollbar}px`;
+
+    function blockOutsideScroll(e: TouchEvent) {
+      const list = navRef.current;
+      if (list && list.contains(e.target as Node)) return;
+      e.preventDefault();
+    }
+    document.addEventListener("touchmove", blockOutsideScroll, { passive: false });
+
+    return () => {
+      body.style.overflow = previous.overflow;
+      body.style.paddingRight = previous.paddingRight;
+      document.removeEventListener("touchmove", blockOutsideScroll);
+    };
   }, [open]);
 
   // close on ESC
@@ -147,7 +186,7 @@ export default function Header() {
         </div>
 
         {/* Nav links */}
-        <nav className="flex flex-col px-5 py-6 gap-1 text-right flex-1 overflow-y-auto">
+        <nav ref={navRef} className="flex flex-col px-5 py-6 gap-1 text-right flex-1 overflow-y-auto overscroll-contain">
           <Link href="/" onClick={() => setOpen(false)} className="py-3 px-2 font-bold text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
             דף הבית
           </Link>

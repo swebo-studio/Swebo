@@ -59,6 +59,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
   const [selectedSize, setSelectedSize] = useState("");
   const [sizeStocks, setSizeStocks] = useState<SizeStock[]>([]);
   const [sizesLoaded, setSizesLoaded] = useState(false);
+  const [sizesFailed, setSizesFailed] = useState(false);
   const [added, setAdded] = useState(false);
 
   // Load size stocks when color changes. Until they arrive we render no size
@@ -67,11 +68,15 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
   useEffect(() => {
     if (!selectedColor) return;
     setSizesLoaded(false);
+    setSizesFailed(false);
     setSizeStocks([]);
     fetch(`/api/products/${product.id}/colors/${selectedColor.id}/sizes`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((rows: SizeStock[]) => setSizeStocks(Array.isArray(rows) ? rows : []))
-      .catch(() => {})
+      .catch(() => setSizesFailed(true))
       .finally(() => setSizesLoaded(true));
   }, [selectedColor, product.id]);
 
@@ -96,9 +101,11 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
     return selectedColor ? selectedColor.stock : product.stock;
   }
   // Colours without size rows predate per-size stock, so they still offer XS–XXL.
+  // A failed request is not the same as "no sizes on record": offering XS–XXL
+  // there would put clothing sizes on a shoe, so show nothing instead.
   const sizeOptions = sizeStocks.length > 0
     ? sizeStocks.map((s) => s.size)
-    : (!hasColors || sizesLoaded) ? LEGACY_FALLBACK_SIZES : [];
+    : (!hasColors || (sizesLoaded && !sizesFailed)) ? LEGACY_FALLBACK_SIZES : [];
 
   const effectiveStock = selectedSize
     ? sizeStock(selectedSize)

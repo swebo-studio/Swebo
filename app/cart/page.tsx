@@ -26,8 +26,9 @@ export default function CartPage() {
           if (!p?.id) continue;
           map[`${p.id}||`] = p.stock ?? 0;
           for (const color of p.colors ?? []) {
-            map[`${p.id}|${color.nameHe}|`] = color.stock ?? 0;
-            for (const sizeRow of color.sizes ?? []) {
+            const sizes = color.sizes ?? [];
+            map[`${p.id}|${color.nameHe}|`] = sizes.length > 0 ? 0 : color.stock ?? 0;
+            for (const sizeRow of sizes) {
               map[`${p.id}|${color.nameHe}|${sizeRow.size}`] = sizeRow.stock;
             }
           }

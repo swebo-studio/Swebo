@@ -51,18 +51,21 @@ export function parseSizeLabels(text: string): string[] {
   return dedupeSizeLabels(String(text ?? "").split(/[,\n\r]+/));
 }
 
+/**
+ * Never configured (or unreadable) falls back to the defaults; a configured but
+ * empty list stays empty, so deleting every preset does not resurrect them.
+ */
 export function parseSizePresets(raw: string | undefined | null): SizePreset[] {
   if (!raw) return DEFAULT_SIZE_PRESETS;
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_SIZE_PRESETS;
-    const presets = parsed
+    return parsed
       .map((p) => ({
         name: String(p?.name ?? "").trim(),
         sizes: dedupeSizeLabels(Array.isArray(p?.sizes) ? p.sizes : []),
       }))
       .filter((p) => p.name && p.sizes.length > 0);
-    return presets.length > 0 ? presets : DEFAULT_SIZE_PRESETS;
   } catch {
     return DEFAULT_SIZE_PRESETS;
   }

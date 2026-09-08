@@ -38,8 +38,12 @@ export async function POST(req: NextRequest) {
       if (item.color) {
         const colorRow = product.colors.find((c) => c.nameHe === item.color);
         if (colorRow) {
-          const sizeRow = colorRow.sizes.find((s) => s.size === item.size);
-          available = sizeRow ? sizeRow.stock : colorRow.stock;
+          // A colour that tracks stock per size only sells the sizes it lists.
+          // Falling back to the colour total here would let a stale cart item —
+          // a size since renamed or removed — pass the stock check.
+          available = colorRow.sizes.length > 0
+            ? colorRow.sizes.find((s) => s.size === item.size)?.stock ?? 0
+            : colorRow.stock;
         }
       } else {
         available = product.stock;
