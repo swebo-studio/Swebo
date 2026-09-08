@@ -3,7 +3,8 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import AdminLogoutButton from "@/components/AdminLogoutButton";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useDrawerScrollLock } from "@/lib/useDrawerScrollLock";
 
 const NAV_ITEMS = [
   {
@@ -144,6 +145,8 @@ function AdminNav({ pathname, onClose }: { pathname: string; onClose?: () => voi
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const drawerNavRef = useRef<HTMLDivElement>(null);
+  useDrawerScrollLock(open, drawerNavRef);
 
   if (pathname === "/admin/login") return <>{children}</>;
 
@@ -202,7 +205,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
             </button>
-            <AdminNav pathname={pathname} onClose={() => setOpen(false)} />
+            {/* The nav is the only scrollable region, so a long menu scrolls
+                itself instead of dragging the page underneath. */}
+            <div ref={drawerNavRef} className="flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto overscroll-contain">
+              <AdminNav pathname={pathname} onClose={() => setOpen(false)} />
+            </div>
           </aside>
         </div>
       )}
