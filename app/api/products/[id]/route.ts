@@ -13,7 +13,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       images: { orderBy: { sortOrder: "asc" } },
       colors: {
         orderBy: { sortOrder: "asc" },
-        include: { images: { orderBy: { sortOrder: "asc" } }, sizes: true },
+        include: {
+          images: { orderBy: { sortOrder: "asc" } },
+          sizes: { orderBy: [{ sortOrder: "asc" }, { size: "asc" }] },
+        },
       },
     },
   });
@@ -40,6 +43,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       image: body.image,
       active: body.active,
       sizeGuideImages: body.sizeGuideImages !== undefined ? body.sizeGuideImages : undefined,
+      showSizeChart: body.showSizeChart !== undefined ? body.showSizeChart : undefined,
       categories: { set: categoryIds.map((cid) => ({ id: cid })) },
     },
     include: { categories: true },
@@ -58,6 +62,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     data: {
       ...(body.active !== undefined && { active: body.active }),
       ...(body.sizeGuideImages !== undefined && { sizeGuideImages: body.sizeGuideImages }),
+      ...(body.showSizeChart !== undefined && { showSizeChart: body.showSizeChart }),
     },
   });
   return Response.json(product);

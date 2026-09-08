@@ -5,8 +5,7 @@ import { useCart } from "./CartProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import SizeChartModal from "./SizeChartModal";
 import { buildWhatsAppHref } from "@/lib/whatsapp";
-
-const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+import { LEGACY_FALLBACK_SIZES } from "@/lib/sizes";
 
 interface ColorImage { id: string; url: string }
 interface SizeStock { size: string; stock: number }
@@ -59,15 +58,21 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
   const [mainImg, setMainImg] = useState(initialColor?.images[0]?.url || product.image || "");
   const [selectedSize, setSelectedSize] = useState("");
   const [sizeStocks, setSizeStocks] = useState<SizeStock[]>([]);
+  const [sizesLoaded, setSizesLoaded] = useState(false);
   const [added, setAdded] = useState(false);
 
-  // Load size stocks when color changes
+  // Load size stocks when color changes. Until they arrive we render no size
+  // buttons at all — falling back to XS–XXL first would flash the wrong sizes
+  // onto a product that sells 40–46.
   useEffect(() => {
     if (!selectedColor) return;
+    setSizesLoaded(false);
+    setSizeStocks([]);
     fetch(`/api/products/${product.id}/colors/${selectedColor.id}/sizes`)
       .then((r) => r.json())
-      .then(setSizeStocks)
-      .catch(() => {});
+      .then((rows: SizeStock[]) => setSizeStocks(Array.isArray(rows) ? rows : []))
+      .catch(() => {})
+      .finally(() => setSizesLoaded(true));
   }, [selectedColor, product.id]);
 
   const activeImages: string[] = selectedColor
@@ -90,6 +95,11 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
     if (sizeStocks.length > 0) return sizeStocks.find((s) => s.size === size)?.stock ?? 0;
     return selectedColor ? selectedColor.stock : product.stock;
   }
+  // Colours without size rows predate per-size stock, so they still offer XS–XXL.
+  const sizeOptions = sizeStocks.length > 0
+    ? sizeStocks.map((s) => s.size)
+    : (!hasColors || sizesLoaded) ? LEGACY_FALLBACK_SIZES : [];
+
   const effectiveStock = selectedSize
     ? sizeStock(selectedSize)
     : (selectedColor ? selectedColor.stock : product.stock);
@@ -237,7 +247,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>בחר מידה:</p>
             </div>
             <div className="flex gap-2 justify-end flex-wrap">
-              {(sizeStocks.length > 0 ? SIZES.filter((s) => sizeStocks.some((ss) => ss.size === s)) : SIZES).map((s) => {
+              {sizeOptions.map((s) => {
                 const stock = sizeStock(s);
                 const outOfStock = sizeStocks.length > 0 && stock === 0;
                 return (
@@ -245,7 +255,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                     key={s}
                     onClick={() => !outOfStock && setSelectedSize(s)}
                     disabled={outOfStock}
-                    className="relative w-14 h-14 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35"
+                    className="relative min-w-14 h-14 px-3 rounded-xl border-2 font-bold text-sm whitespace-nowrap transition-all disabled:opacity-35"
                     style={{
                       borderColor: selectedSize === s ? "var(--text)" : "var(--border)",
                       background: selectedSize === s ? "var(--text)" : "transparent",

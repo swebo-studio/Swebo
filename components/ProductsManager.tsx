@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import ImageCropModal from "@/components/ImageCropModal";
 import ConfirmModal from "@/components/ConfirmModal";
+import SizeStockEditor from "@/components/SizeStockEditor";
+import { parseSizePresets, type SizePreset } from "@/lib/sizes";
 
 interface Category { id: string; nameHe: string }
 
@@ -19,8 +21,6 @@ interface ProductColor {
   sizes: SizeStock[];
 }
 
-const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
-
 interface Product {
   id: string;
   nameHe: string;
@@ -32,6 +32,7 @@ interface Product {
   image: string;
   active: boolean;
   sizeGuideImages: string | null;
+  showSizeChart: boolean | null;
   categories: { id: string; nameHe: string }[];
   colors: ProductColor[];
 }
@@ -53,8 +54,15 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [deleting, setDeleting] = useState(false);
   const [colorDeleteId, setColorDeleteId] = useState<string | null>(null);
 
+  const [sizePresets, setSizePresets] = useState<SizePreset[]>(() => parseSizePresets(null));
+
   useEffect(() => {
     fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
+    // /api/config only exposes storefront keys, and presets are admin-only
+    fetch("/api/admin/config")
+      .then((r) => r.json())
+      .then((cfg: Record<string, string>) => setSizePresets(parseSizePresets(cfg["sizes.presets"])))
+      .catch(() => {});
   }, []);
 
   // Color form
@@ -84,6 +92,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   // Per-product size guide override
   const [productSizeGuideImages, setProductSizeGuideImages] = useState<string[]>([]);
   const [productSizeGuideIsCustom, setProductSizeGuideIsCustom] = useState(false);
+  // null = follow the store-wide setting; false hides the cm table on shoes etc.
+  const [productShowSizeChart, setProductShowSizeChart] = useState<boolean | null>(null);
   const [savingSizeGuide, setSavingSizeGuide] = useState(false);
   const [uploadingSizeGuide, setUploadingSizeGuide] = useState(false);
   const productSizeGuideRef = useRef<HTMLInputElement>(null);
@@ -123,6 +133,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
       if (c.sizes && c.sizes.length > 0) preloaded[c.id] = c.sizes;
     }
     setSizeStocks(preloaded);
+    setProductShowSizeChart(p.showSizeChart);
     loadSizeGuideOverride(p);
   }
 
@@ -135,6 +146,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setNewColorSizes([]);
     setProductSizeGuideImages([]);
     setProductSizeGuideIsCustom(false);
+    setProductShowSizeChart(null);
   }
 
   async function uploadSizeGuideImage(file: File) {
@@ -158,9 +170,9 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     await fetch(`/api/products/${editing.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sizeGuideImages: value }),
+      body: JSON.stringify({ sizeGuideImages: value, showSizeChart: productShowSizeChart }),
     });
-    const updatedProduct = { ...editing, sizeGuideImages: value };
+    const updatedProduct = { ...editing, sizeGuideImages: value, showSizeChart: productShowSizeChart };
     setEditing(updatedProduct);
     setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
     setProductSizeGuideIsCustom(productSizeGuideImages.length > 0);
@@ -648,7 +660,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         </div>
                       )}
 
-                      {/* Size stock grid */}
+                      {/* Size stock rows — free-form labels, row order is what customers see */}
                       <div className="mt-1">
                         <div className="flex items-center justify-between mb-1.5">
                           <button
@@ -661,51 +673,15 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                           </button>
                           <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {SIZES.map((size) => {
-                            const enabled = !!sizeStocks[c.id]?.find((s) => s.size === size);
-                            const current = sizeStocks[c.id]?.find((s) => s.size === size);
-                            return (
-                              <div key={size} className="flex flex-col items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => setSizeStocks((prev) => {
-                                    const existing = prev[c.id] ?? [];
-                                    if (enabled) return { ...prev, [c.id]: existing.filter((s) => s.size !== size) };
-                                    return { ...prev, [c.id]: [...existing, { size, stock: 0 }] };
-                                  })}
-                                  className="w-full text-xs font-bold py-1 rounded-md transition-all"
-                                  style={{
-                                    background: enabled ? "var(--text)" : "transparent",
-                                    color: enabled ? "var(--cream)" : "var(--text-muted)",
-                                    border: "1px solid",
-                                    borderColor: enabled ? "var(--text)" : "var(--border)",
-                                  }}
-                                >
-                                  {size}
-                                </button>
-                                {enabled ? (
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    value={current?.stock ?? 0}
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value);
-                                      setSizeStocks((prev) => ({
-                                        ...prev,
-                                        [c.id]: (prev[c.id] ?? []).map((s) => s.size === size ? { ...s, stock: val } : s),
-                                      }));
-                                    }}
-                                    className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
-                                    style={inputStyle}
-                                  />
-                                ) : (
-                                  <div className="w-full py-1.5 text-center text-xs" style={{ color: "var(--border)" }}>—</div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
+                        <SizeStockEditor
+                          rows={sizeStocks[c.id] ?? []}
+                          onChange={(rows) => setSizeStocks((prev) => ({ ...prev, [c.id]: rows }))}
+                          presets={sizePresets}
+                          copySources={editing.colors
+                            .filter((other) => other.id !== c.id && (sizeStocks[other.id]?.length ?? 0) > 0)
+                            .map((other) => ({ label: other.nameHe, rows: sizeStocks[other.id] ?? [] }))}
+                          inputStyle={inputStyle}
+                        />
                       </div>
 
                       {/* Photo grid */}
@@ -771,51 +747,16 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
                     {/* Size stocks for new color */}
                     <div>
-                      <p className="text-xs font-medium text-right mb-1.5" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה — לחץ על המידה להפעלה</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {SIZES.map((size) => {
-                          const enabled = newColorSizes.some((s) => s.size === size);
-                          const current = newColorSizes.find((s) => s.size === size);
-                          return (
-                            <div key={size} className="flex flex-col items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (enabled) {
-                                    setNewColorSizes((prev) => prev.filter((s) => s.size !== size));
-                                  } else {
-                                    setNewColorSizes((prev) => [...prev, { size, stock: 0 }]);
-                                  }
-                                }}
-                                className="w-full text-xs font-bold py-1 rounded-md transition-all"
-                                style={{
-                                  background: enabled ? "var(--text)" : "transparent",
-                                  color: enabled ? "var(--cream)" : "var(--text-muted)",
-                                  border: "1px solid",
-                                  borderColor: enabled ? "var(--text)" : "var(--border)",
-                                }}
-                              >
-                                {size}
-                              </button>
-                              {enabled ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={current?.stock ?? 0}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setNewColorSizes((prev) => prev.map((s) => s.size === size ? { ...s, stock: val } : s));
-                                  }}
-                                  className="w-full px-2 py-1.5 rounded-lg border text-center outline-none text-sm"
-                                  style={inputStyle}
-                                />
-                              ) : (
-                                <div className="w-full py-1.5 text-center text-xs" style={{ color: "var(--border)" }}>—</div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <p className="text-xs font-medium text-right mb-1.5" style={{ color: "var(--text-muted)" }}>מלאי לפי מידה</p>
+                      <SizeStockEditor
+                        rows={newColorSizes}
+                        onChange={setNewColorSizes}
+                        presets={sizePresets}
+                        copySources={(editing?.colors ?? [])
+                          .filter((other) => (sizeStocks[other.id]?.length ?? 0) > 0)
+                          .map((other) => ({ label: other.nameHe, rows: sizeStocks[other.id] ?? [] }))}
+                        inputStyle={inputStyle}
+                      />
                     </div>
 
                     {/* Images for new color */}
@@ -886,6 +827,24 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                   <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>
                     ניתן להעלות תמונות מדריך מידות ספציפיות למוצר זה. אם לא יועלו תמונות, יוצג מדריך המידות הכללי של האתר.
                   </p>
+
+                  {/* The cm table is a garment table — shoes and accessories can opt out */}
+                  <div className="flex items-center justify-between gap-3 rounded-xl border p-3" style={{ borderColor: "var(--border)" }}>
+                    <select
+                      value={productShowSizeChart === null ? "default" : productShowSizeChart ? "show" : "hide"}
+                      onChange={(e) => setProductShowSizeChart(e.target.value === "default" ? null : e.target.value === "show")}
+                      className="px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                      style={inputStyle}
+                    >
+                      <option value="default">לפי הגדרת האתר</option>
+                      <option value="show">הצג</option>
+                      <option value="hide">הסתר</option>
+                    </select>
+                    <div className="text-right">
+                      <p className="text-sm font-bold" style={{ color: "var(--text)" }}>טבלת מידות (ס&quot;מ)</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>טבלת חזה/מותן/אורך — כדאי להסתיר במוצרים שאינם בגדים, כמו נעליים</p>
+                    </div>
+                  </div>
 
                   {productSizeGuideImages.length > 0 && (
                     <div className="flex flex-wrap gap-3">
@@ -978,18 +937,21 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
               <tbody>
                 {products.map((p) => {
                   const displayImg = p.colors[0]?.images[0]?.url || p.image;
-                  // Aggregate stock per size across all colors
-                  const sizeMap: Record<string, number> = {};
+                  // Aggregate stock per size across all colors, keeping first-seen
+                  // order — sizes are free-form now, so there is no list to sort by.
+                  const sizeTotals: { size: string; stock: number }[] = [];
                   if (p.colors.length > 0) {
                     for (const c of p.colors) {
                       for (const s of (c.sizes ?? [])) {
-                        sizeMap[s.size] = (sizeMap[s.size] ?? 0) + s.stock;
+                        const row = sizeTotals.find((t) => t.size === s.size);
+                        if (row) row.stock += s.stock;
+                        else sizeTotals.push({ size: s.size, stock: s.stock });
                       }
                     }
                   }
-                  const hasSizeData = Object.keys(sizeMap).length > 0;
+                  const hasSizeData = sizeTotals.length > 0;
                   const totalStock = hasSizeData
-                    ? Object.values(sizeMap).reduce((a, b) => a + b, 0)
+                    ? sizeTotals.reduce((a, t) => a + t.stock, 0)
                     : p.colors.length > 0 ? p.colors.reduce((s, c) => s + c.stock, 0) : p.stock;
                   return (
                     <tr key={p.id} style={{ borderBottom: `1px solid var(--border)` }}>
@@ -1010,9 +972,9 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       <td className="px-4 py-3">
                         {hasSizeData ? (
                           <div className="flex flex-col gap-0.5 text-xs">
-                            {SIZES.filter((sz) => sizeMap[sz] !== undefined).map((sz) => (
-                              <span key={sz} style={{ color: sizeMap[sz] <= 3 ? "var(--maroon)" : "var(--text-muted)" }}>
-                                <span className="font-medium" style={{ color: "var(--text)" }}>{sz}</span> {sizeMap[sz]}
+                            {sizeTotals.map((t) => (
+                              <span key={t.size} style={{ color: t.stock <= 3 ? "var(--maroon)" : "var(--text-muted)" }}>
+                                <span className="font-medium" style={{ color: "var(--text)" }}>{t.size}</span> {t.stock}
                               </span>
                             ))}
                           </div>

@@ -9,7 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const [orders, products] = await Promise.all([
     prisma.order.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.product.findMany({ include: { colors: { include: { sizes: true } } } }),
+    prisma.product.findMany({
+      include: { colors: { include: { sizes: { orderBy: [{ sortOrder: "asc" }, { size: "asc" }] } } } },
+    }),
   ]);
 
   const paidOrders = orders.filter((o) => o.status === "paid");
@@ -25,8 +27,8 @@ export default async function AdminDashboard() {
   };
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
 
-  // Build per-size low-stock report for active products only
-  const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"];
+  // Build per-size low-stock report for active products only.
+  // Sizes arrive in the order the shop set them, so keep that order.
   type LowStockEntry = { id: string; nameHe: string; lines: string[] };
   const lowStock: LowStockEntry[] = [];
   for (const p of products) {
@@ -35,9 +37,7 @@ export default async function AdminDashboard() {
     if (p.colors.length > 0) {
       for (const color of p.colors) {
         if (color.sizes.length > 0) {
-          const low = color.sizes
-            .filter((s) => s.stock <= 3)
-            .sort((a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size));
+          const low = color.sizes.filter((s) => s.stock <= 3);
           if (low.length > 0) {
             const parts = low.map((s) => `${s.size} ×${s.stock}`).join(", ");
             lines.push(`${color.nameHe}: ${parts}`);

@@ -72,7 +72,9 @@ export default async function ProductPage(
 
   let sizeChart: { size: string; chest: number; waist: number; length: number }[] = [];
   try { if (cfg["sizeChart"]) sizeChart = JSON.parse(cfg["sizeChart"]); } catch {}
-  const showSizeChart = cfg["sizeChart.showTable"] !== "false";
+  // Product override wins; null falls back to the store-wide setting. The cm
+  // table describes garments, so shoes and accessories can switch it off alone.
+  const showSizeChart = product.showSizeChart ?? cfg["sizeChart.showTable"] !== "false";
 
   let sizeGuideImages: string[] = [];
   try {

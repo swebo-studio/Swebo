@@ -37,6 +37,9 @@ model Product {
   image         String         @default("")
   active        Boolean        @default(true)
   sizeGuideImages String?
+  /// null = follow the store-wide setting. The cm table only fits garments,
+  /// so shoe products turn it off without hiding it everywhere.
+  showSizeChart Boolean?
   categories    Category[]     @relation("ProductCategories")
   categoryOrders CategoryProductOrder[]
   createdAt     DateTime       @default(now())
@@ -69,11 +72,13 @@ model ProductColor {
 }
 
 model ProductColorSize {
-  id      String       @id @default(cuid())
-  colorId String
-  size    String
-  stock   Int          @default(0)
-  color   ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
+  id        String       @id @default(cuid())
+  colorId   String
+  /// Free-form label: "M", "42", "34/32". Order comes from sortOrder, not the label.
+  size      String
+  stock     Int          @default(0)
+  sortOrder Int          @default(0)
+  color     ProductColor @relation(fields: [colorId], references: [id], onDelete: Cascade)
 
   @@unique([colorId, size])
 }

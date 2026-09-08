@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import ConfirmModal from "@/components/ConfirmModal";
+import { parseSizePresets, parseSizeLabels, MAX_SIZE_LABEL, type SizePreset } from "@/lib/sizes";
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
 interface AdminPhone { id: string; phone: string; label: string | null }
@@ -17,6 +18,7 @@ export default function AdminConfigPage() {
   const [hero, setHero] = useState({ slogan: "", catalogName: "", imagePath: "", videoPath: "", imagePathMobile: "", videoPathMobile: "" });
   const [contact, setContact] = useState({ whatsapp: "", instagram: "", tiktok: "", email: "" });
   const [sizes, setSizes] = useState<SizeRow[]>(DEFAULT_SIZES);
+  const [sizePresets, setSizePresets] = useState<SizePreset[]>(() => parseSizePresets(null));
   const [announcementItems, setAnnouncementItems] = useState<{ text: string; url: string }[]>([]);
   const [sizeGuideImages, setSizeGuideImages] = useState<string[]>([]);
   const [showSizeChart, setShowSizeChart] = useState(true);
@@ -62,6 +64,7 @@ export default function AdminConfigPage() {
       if (cfg["sizeChart"]) {
         try { setSizes(JSON.parse(cfg["sizeChart"])); } catch {}
       }
+      setSizePresets(parseSizePresets(cfg["sizes.presets"]));
       const raw: string = cfg["announcement.items"] || "";
       setAnnouncementItems(
         raw.split("\n").map(s => s.trim()).filter(Boolean).map(s => {
@@ -147,7 +150,12 @@ export default function AdminConfigPage() {
         "hero.videoPath": hero.videoPath,
         "hero.imagePathMobile": hero.imagePathMobile,
         "hero.videoPathMobile": hero.videoPathMobile,
-        "sizeChart": JSON.stringify(sizes),
+        "sizeChart": JSON.stringify(sizes.filter((r) => r.size.trim())),
+        "sizes.presets": JSON.stringify(
+          sizePresets
+            .map((p) => ({ name: p.name.trim(), sizes: parseSizeLabels(p.sizes.join(",")) }))
+            .filter((p) => p.name && p.sizes.length > 0)
+        ),
         "sizeChart.showTable": showSizeChart ? "true" : "false",
         "sizeGuide.imagePaths": JSON.stringify(sizeGuideImages),
         "sizeGuide.imagePath": sizeGuideImages[0] ?? "",
@@ -468,12 +476,22 @@ export default function AdminConfigPage() {
               <th className="py-2">חזה</th>
               <th className="py-2">מותן</th>
               <th className="py-2">אורך</th>
+              <th className="py-2" />
             </tr>
           </thead>
           <tbody>
             {sizes.map((row, i) => (
-              <tr key={row.size} className="border-t" style={{ borderColor: "var(--border)" }}>
-                <td className="py-2 font-bold" style={{ color: "var(--text)" }}>{row.size}</td>
+              <tr key={i} className="border-t" style={{ borderColor: "var(--border)" }}>
+                <td className="py-2">
+                  <input
+                    type="text"
+                    value={row.size}
+                    maxLength={MAX_SIZE_LABEL}
+                    onChange={(e) => setSizes((prev) => prev.map((r, j) => j === i ? { ...r, size: e.target.value } : r))}
+                    className="w-20 px-2 py-1 rounded-lg border text-center outline-none text-sm font-bold"
+                    style={inputStyle}
+                  />
+                </td>
                 {(["chest", "waist", "length"] as const).map((col) => (
                   <td key={col} className="py-2">
                     <input
@@ -485,10 +503,77 @@ export default function AdminConfigPage() {
                     />
                   </td>
                 ))}
+                <td className="py-2">
+                  <button
+                    onClick={() => setSizes((prev) => prev.filter((_, j) => j !== i))}
+                    className="px-2 py-1 rounded-lg text-xs border"
+                    style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}
+                    title="הסר שורה"
+                  >
+                    ✕
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        <div className="flex justify-end mt-3">
+          <button
+            onClick={() => setSizes((prev) => [...prev, { size: "", chest: 0, waist: 0, length: 0 }])}
+            className="px-3 py-1.5 rounded-xl border text-sm transition-opacity hover:opacity-70"
+            style={{ borderColor: "var(--border)", color: "var(--text)" }}
+          >
+            + הוסף שורה
+          </button>
+        </div>
+      </section>
+
+      {/* ── Size presets ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>ערכות מידות</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          ערכות למילוי מהיר של מידות מוצר. בעריכת מוצר לוחצים על שם הערכה והמידות שלה מתווספות לצבע.
+          המידות חופשיות — &quot;42&quot; לנעליים, &quot;34/32&quot; למכנסיים.
+        </p>
+        <div className="flex flex-col gap-3">
+          {sizePresets.map((preset, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <button
+                onClick={() => setSizePresets((prev) => prev.filter((_, j) => j !== i))}
+                className="px-2 py-1.5 rounded-lg text-xs border flex-shrink-0"
+                style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}
+                title="הסר ערכה"
+              >
+                ✕
+              </button>
+              <input
+                type="text"
+                value={preset.sizes.join(", ")}
+                onChange={(e) => setSizePresets((prev) => prev.map((r, j) => j === i ? { ...r, sizes: e.target.value.split(",").map((x) => x.trim()) } : r))}
+                placeholder="36, 37, 38, 39"
+                className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
+                style={inputStyle}
+              />
+              <input
+                type="text"
+                value={preset.name}
+                onChange={(e) => setSizePresets((prev) => prev.map((r, j) => j === i ? { ...r, name: e.target.value } : r))}
+                placeholder="שם הערכה"
+                className="w-36 px-3 py-2 rounded-xl border text-right outline-none text-sm font-bold"
+                style={inputStyle}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end mt-3">
+          <button
+            onClick={() => setSizePresets((prev) => [...prev, { name: "", sizes: [] }])}
+            className="px-3 py-1.5 rounded-xl border text-sm transition-opacity hover:opacity-70"
+            style={{ borderColor: "var(--border)", color: "var(--text)" }}
+          >
+            + הוסף ערכה
+          </button>
+        </div>
       </section>
 
       {/* ── Shipping / payment info box (shown on product page) ── */}
