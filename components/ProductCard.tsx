@@ -32,14 +32,14 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
           )}
           {stock === 0 && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <span className="text-white font-bold text-lg bg-black/60 px-4 py-2 rounded-lg">
+              <span className="text-white font-bold text-lg bg-black/75 px-4 py-2 rounded-lg">
                 אזל מהמלאי
               </span>
             </div>
           )}
           {stock > 0 && stock <= 3 && (
             <div className="absolute top-2 right-2">
-              <span className="text-xs font-bold px-2 py-1 rounded-full bg-orange-400 text-white">
+              <span className="text-xs font-bold px-2 py-1 rounded-full text-white" style={{ background: "var(--warn)" }}>
                 אחרונים במלאי
               </span>
             </div>
@@ -53,15 +53,15 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
             {discountedPrice !== undefined && discountedPrice < price ? (
               <>
                 <span className="text-sm line-through" style={{ color: "var(--text-muted)" }}>
-                  ₪{price}
+                  <span className="sr-only">מחיר מקורי: </span>₪{price}
                 </span>
                 <span className="font-extrabold text-xl" style={{ color: "var(--maroon)" }}>
-                  ₪{discountedPrice}
+                  <span className="sr-only">מחיר מבצע: </span>₪{discountedPrice}
                 </span>
               </>
             ) : (
               <span className="font-extrabold text-xl" style={{ color: "var(--text)" }}>
-                ₪{price}
+                <span className="sr-only">מחיר: </span>₪{price}
               </span>
             )}
           </div>

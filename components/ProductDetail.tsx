@@ -160,7 +160,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               <button
                 key={i}
                 onClick={() => setMainImg(url)}
-                aria-label={`תמונה ${i + 1}`}
+                aria-label={`תמונה ${i + 1} מתוך ${activeImages.length}`}
+                aria-pressed={mainImg === url}
                 className="relative w-16 h-16 rounded-xl overflow-hidden border-2 transition-all"
                 style={{ borderColor: mainImg === url ? "var(--text)" : "var(--border)" }}
               >
@@ -176,7 +177,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         {/* Color picker */}
         {hasColors && (
           <div>
-            <p className="text-sm font-medium mb-3" style={{ color: "var(--text-muted)" }}>
+            <p id="color-picker-label" className="text-sm font-medium mb-3" style={{ color: "var(--text-muted)" }}>
               {selectedColor ? `צבע: ${selectedColor.nameHe}` : "בחר צבע:"}
             </p>
             {selectedColor?.linkedUrl && (
@@ -186,12 +187,12 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                 style={{ color: "var(--text-muted)" }}
               >
                 <span className="flex items-center gap-1">
-                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                  <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                   צפה במוצר קשור
                 </span>
               </a>
             )}
-            <div className="flex gap-3 justify-end flex-wrap">
+            <div role="group" aria-labelledby="color-picker-label" className="flex gap-3 justify-end flex-wrap">
               {product.colors.map((c) => {
                 const thumb = c.images?.[0]?.url;
                 return (
@@ -199,6 +200,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                     key={c.id}
                     onClick={() => handleColorSelect(c)}
                     disabled={c.stock === 0}
+                    aria-pressed={selectedColor?.id === c.id}
+                    aria-label={c.stock === 0 ? `צבע ${c.nameHe} — אזל מהמלאי` : `צבע ${c.nameHe}`}
                     title={c.nameHe}
                     className="flex flex-col items-center gap-1.5 transition-opacity disabled:opacity-35"
                   >
@@ -234,14 +237,14 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
 
         {/* Stock badge */}
         {effectiveStock === 0 && (
-          <div className="text-sm px-3 py-1.5 rounded-full self-end" style={{ background: "#f5e8e8", color: "var(--maroon)" }}>
+          <p role="status" className="text-sm px-3 py-1.5 rounded-full self-end" style={{ background: "#f5e8e8", color: "var(--maroon)" }}>
             אזל מהמלאי
-          </div>
+          </p>
         )}
         {effectiveStock > 0 && effectiveStock <= 3 && (
-          <div className="text-sm px-4 py-2 rounded-full self-end font-bold" style={{ background: "#fff3e0", color: "#e65100", border: "1.5px solid #ffb74d" }}>
-            נשארו {effectiveStock} אחרונים בלבד❗️
-          </div>
+          <p role="status" className="text-sm px-4 py-2 rounded-full self-end font-bold" style={{ background: "#fff3e0", color: "var(--warn)", border: "1.5px solid var(--warn)" }}>
+            נשארו {effectiveStock} אחרונים בלבד<span aria-hidden="true">❗️</span>
+          </p>
         )}
 
         {/* Size picker with per-size stock */}
@@ -251,9 +254,9 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               {(showSizeChart || (sizeGuideImages && sizeGuideImages.length > 0) || sizeGuideImage) && (
                 <SizeChartModal rows={showSizeChart ? sizeChart : []} imagePaths={sizeGuideImages} imagePath={sizeGuideImage} />
               )}
-              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>בחר מידה:</p>
+              <p id="size-picker-label" className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>בחר מידה:</p>
             </div>
-            <div className="flex gap-2 justify-end flex-wrap">
+            <div role="group" aria-labelledby="size-picker-label" className="flex gap-2 justify-end flex-wrap">
               {sizeOptions.map((s) => {
                 const stock = sizeStock(s);
                 const outOfStock = sizeStocks.length > 0 && stock === 0;
@@ -262,6 +265,14 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                     key={s}
                     onClick={() => !outOfStock && setSelectedSize(s)}
                     disabled={outOfStock}
+                    aria-pressed={selectedSize === s}
+                    aria-label={
+                      outOfStock
+                        ? `מידה ${s} — אזלה מהמלאי`
+                        : sizeStocks.length > 0 && stock <= 3
+                          ? `מידה ${s} — נותרו ${stock} במלאי`
+                          : `מידה ${s}`
+                    }
                     className="relative min-w-14 h-14 px-3 rounded-xl border-2 font-bold text-sm whitespace-nowrap transition-all disabled:opacity-35"
                     style={{
                       borderColor: selectedSize === s ? "var(--text)" : "var(--border)",
@@ -271,7 +282,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                   >
                     {s}
                     {sizeStocks.length > 0 && stock <= 3 && stock > 0 && (
-                      <span className="absolute -top-1.5 -left-1.5 text-[9px] bg-orange-400 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">!</span>
+                      <span aria-hidden="true" className="absolute -top-1.5 -left-1.5 text-[9px] text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold" style={{ background: "var(--warn)" }}>!</span>
                     )}
                   </button>
                 );
@@ -292,6 +303,10 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
             )}
           </div>
         )}
+
+        {/* The button label flips to "נוסף לסל!" but a screen reader never
+            re-reads a button it is not focused on, so announce it separately. */}
+        <p aria-live="polite" className="sr-only">{added ? `${product.nameHe} נוסף לסל` : ""}</p>
 
         {/* CTA buttons */}
         {effectiveStock > 0 ? (
@@ -322,7 +337,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
             className="w-full py-4 rounded-2xl font-bold text-lg text-center flex items-center justify-center gap-3 transition-opacity hover:opacity-80"
             style={{ background: "#25D366", color: "white" }}
           >
-            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
+            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
             </svg>
             שלח הודעה לשמירת מקום

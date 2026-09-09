@@ -20,7 +20,7 @@ export default async function YeshuvimMerukhakimPage() {
   return (
     <>
       <Header />
-      <main className="max-w-3xl mx-auto px-4 py-12 text-right" dir="rtl">
+      <main id="main-content" className="max-w-3xl mx-auto px-4 py-12 text-right" dir="rtl">
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-sm mb-8 hover:opacity-70 transition-opacity"

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useDialogA11y } from "@/lib/useDialogA11y";
 
 const STORAGE_KEY = "swebo_newsletter_popup_dismissed";
 const SHOW_DELAY_MS = 1200;
@@ -10,6 +11,7 @@ export default function NewsletterPopup() {
   const [loading, setLoading] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [error, setError] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -21,14 +23,16 @@ export default function NewsletterPopup() {
     return () => clearTimeout(timer);
   }, []);
 
-  function close() {
+  const close = useCallback(() => {
     setOpen(false);
     try {
       localStorage.setItem(STORAGE_KEY, "1");
     } catch {
       // ignore
     }
-  }
+  }, []);
+
+  useDialogA11y(open, dialogRef, close);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,50 +65,63 @@ export default function NewsletterPopup() {
       onClick={close}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="newsletter-popup-title"
         className="relative w-full max-w-sm rounded-2xl border p-6 shadow-xl"
         style={{ background: "var(--cream)", borderColor: "var(--border)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={close}
-          aria-label="סגור"
+          aria-label="סגור חלון הרשמה"
           className="absolute top-3 left-3 w-8 h-8 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
           style={{ color: "var(--text-muted)" }}
         >
-          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
 
         {coupon ? (
           <div className="text-center pt-2">
-            <h3 className="text-xl font-extrabold mb-2" style={{ color: "var(--text)" }}>הקופון שלך מוכן!</h3>
+            <h2 id="newsletter-popup-title" className="text-xl font-extrabold mb-2" style={{ color: "var(--text)" }}>הקופון שלך מוכן!</h2>
             <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>השתמש בקוד הזה בעת התשלום לקבלת 5% הנחה:</p>
-            <div
+            <p
               className="text-2xl font-extrabold tracking-[4px] px-6 py-4 rounded-2xl border-2 border-dashed inline-block mb-5"
               style={{ borderColor: "var(--maroon)", color: "var(--maroon)", background: "var(--cream-dark)" }}
             >
-              {coupon}
-            </div>
+              <span className="sr-only">קוד הקופון: </span>{coupon}
+            </p>
             <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>שלחנו גם הודעת SMS למספר {phone}</p>
           </div>
         ) : (
           <>
             <div className="text-center mb-5 pt-2">
-              <h3 className="text-xl font-extrabold mb-1" style={{ color: "var(--text)" }}>הצטרף לרשימת התפוצה</h3>
+              <h2 id="newsletter-popup-title" className="text-xl font-extrabold mb-1" style={{ color: "var(--text)" }}>הצטרף לרשימת התפוצה</h2>
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>קבל <strong>5% הנחה</strong> על הזמנתך הראשונה</p>
             </div>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+              <label htmlFor="newsletter-popup-phone" className="text-sm text-right" style={{ color: "var(--text-muted)" }}>
+                מספר טלפון (לקבלת הקופון ב-SMS)
+              </label>
               <input
+                id="newsletter-popup-phone"
                 type="tel"
+                autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="מספר טלפון (לקבלת הקופון ב-SMS)"
+                placeholder="050-0000000"
                 required
-                className="w-full px-4 py-3 rounded-xl border text-right outline-none text-sm"
+                aria-describedby={error ? "newsletter-popup-error" : undefined}
+                aria-invalid={error ? true : undefined}
+                className="w-full px-4 py-3 rounded-xl border text-right text-sm"
                 style={{ background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" }}
               />
-              {error && <p className="text-xs text-center" style={{ color: "var(--maroon)" }}>{error}</p>}
+              {error && (
+                <p id="newsletter-popup-error" role="alert" className="text-xs text-center" style={{ color: "var(--maroon)" }}>{error}</p>
+              )}
               <button
                 type="submit"
                 disabled={loading}
@@ -114,7 +131,7 @@ export default function NewsletterPopup() {
                 {loading ? "רגע..." : (
                   <span className="flex items-center justify-center gap-2">
                     קבל קופון 5%
-                    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                   </span>
                 )}
               </button>

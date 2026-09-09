@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "מדיניות פרטיות" };
+
 export default async function PrivacyPage() {
   const row = await prisma.siteConfig.findUnique({ where: { key: "legal.privacy" } });
   const custom = row?.value?.trim();
@@ -10,7 +12,7 @@ export default async function PrivacyPage() {
   return (
     <>
       <Header />
-      <main className="max-w-2xl mx-auto px-4 py-12 text-right" style={{ color: "var(--text)" }}>
+      <main id="main-content" className="max-w-2xl mx-auto px-4 py-12 text-right" style={{ color: "var(--text)" }}>
         <h1 className="text-3xl font-extrabold mb-8">מדיניות פרטיות</h1>
 
         {custom ? (

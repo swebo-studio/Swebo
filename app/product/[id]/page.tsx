@@ -111,7 +111,7 @@ export default async function ProductPage(
   return (
     <>
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-10">
+      <main id="main-content" className="max-w-4xl mx-auto px-4 py-10">
         <h1 className="text-2xl font-extrabold mb-1 text-right" style={{ color: "var(--text)" }}>
           {product.nameHe}
         </h1>
@@ -123,11 +123,17 @@ export default async function ProductPage(
         <div className="text-right mb-6 flex items-baseline gap-3 justify-end">
           {originalPrice ? (
             <>
-              <span className="text-2xl line-through" style={{ color: "var(--text-muted)" }}>₪{originalPrice}</span>
-              <span className="text-4xl font-extrabold" style={{ color: "var(--maroon)" }}>₪{displayPrice}</span>
+              <span className="text-2xl line-through" style={{ color: "var(--text-muted)" }}>
+                <span className="sr-only">מחיר מקורי: </span>₪{originalPrice}
+              </span>
+              <span className="text-4xl font-extrabold" style={{ color: "var(--maroon)" }}>
+                <span className="sr-only">מחיר מבצע: </span>₪{displayPrice}
+              </span>
             </>
           ) : (
-            <span className="text-4xl font-extrabold" style={{ color: "var(--text)" }}>₪{product.price}</span>
+            <span className="text-4xl font-extrabold" style={{ color: "var(--text)" }}>
+              <span className="sr-only">מחיר: </span>₪{product.price}
+            </span>
           )}
         </div>
         <Suspense>

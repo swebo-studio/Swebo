@@ -202,7 +202,7 @@ export default function CheckoutPage() {
     return (
       <>
         <Header />
-        <main className="max-w-xl mx-auto px-4 py-20 text-center">
+        <main id="main-content" className="max-w-xl mx-auto px-4 py-20 text-center">
           <p className="text-xl mb-6" style={{ color: "var(--text-muted)" }}>העגלה ריקה</p>
           <a href="/" className="underline" style={{ color: "var(--text)" }}>חזור לחנות</a>
         </main>
@@ -213,7 +213,7 @@ export default function CheckoutPage() {
   return (
     <>
       <Header />
-      <main className="max-w-xl mx-auto px-4 py-10">
+      <main id="main-content" className="max-w-xl mx-auto px-4 py-10">
         <h1 className="text-2xl font-extrabold mb-8 text-right" style={{ color: "var(--text)" }}>
           פרטי הזמנה
         </h1>
@@ -221,7 +221,7 @@ export default function CheckoutPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
           {/* Delivery mode toggle */}
-          <div className="rounded-2xl border p-1 flex overflow-hidden w-full" style={{ borderColor: "var(--border)" }}>
+          <div role="group" aria-label="אופן קבלת ההזמנה" className="rounded-2xl border p-1 flex overflow-hidden w-full" style={{ borderColor: "var(--border)" }}>
             {([
               { val: "home",  line1: "משלוח לבית", line2: "₪40" },
               { val: "epost", line1: "נקודות איסוף", line2: "₪25" },
@@ -231,6 +231,8 @@ export default function CheckoutPage() {
                 key={val}
                 type="button"
                 onClick={() => { setDeliveryMode(val); setError(""); }}
+                aria-pressed={deliveryMode === val}
+                aria-label={`${line1}, ${line2}`}
                 className="flex-1 min-w-0 py-2.5 rounded-xl transition-all flex flex-col items-center gap-0.5 px-1"
                 style={{
                   background: deliveryMode === val ? "var(--text)" : "transparent",
@@ -245,20 +247,22 @@ export default function CheckoutPage() {
 
           {/* Common fields */}
           {[
-            { name: "name",  label: "שם מלא",  type: "text",  placeholder: "ישראל ישראלי",       req: true },
-            { name: "email", label: "אימייל",   type: "email", placeholder: "example@email.com",  req: true },
-            { name: "phone", label: "טלפון",    type: "tel",   placeholder: "050-0000000",        req: true },
+            { name: "name",  label: "שם מלא",  type: "text",  placeholder: "ישראל ישראלי",       req: true, autoComplete: "name" },
+            { name: "email", label: "אימייל",   type: "email", placeholder: "example@email.com",  req: true, autoComplete: "email" },
+            { name: "phone", label: "טלפון",    type: "tel",   placeholder: "050-0000000",        req: true, autoComplete: "tel" },
           ].map((field) => (
             <div key={field.name} className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>{field.label}</label>
+              <label htmlFor={`checkout-${field.name}`} className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>{field.label}</label>
               <input
+                id={`checkout-${field.name}`}
                 type={field.type}
                 name={field.name}
+                autoComplete={field.autoComplete}
                 value={form[field.name as keyof typeof form]}
                 onChange={handleChange}
                 placeholder={field.placeholder}
                 required={field.req}
-                className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                className="w-full px-4 py-3 rounded-xl border text-right"
                 style={inputStyle}
               />
             </div>
@@ -268,56 +272,62 @@ export default function CheckoutPage() {
           {deliveryMode === "home" && (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>רחוב ומספר בית</label>
+                <label htmlFor="checkout-address" className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>רחוב ומספר בית</label>
                 <input
+                  id="checkout-address"
                   type="text"
                   name="address"
+                  autoComplete="street-address"
                   value={form.address}
                   onChange={handleChange}
                   placeholder="רחוב הרצל 1"
                   required
-                  className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                  className="w-full px-4 py-3 rounded-xl border text-right"
                   style={inputStyle}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>קומה (אופציונלי)</label>
+                  <label htmlFor="checkout-floor" className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>קומה (אופציונלי)</label>
                   <input
+                    id="checkout-floor"
                     type="text"
                     name="floor"
                     value={form.floor}
                     onChange={handleChange}
                     placeholder="3"
-                    className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                    className="w-full px-4 py-3 rounded-xl border text-right"
                     style={inputStyle}
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>דירה (אופציונלי)</label>
+                  <label htmlFor="checkout-apartment" className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>דירה (אופציונלי)</label>
                   <input
+                    id="checkout-apartment"
                     type="text"
                     name="apartment"
                     value={form.apartment}
                     onChange={handleChange}
                     placeholder="5"
-                    className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                    className="w-full px-4 py-3 rounded-xl border text-right"
                     style={inputStyle}
                   />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>עיר</label>
+                <label htmlFor="checkout-city" className="text-sm font-medium text-right" style={{ color: "var(--text-muted)" }}>עיר</label>
                 <input
+                  id="checkout-city"
                   type="text"
                   name="city"
+                  autoComplete="address-level2"
                   value={form.city}
                   onChange={handleChange}
                   placeholder="תל אביב"
                   required
-                  className="w-full px-4 py-3 rounded-xl border text-right outline-none"
+                  className="w-full px-4 py-3 rounded-xl border text-right"
                   style={inputStyle}
                 />
               </div>
@@ -330,13 +340,15 @@ export default function CheckoutPage() {
               <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>בחר נקודת איסוף</p>
 
               <div className="flex gap-2 w-full min-w-0">
+                <label htmlFor="epost-city" className="sr-only">עיר לחיפוש נקודת איסוף</label>
                 <input
+                  id="epost-city"
                   type="text"
                   value={epostCity}
                   onChange={(e) => setEpostCity(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchEpostPoints(); } }}
                   placeholder="הקלד שם עיר..."
-                  className="flex-1 min-w-0 px-4 py-3 rounded-xl border text-right outline-none"
+                  className="flex-1 min-w-0 px-4 py-3 rounded-xl border text-right"
                   style={inputStyle}
                 />
                 <button
@@ -351,13 +363,13 @@ export default function CheckoutPage() {
               </div>
 
               {pointsError && (
-                <p className="text-sm text-right" style={{ color: "var(--maroon)" }}>{pointsError}</p>
+                <p role="alert" className="text-sm text-right" style={{ color: "var(--maroon)" }}>{pointsError}</p>
               )}
 
               {/* Selected point confirmation */}
               {selectedPoint && (
-                <div className="rounded-xl p-3 border-2 text-right" style={{ borderColor: "var(--green)", background: "#e8f5e9" }}>
-                  <p className="text-xs font-bold mb-0.5 flex items-center gap-1" style={{ color: "var(--green)" }}><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>נקודה נבחרה</p>
+                <div role="status" className="rounded-xl p-3 border-2 text-right" style={{ borderColor: "var(--green)", background: "#e8f5e9" }}>
+                  <p className="text-xs font-bold mb-0.5 flex items-center gap-1" style={{ color: "var(--green)" }}><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>נקודה נבחרה</p>
                   <p className="text-sm font-bold" style={{ color: "var(--text)" }}>{selectedPoint.name}</p>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>{selectedPoint.street} {selectedPoint.house}, {selectedPoint.city}</p>
                   {selectedPoint.remarks && (
@@ -385,6 +397,7 @@ export default function CheckoutPage() {
                         key={point.n_code}
                         type="button"
                         onClick={() => setSelectedPoint(point)}
+                        aria-pressed={selectedPoint?.n_code === point.n_code}
                         className="text-right px-4 py-3 rounded-xl border transition-all"
                         style={{
                           borderColor: selectedPoint?.n_code === point.n_code ? "var(--text)" : "var(--border)",
@@ -413,16 +426,20 @@ export default function CheckoutPage() {
               className="px-4 py-3 rounded-xl border font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
               style={{ borderColor: "var(--border)", color: "var(--text)" }}
             >
-              {validatingCoupon ? "..." : couponSavings > 0 ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> : "הפעל"}
+              {validatingCoupon ? "..." : couponSavings > 0 ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> : "הפעל"}
             </button>
+            <label htmlFor="coupon-code" className="sr-only">קוד קופון</label>
             <input
+              id="coupon-code"
               type="text"
               value={discountAlreadyActive ? "הנחה כבר פעילה" : couponInput}
               onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponError(""); }}
               placeholder="קוד קופון (אופציונלי)"
               disabled={couponSavings > 0 || discountAlreadyActive}
               readOnly={discountAlreadyActive}
-              className="flex-1 px-4 py-3 rounded-xl border text-right outline-none text-sm disabled:cursor-not-allowed"
+              aria-describedby={couponError ? "coupon-error" : undefined}
+              aria-invalid={couponError ? true : undefined}
+              className="flex-1 px-4 py-3 rounded-xl border text-right text-sm disabled:cursor-not-allowed"
               style={{
                 background: "var(--cream-dark)",
                 borderColor: (couponSavings > 0 || discountAlreadyActive) ? "var(--green)" : "var(--border)",
@@ -430,10 +447,10 @@ export default function CheckoutPage() {
               }}
             />
           </div>
-          {couponError && <p className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
+          {couponError && <p id="coupon-error" role="alert" className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
           {couponSavings > 0 && (
-            <p className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>
-              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> קופון פעיל –{" "}
+            <p role="status" className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> קופון פעיל –{" "}
               {couponDiscountAmount > 0 ? `₪${couponDiscountAmount} הנחה` : `${couponDiscount}% הנחה`}
               {" "}(חיסכון ₪{couponSavings})
             </p>
@@ -445,7 +462,7 @@ export default function CheckoutPage() {
               <p className="text-xs font-bold text-right mb-1" style={{ color: "var(--green)" }}>מבצעים פעילים</p>
               {promotionRewards.map((r, i) => (
                 <p key={i} className="text-xs text-right" style={{ color: "var(--green)" }}>
-                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> {r.promotionName}
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> {r.promotionName}
                   {r.type === "free_shipping" && " — משלוח חינם"}
                   {r.type === "cart_discount" && (r.discountAmount ? ` — ₪${r.discountAmount} הנחה על הסל` : ` — ${r.discountPct}% הנחה על הסל`)}
                   {r.type === "product_discount" && ` — ${r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`} על ${r.productName}`}
@@ -508,7 +525,7 @@ export default function CheckoutPage() {
           </div>
 
           {error && (
-            <p className="text-center text-sm font-medium" style={{ color: "var(--maroon)" }}>{error}</p>
+            <p role="alert" className="text-center text-sm font-medium" style={{ color: "var(--maroon)" }}>{error}</p>
           )}
 
           <button

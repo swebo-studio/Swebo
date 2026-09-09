@@ -7,8 +7,14 @@
   --maroon: #7B1D2E;
   --blue: #89B8CC;
   --text: #1A1A1A;
-  --text-muted: #6B6B6B;
+  /* 5.7:1 on --cream-dark, 6.1:1 on --cream. The old #6B6B6B fell to 4.4:1
+     on the darker cream used by cards and the drawer, just under AA. */
+  --text-muted: #5A5A5A;
   --border: #D8D2C8;
+  /* Warning orange that still carries white text (5.5:1). Tailwind's
+     orange-400 only managed 2.3:1. */
+  --warn: #B34700;
+  --focus: #0047AB;
 }
 
 * {
@@ -18,6 +24,8 @@
 html {
   direction: rtl;
   scroll-behavior: smooth;
+  /* Set by the accessibility widget's text-size control. */
+  font-size: calc(100% * var(--a11y-font-scale, 1));
 }
 
 body {
@@ -31,6 +39,36 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--cream-dark); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ---------------------------------------------------------------------------
+   Focus visibility (WCAG 2.4.7 / 2.4.11)
+   Two-tone ring: the white inner ring separates the blue outline from dark
+   buttons, the blue outline carries the contrast against the cream page. Every
+   control gets it, including the ones whose Tailwind classes set outline-none.
+   --------------------------------------------------------------------------- */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 2px #ffffff !important;
+}
+
+/* Keyboard users only — pointer clicks should not leave a ring behind. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion (WCAG 2.3.3)
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 @keyframes bounce-in {
   0% { transform: scale(0); }
@@ -63,31 +101,91 @@ body {
   animation: fly-to-cart-card 0.62s ease-in forwards;
 }
 
-/* Accessibility overrides */
-.a11y-large-text { font-size: 112% !important; }
-.a11y-xlarge-text { font-size: 125% !important; }
+/* ---------------------------------------------------------------------------
+   Accessibility widget overrides
+   --------------------------------------------------------------------------- */
 
+/* High contrast — pure black on white, heavier borders. */
 .a11y-contrast {
-  --cream: #ffffff !important;
-  --cream-dark: #e8e8e8 !important;
-  --text: #000000 !important;
-  --text-muted: #1a1a1a !important;
-  --border: #000000 !important;
+  --cream: #ffffff;
+  --cream-dark: #ffffff;
+  --text: #000000;
+  --text-muted: #000000;
+  --border: #000000;
+  --green: #005522;
+  --maroon: #99000F;
+  --warn: #99000F;
+  --focus: #0000CC;
 }
-.a11y-contrast body { background-color: #ffffff !important; }
+.a11y-contrast body { background-color: #ffffff; }
+.a11y-contrast :where(button, input, textarea, select, [role="dialog"]) {
+  border-color: #000000 !important;
+}
 
-.a11y-grayscale { filter: grayscale(100%) !important; }
+/* Inverted contrast — light-on-dark. Media is inverted a second time so
+   photographs and video keep their true colours. */
+.a11y-invert {
+  filter: invert(1) hue-rotate(180deg);
+  background: #ffffff;
+}
+.a11y-invert img,
+.a11y-invert video,
+.a11y-invert svg image {
+  filter: invert(1) hue-rotate(180deg);
+}
 
-.a11y-highlight-links a {
+/* Light background — flattens the cream palette to plain white. */
+.a11y-light-bg {
+  --cream: #ffffff;
+  --cream-dark: #ffffff;
+}
+.a11y-light-bg body { background-color: #ffffff; }
+
+.a11y-grayscale { filter: grayscale(100%); }
+/* Both filters at once still need to compose into one declaration. */
+.a11y-grayscale.a11y-invert { filter: grayscale(100%) invert(1) hue-rotate(180deg); }
+
+/* Highlighted links — a yellow band reads far better than an outline for
+   users with low vision. Descendants are covered too because the markup sets
+   its colours with inline styles, which a plain `a { }` rule cannot beat. */
+.a11y-highlight-links a:not(:has(img)):not(:has(svg)) {
   text-decoration: underline !important;
   text-underline-offset: 3px !important;
-  outline: 2px solid currentColor !important;
+  text-decoration-thickness: 2px !important;
+}
+.a11y-highlight-links a:not(:has(img)):not(:has(svg)),
+.a11y-highlight-links a:not(:has(img)):not(:has(svg)) * {
+  background: #FFEB3B !important;
+  color: #000000 !important;
+}
+
+/* Links wrapped around a logo, a product photo or an icon are outlined
+   instead — painting them yellow would cover the artwork itself. */
+.a11y-highlight-links a:has(img),
+.a11y-highlight-links a:has(svg) {
+  outline: 3px solid #FFEB3B !important;
   outline-offset: 2px !important;
 }
 
-/* Skip to content */
+/* Readable font — a wide, evenly spaced face with generous line height. */
+.a11y-readable-font,
+.a11y-readable-font :where(body, button, input, textarea, select, a, p, h1, h2, h3, h4, span, div, li) {
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.7 !important;
+}
+
+/* Stop decorative motion for anyone who asked for it in the widget. */
+.a11y-no-motion *, .a11y-no-motion *::before, .a11y-no-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Skip to content. Fixed rather than absolute: pinned to the document top it
+   is off screen for anyone who tabs back to it after scrolling. */
 .skip-link {
-  position: absolute;
+  position: fixed;
   top: -100px;
   right: 0;
   z-index: 9999;

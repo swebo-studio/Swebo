@@ -53,7 +53,7 @@ export default function CartPage() {
     return (
       <>
         <Header />
-        <main className="max-w-2xl mx-auto px-4 py-20 text-center">
+        <main id="main-content" className="max-w-2xl mx-auto px-4 py-20 text-center">
           <div className="text-7xl mb-6"></div>
           <h1 className="text-2xl font-bold mb-4" style={{ color: "var(--text)" }}>
             העגלה שלך ריקה
@@ -73,7 +73,7 @@ export default function CartPage() {
   return (
     <>
       <Header />
-      <main className="max-w-2xl mx-auto px-4 py-10">
+      <main id="main-content" className="max-w-2xl mx-auto px-4 py-10">
         <h1 className="text-2xl font-extrabold mb-8 text-right" style={{ color: "var(--text)" }}>
           עגלת הקניות
         </h1>
@@ -138,7 +138,7 @@ export default function CartPage() {
                           className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-xs font-bold"
                           style={{ background: "var(--green)", color: "var(--cream)" }}
                         >
-                          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="flex-shrink-0">
+                          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="flex-shrink-0" aria-hidden="true">
                             <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
                             <line x1="7" y1="7" x2="7.01" y2="7" />
                           </svg>
@@ -152,7 +152,7 @@ export default function CartPage() {
                       </p>
                     )}
                     {overStock && (
-                      <p className="text-xs mt-1 font-medium" style={{ color: "var(--maroon)" }}>
+                      <p role="status" className="text-xs mt-1 font-medium" style={{ color: "var(--maroon)" }}>
                         נותרו {available} במלאי — עדכן כמות
                       </p>
                     )}
@@ -162,30 +162,34 @@ export default function CartPage() {
                   <button
                     onClick={() => removeItem(item.productId, item.size, item.color)}
                     className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full opacity-40 hover:opacity-100 transition-opacity"
-                    aria-label="הסר"
+                    aria-label={`הסר ${item.nameHe}, מידה ${item.size}${item.color ? `, צבע ${item.color}` : ""} מהעגלה`}
                     style={{ color: "var(--text)" }}
                   >
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </div>
 
                 {/* Bottom row: qty controls */}
-                <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                <div role="group" aria-label={`כמות עבור ${item.nameHe}`} className="flex items-center justify-end gap-3 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
                   <button
                     onClick={() => updateQty(item.productId, item.size, item.quantity + 1, item.color)}
                     disabled={item.quantity >= available}
+                    aria-label={`הוסף עוד אחד מ${item.nameHe}`}
                     className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
                     style={{ borderColor: "var(--border)" }}
                   >
-                    +
+                    <span aria-hidden="true">+</span>
                   </button>
-                  <span className="w-6 text-center font-bold text-base">{item.quantity}</span>
+                  <span aria-live="polite" className="w-6 text-center font-bold text-base">
+                    <span className="sr-only">כמות: </span>{item.quantity}
+                  </span>
                   <button
                     onClick={() => updateQty(item.productId, item.size, item.quantity - 1, item.color)}
+                    aria-label={`הפחת אחד מ${item.nameHe}`}
                     className="w-9 h-9 rounded-full border font-bold text-lg transition-colors hover:bg-gray-100 flex items-center justify-center"
                     style={{ borderColor: "var(--border)" }}
                   >
-                    −
+                    <span aria-hidden="true">−</span>
                   </button>
                 </div>
               </div>

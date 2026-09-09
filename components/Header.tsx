@@ -2,10 +2,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "./CartProvider";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import AnnouncementBar from "./AnnouncementBar";
 import CartPromoBar from "./CartPromoBar";
 import { useDrawerScrollLock } from "@/lib/useDrawerScrollLock";
+import { useDialogA11y } from "@/lib/useDialogA11y";
 
 interface Category { id: string; nameHe: string }
 
@@ -52,12 +53,9 @@ export default function Header() {
 
   useDrawerScrollLock(open, navRef);
 
-  // close on ESC
-  useEffect(() => {
-    function handler(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
+  // Escape, focus trap and focus return to the hamburger.
+  const close = useCallback(() => setOpen(false), []);
+  useDialogA11y(open, drawerRef, close);
 
   return (
     <>
@@ -73,11 +71,13 @@ export default function Header() {
           <div style={{ justifySelf: "start" }}>
             <button
               onClick={() => setOpen(true)}
-              aria-label="תפריט"
+              aria-label="פתח תפריט ניווט"
+              aria-expanded={open}
+              aria-controls="site-drawer"
               className="p-2 rounded-xl hover:opacity-60 transition-opacity"
               style={{ color: "var(--text)" }}
             >
-              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                 <line x1="3" y1="6"  x2="21" y2="6"  />
                 <line x1="3" y1="12" x2="21" y2="12" />
                 <line x1="3" y1="18" x2="21" y2="18" />
@@ -87,7 +87,7 @@ export default function Header() {
 
           {/* Center: logo */}
           <div className="flex justify-center">
-            <Link href="/" className="flex-shrink-0">
+            <Link href="/" className="flex-shrink-0" aria-label="SWEBO — לדף הבית">
               <Image
                 src="/logo.png"
                 alt="SWEBO"
@@ -103,14 +103,20 @@ export default function Header() {
 
           {/* Left column (RTL end): cart */}
           <div className="flex items-center justify-end">
-            <Link id="cart-icon" href="/cart" className="relative p-2 hover:opacity-70 transition-opacity" aria-label="עגלת קניות">
-              <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+            <Link
+              id="cart-icon"
+              href="/cart"
+              className="relative p-2 hover:opacity-70 transition-opacity"
+              aria-label={totalItems > 0 ? `עגלת קניות, ${totalItems} פריטים` : "עגלת קניות, ריקה"}
+            >
+              <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <path d="M16 10a4 4 0 01-8 0" />
               </svg>
               {totalItems > 0 && (
                 <span
+                  aria-hidden="true"
                   className="cart-badge absolute -top-1 -right-1 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center"
                   style={{ background: "var(--maroon)" }}
                 >
@@ -133,9 +139,16 @@ export default function Header() {
         />
       )}
 
-      {/* Sidebar drawer — slides from the right (RTL start = physical right) */}
+      {/* Sidebar drawer — slides from the right (RTL start = physical right).
+          It stays mounted for the slide transition, so `inert` is what keeps
+          its links out of the tab order and off screen readers while closed. */}
       <div
+        id="site-drawer"
         ref={drawerRef}
+        inert={!open}
+        role="dialog"
+        aria-modal="true"
+        aria-label="תפריט ניווט"
         className="fixed top-0 right-0 h-full z-50 flex flex-col transition-transform duration-300"
         style={{
           width: 280,
@@ -147,7 +160,7 @@ export default function Header() {
         {/* Drawer header */}
         <div className="flex items-center px-5 py-4">
           <button onClick={() => setOpen(false)} aria-label="סגור תפריט" className="hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
-            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6"  y1="6" x2="18" y2="18" />
             </svg>
@@ -155,14 +168,14 @@ export default function Header() {
         </div>
 
         {/* Nav links */}
-        <nav ref={navRef} className="flex flex-col px-5 py-6 gap-1 text-right flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <nav ref={navRef} aria-label="ניווט ראשי" className="flex flex-col px-5 py-6 gap-1 text-right flex-1 min-h-0 overflow-y-auto overscroll-contain">
           <Link href="/" onClick={() => setOpen(false)} className="py-3 px-2 font-bold text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
             דף הבית
           </Link>
 
           {categories.length > 0 && (
             <>
-              <div className="mt-4 mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>קטגוריות</div>
+              <h2 className="mt-4 mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>קטגוריות</h2>
               {categories.map((cat) => (
                 <Link
                   key={cat.id}
@@ -177,7 +190,7 @@ export default function Header() {
             </>
           )}
 
-          <div className="mt-4 mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>עוד</div>
+          <h2 className="mt-4 mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>עוד</h2>
           <Link href="/#contact" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text)" }}>
             צור קשר
           </Link>
@@ -186,6 +199,9 @@ export default function Header() {
           </Link>
           <Link href="/privacy" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }}>
             מדיניות פרטיות
+          </Link>
+          <Link href="/accessibility" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }}>
+            הצהרת נגישות
           </Link>
         </nav>
       </div>

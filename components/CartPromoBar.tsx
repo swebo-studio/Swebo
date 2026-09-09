@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "./CartProvider";
+import { useReducedMotion } from "@/lib/useReducedMotion";
 import type { AppliedReward, PotentialReward } from "@/lib/promotions";
 
 function rewardLabel(r: AppliedReward): string {
@@ -31,7 +32,9 @@ export default function CartPromoBar() {
   const { promotions: { applied, potential } } = useCart();
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [paused, setPaused] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reducedMotion = useReducedMotion();
 
   const messages = [
     ...applied.map((r) => ({ text: `ההנחה שלך פעילה — ${rewardLabel(r)}`, active: true })),
@@ -41,8 +44,10 @@ export default function CartPromoBar() {
   // Keep the rotation in range when the cart (and so the message list) changes
   useEffect(() => { setIdx(0); setVisible(true); }, [messages.length]);
 
+  const rotating = messages.length > 1 && !paused && !reducedMotion;
+
   useEffect(() => {
-    if (messages.length <= 1) return;
+    if (!rotating) return;
     timer.current = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
@@ -51,7 +56,7 @@ export default function CartPromoBar() {
       }, 300);
     }, 4000);
     return () => { if (timer.current) clearInterval(timer.current); };
-  }, [messages.length]);
+  }, [rotating, messages.length]);
 
   if (messages.length === 0) return null;
 
@@ -59,16 +64,28 @@ export default function CartPromoBar() {
   const anyActive = applied.length > 0;
 
   return (
-    <div
-      className="w-full py-2 px-4 text-center text-sm font-bold overflow-hidden"
+    <section
+      aria-label="מבצעים על העגלה"
+      className="w-full py-2 px-4 text-center text-sm font-bold overflow-hidden flex items-center justify-center gap-2"
       style={{ background: anyActive ? "var(--green)" : "var(--maroon)", color: "var(--cream)" }}
-      aria-live="polite"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
     >
+      {/* Announce the discounts that are actually live, once, when they change.
+          The old aria-live sat on the rotating text, so a screen reader read a
+          fresh promo line out loud every four seconds for the whole session. */}
+      <p aria-live="polite" className="sr-only">
+        {applied.map(rewardLabel).join(", ")}
+      </p>
+
       <span
+        aria-hidden={rotating}
         className="inline-flex items-center gap-2 transition-opacity duration-300"
         style={{ opacity: visible ? 1 : 0 }}
       >
-        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="flex-shrink-0">
+        <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="flex-shrink-0" aria-hidden="true">
           {current.active ? (
             <>
               <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
@@ -86,6 +103,21 @@ export default function CartPromoBar() {
         </svg>
         {current.text}
       </span>
-    </div>
+
+      {messages.length > 1 && !reducedMotion && (
+        <button
+          onClick={() => setPaused((p) => !p)}
+          aria-label={paused ? "הפעל החלפת מבצעים" : "עצור החלפת מבצעים"}
+          className="flex-shrink-0 opacity-80 hover:opacity-100 transition-opacity"
+          style={{ color: "inherit" }}
+        >
+          {paused ? (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21" /></svg>
+          ) : (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+          )}
+        </button>
+      )}
+    </section>
   );
 }
