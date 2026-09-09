@@ -27,7 +27,7 @@ export default async function HomePage({ searchParams }: Props) {
   const { category: filterCategoryId } = await searchParams;
 
   const [allCategories, products, configRows, activePromotions, categoryProductOrders] = await Promise.all([
-    prisma.category.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
     prisma.product.findMany({
       where: {
         active: true,

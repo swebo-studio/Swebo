@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
 export async function GET() {
-  const categories = await prisma.category.findMany({ orderBy: { sortOrder: "asc" } });
+  // id breaks ties so the admin list and the storefront agree even if two
+  // categories ended up sharing a sortOrder.
+  const categories = await prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }] });
   return NextResponse.json(categories);
 }
 
@@ -20,7 +22,8 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   // Expects: [{ id, sortOrder }, ...]
   const updates: { id: string; sortOrder: number }[] = await req.json();
-  await Promise.all(
+  // One transaction, so a half-applied order can never be left behind.
+  await prisma.$transaction(
     updates.map(({ id, sortOrder }) =>
       prisma.category.update({ where: { id }, data: { sortOrder } })
     )

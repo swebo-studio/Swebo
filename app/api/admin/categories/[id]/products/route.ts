@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   // Expects: [{ productId, sortOrder }, ...] — full ordered list for this category
   const updates: { productId: string; sortOrder: number }[] = await req.json();
-  await Promise.all(
+  await prisma.$transaction(
     updates.map(({ productId, sortOrder }) =>
       prisma.categoryProductOrder.upsert({
         where: { categoryId_productId: { categoryId: id, productId } },

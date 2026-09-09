@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import ConfirmModal from "@/components/ConfirmModal";
+import DragList, { DragHandle } from "@/components/DragList";
 
 interface Category { id: string; nameHe: string; sortOrder: number }
 interface CategoryProduct { id: string; nameHe: string; image: string; active: boolean }
@@ -15,6 +16,7 @@ export default function AdminCategoriesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [products, setProducts] = useState<Record<string, CategoryProduct[]>>({});
   const [loadingProducts, setLoadingProducts] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => { fetchCategories(); }, []);
 
@@ -27,7 +29,7 @@ export default function AdminCategoriesPage() {
     await fetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nameHe: newCatName.trim(), sortOrder: categories.length }),
+      body: JSON.stringify({ nameHe: newCatName.trim(), sortOrder: categories.reduce((max, c) => Math.max(max, c.sortOrder), -1) + 1 }),
     });
     setNewCatName("");
     fetchCategories();
@@ -42,25 +44,24 @@ export default function AdminCategoriesPage() {
     }});
   }
 
-  async function moveCategory(id: string, direction: "up" | "down") {
-    const idx = categories.findIndex((c) => c.id === id);
-    if (direction === "up" && idx === 0) return;
-    if (direction === "down" && idx === categories.length - 1) return;
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    const updated = categories.map((c, i) => {
-      if (i === idx) return { ...c, sortOrder: categories[swapIdx].sortOrder };
-      if (i === swapIdx) return { ...c, sortOrder: categories[idx].sortOrder };
-      return c;
-    });
-    setCategories([...updated].sort((a, b) => a.sortOrder - b.sortOrder));
-    await fetch("/api/admin/categories", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([
-        { id: updated[idx].id, sortOrder: updated[idx].sortOrder },
-        { id: updated[swapIdx].id, sortOrder: updated[swapIdx].sortOrder },
-      ]),
-    });
+  // Always writes the whole list back as 0..n-1. Swapping two sortOrder values
+  // silently did nothing whenever a pair of categories shared the same value.
+  async function reorderCategories(next: Category[]) {
+    const previous = categories;
+    const reindexed = next.map((c, i) => ({ ...c, sortOrder: i }));
+    setCategories(reindexed);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/categories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reindexed.map(({ id, sortOrder }) => ({ id, sortOrder }))),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setCategories(previous);
+      setError("שמירת סדר הקטגוריות נכשלה, נסה שוב");
+    }
   }
 
   async function toggleExpand(catId: string) {
@@ -78,55 +79,58 @@ export default function AdminCategoriesPage() {
     }
   }
 
-  async function moveProduct(catId: string, productId: string, direction: "up" | "down") {
-    const list = products[catId];
-    if (!list) return;
-    const idx = list.findIndex((p) => p.id === productId);
-    if (direction === "up" && idx === 0) return;
-    if (direction === "down" && idx === list.length - 1) return;
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    const reordered = [...list];
-    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
-    setProducts((prev) => ({ ...prev, [catId]: reordered }));
-    await fetch(`/api/admin/categories/${catId}/products`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reordered.map((p, i) => ({ productId: p.id, sortOrder: i }))),
-    });
+  async function reorderProducts(catId: string, next: CategoryProduct[]) {
+    const previous = products[catId];
+    setProducts((prev) => ({ ...prev, [catId]: next }));
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/categories/${catId}/products`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next.map((p, i) => ({ productId: p.id, sortOrder: i }))),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setProducts((prev) => ({ ...prev, [catId]: previous }));
+      setError("שמירת סדר המוצרים נכשלה, נסה שוב");
+    }
   }
 
   return (
     <>
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-extrabold mb-8 text-right" style={{ color: "var(--text)" }}>ניהול קטגוריות</h1>
+      <h1 className="text-2xl font-extrabold mb-2 text-right" style={{ color: "var(--text)" }}>ניהול קטגוריות</h1>
+      <p className="text-sm mb-6 text-right" style={{ color: "var(--text-muted)" }}>גרור את הידית לשינוי הסדר</p>
 
       <section className="rounded-2xl border p-6" style={{ borderColor: "var(--border)" }}>
-        <div className="flex flex-col gap-2 mb-4">
-          {categories.length === 0 && (
-            <p className="text-sm text-right" style={{ color: "var(--text-muted)" }}>אין קטגוריות עדיין</p>
-          )}
-          {categories.map((cat, idx) => {
+        {error && <p className="text-sm text-center mb-3" style={{ color: "var(--maroon)" }}>{error}</p>}
+        {categories.length === 0 && (
+          <p className="text-sm text-right mb-4" style={{ color: "var(--text-muted)" }}>אין קטגוריות עדיין</p>
+        )}
+        <DragList
+          items={categories}
+          keyOf={(c) => c.id}
+          onReorder={reorderCategories}
+          gap={8}
+          handleLabel="גרור לשינוי סדר הקטגוריה"
+          className="flex flex-col gap-2 mb-4"
+        >
+          {({ item: cat, dragging, handle }) => {
             const isExpanded = expandedId === cat.id;
             const catProducts = products[cat.id];
             return (
-              <div key={cat.id} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+              <div
+                className="rounded-xl border overflow-hidden"
+                style={{
+                  borderColor: "var(--border)",
+                  background: "var(--cream)",
+                  boxShadow: dragging ? "0 10px 24px rgba(0,0,0,0.18)" : undefined,
+                }}
+              >
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button onClick={() => deleteCategory(cat.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
-                    <div className="flex flex-col gap-0.5">
-                      <button
-                        onClick={() => moveCategory(cat.id, "up")}
-                        disabled={idx === 0}
-                        className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
-                        style={{ color: "var(--text)" }}
-                      ><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
-                      <button
-                        onClick={() => moveCategory(cat.id, "down")}
-                        disabled={idx === categories.length - 1}
-                        className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
-                        style={{ color: "var(--text)" }}
-                      ><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
-                    </div>
+                    <DragHandle handle={handle} />
                   </div>
                   <button onClick={() => toggleExpand(cat.id)} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
                     <span className="font-medium text-right" style={{ color: "var(--text)" }}>{cat.nameHe}</span>
@@ -143,44 +147,48 @@ export default function AdminCategoriesPage() {
                     ) : !catProducts || catProducts.length === 0 ? (
                       <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>אין מוצרים בקטגוריה זו</p>
                     ) : (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-xs text-right mb-1" style={{ color: "var(--text-muted)" }}>סדר הופעת המוצרים בקטגוריה זו בעמוד הבית</p>
-                        {catProducts.map((p, pIdx) => (
-                          <div key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border" style={{ borderColor: "var(--border)", background: "var(--cream-dark)", opacity: p.active ? 1 : 0.5 }}>
-                            <div className="flex flex-col gap-0.5">
-                              <button
-                                onClick={() => moveProduct(cat.id, p.id, "up")}
-                                disabled={pIdx === 0}
-                                className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
-                                style={{ color: "var(--text)" }}
-                              ><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
-                              <button
-                                onClick={() => moveProduct(cat.id, p.id, "down")}
-                                disabled={pIdx === catProducts.length - 1}
-                                className="text-xs leading-none px-1 hover:opacity-70 disabled:opacity-20"
-                                style={{ color: "var(--text)" }}
-                              ><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+                      <>
+                        <p className="text-xs text-right mb-2" style={{ color: "var(--text-muted)" }}>סדר הופעת המוצרים בקטגוריה זו בעמוד הבית</p>
+                        <DragList
+                          items={catProducts}
+                          keyOf={(p) => p.id}
+                          onReorder={(next) => reorderProducts(cat.id, next)}
+                          gap={8}
+                          handleLabel="גרור לשינוי סדר המוצר"
+                          className="flex flex-col gap-2"
+                        >
+                          {({ item: p, dragging: productDragging, handle: productHandle }) => (
+                            <div
+                              className="flex items-center gap-3 px-3 py-2 rounded-lg border"
+                              style={{
+                                borderColor: "var(--border)",
+                                background: "var(--cream-dark)",
+                                opacity: p.active ? 1 : 0.5,
+                                boxShadow: productDragging ? "0 8px 18px rgba(0,0,0,0.16)" : undefined,
+                              }}
+                            >
+                              <DragHandle handle={productHandle} size={14} />
+                              {p.image ? (
+                                <div className="relative w-9 h-9 rounded-md overflow-hidden flex-shrink-0 border" style={{ borderColor: "var(--border)" }}>
+                                  <Image src={p.image} alt={p.nameHe} fill className="object-cover" sizes="36px" />
+                                </div>
+                              ) : (
+                                <div className="w-9 h-9 rounded-md flex-shrink-0" style={{ background: "var(--cream)" }} />
+                              )}
+                              <span className="text-sm flex-1 text-right truncate" style={{ color: "var(--text)" }}>
+                                {p.nameHe}{!p.active && " (לא פעיל)"}
+                              </span>
                             </div>
-                            {p.image ? (
-                              <div className="relative w-9 h-9 rounded-md overflow-hidden flex-shrink-0 border" style={{ borderColor: "var(--border)" }}>
-                                <Image src={p.image} alt={p.nameHe} fill className="object-cover" sizes="36px" />
-                              </div>
-                            ) : (
-                              <div className="w-9 h-9 rounded-md flex-shrink-0" style={{ background: "var(--cream)" }} />
-                            )}
-                            <span className="text-sm flex-1 text-right truncate" style={{ color: "var(--text)" }}>
-                              {p.nameHe}{!p.active && " (לא פעיל)"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                          )}
+                        </DragList>
+                      </>
                     )}
                   </div>
                 )}
               </div>
             );
-          })}
-        </div>
+          }}
+        </DragList>
 
         <div className="flex gap-2">
           <button
