@@ -15,6 +15,7 @@ export default function DashboardKpis({
   activeProducts: number;
 }) {
   const [range, setRange] = useState<"all" | "30d">("all");
+  const [revenueShown, setRevenueShown] = useState(false);
   const stats = range === "all" ? allTime : last30;
 
   const ranges = [
@@ -43,24 +44,44 @@ export default function DashboardKpis({
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "הכנסות (שולמו)", value: `₪${stats.revenue.toLocaleString()}`, color: "var(--green)" },
+          { label: "הכנסות (שולמו)", value: `₪${stats.revenue.toLocaleString()}`, color: "var(--green)", secret: true },
           { label: "הזמנות שולמו", value: stats.paidCount, color: "var(--text)" },
           { label: "ממתינות לתשלום", value: pendingOrders, color: "#b08c00" },
           { label: "מוצרים פעילים", value: activeProducts, color: "var(--text)" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="p-5 rounded-2xl border text-right"
-            style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
-          >
-            <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
-              {card.label}
-            </p>
-            <p className="text-2xl font-extrabold" style={{ color: card.color }}>
-              {card.value}
-            </p>
-          </div>
-        ))}
+        ].map((card) => {
+          const hidden = card.secret && !revenueShown;
+          return (
+            <div
+              key={card.label}
+              className="p-5 rounded-2xl border text-right"
+              style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
+            >
+              <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                {card.label}
+              </p>
+              {card.secret ? (
+                <button
+                  type="button"
+                  onClick={() => setRevenueShown((v) => !v)}
+                  aria-label={hidden ? "הצג הכנסות" : "הסתר הכנסות"}
+                  title={hidden ? "לחצו כדי להציג" : "לחצו כדי להסתיר"}
+                  className="block w-full text-right text-2xl font-extrabold cursor-pointer transition-all"
+                  style={{
+                    color: card.color,
+                    filter: hidden ? "blur(9px)" : "none",
+                    userSelect: hidden ? "none" : "auto",
+                  }}
+                >
+                  {card.value}
+                </button>
+              ) : (
+                <p className="text-2xl font-extrabold" style={{ color: card.color }}>
+                  {card.value}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
