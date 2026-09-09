@@ -318,6 +318,29 @@ export default function AdminOrdersPage() {
         })}
       </div>
 
+      {/* Where the rest of the matches are. This has to show even when the
+          current tab has hits of its own: the per-tab badges quietly switch to
+          search-scoped counts while a query is active, which reads exactly like
+          the ordinary stage counts, so on its own it tells no one that there
+          are more matches a tab away. */}
+      {searching && otherStageMatches.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap mb-5 -mt-2">
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {visible.length > 0 ? "תוצאות נוספות ב:" : "יש תוצאות ב:"}
+          </span>
+          {otherStageMatches.map(({ key, label, count }) => (
+            <button
+              key={key}
+              onClick={() => { setActiveStage(key); setExpandedId(null); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-opacity hover:opacity-70"
+              style={{ borderColor: "var(--border)", color: "var(--text)" }}
+            >
+              {count} ב{label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Order table */}
       {visible.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
@@ -327,20 +350,6 @@ export default function AdminOrdersPage() {
               ? `אין תוצאות ב${STAGES.find((s) => s.key === activeStage)?.label}`
               : `אין הזמנות ב${STAGES.find((s) => s.key === activeStage)?.label}`}
           </p>
-          {searching && otherStageMatches.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap justify-center">
-              {otherStageMatches.map(({ key, label, count }) => (
-                <button
-                  key={key}
-                  onClick={() => { setActiveStage(key); setExpandedId(null); }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-opacity hover:opacity-70"
-                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                >
-                  {count} ב{label}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       ) : (
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
