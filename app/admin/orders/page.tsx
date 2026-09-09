@@ -33,6 +33,25 @@ function deliveryModeLabel(order: Pick<Order, "deliveryMode" | "pudoPointName">)
   return "משלוח עד הבית"; // legacy orders with no deliveryMode saved
 }
 
+const digitsOnly = (value: string) => value.replace(/\D/g, "");
+
+// Digits plus the separators people type in a phone number, and nothing else.
+// Only such a query is compared digit-by-digit against the phone — otherwise
+// "zzz999" would strip down to "999" and match every number containing it.
+const PHONE_QUERY = /^[\d\s()+.-]+$/;
+
+// Matches a name or e-mail as plain text, and a phone on its digits alone so a
+// typed "050-123" still finds a number saved as "0501234567" — and vice versa.
+function matchesQuery(order: Order, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (order.customerName.toLowerCase().includes(q)) return true;
+  if (order.customerEmail.toLowerCase().includes(q)) return true;
+  if (!PHONE_QUERY.test(q)) return false;
+  const qDigits = digitsOnly(q);
+  return qDigits.length > 0 && digitsOnly(order.customerPhone).includes(qDigits);
+}
+
 interface OrderItem {
   id: string;
   quantity: number;
@@ -69,6 +88,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStage, setActiveStage] = useState<Stage>("received");
+  const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pendingCollapsed, setPendingCollapsed] = useState(false);
   const [advancing, setAdvancing] = useState<string | null>(null);
@@ -122,12 +142,21 @@ export default function AdminOrdersPage() {
     setPendingDelete(null);
   }
 
-  const pendingOrders = orders.filter((o) => o.status === "pending");
+  const searching = query.trim().length > 0;
+  const matching = searching ? orders.filter((o) => matchesQuery(o, query)) : orders;
+
+  const pendingOrders = matching.filter((o) => o.status === "pending");
   const byStage = (stage: Stage) =>
-    orders.filter((o) => o.status === "paid" && o.orderStage === stage);
+    matching.filter((o) => o.status === "paid" && o.orderStage === stage);
 
   const stageCount = (stage: Stage) => byStage(stage).length;
   const visible = byStage(activeStage);
+
+  // A search hits across every stage, so an empty active tab is not an empty
+  // search — point at the tabs that did match instead.
+  const otherStageMatches = STAGES
+    .filter((s) => s.key !== activeStage && stageCount(s.key) > 0)
+    .map((s) => ({ ...s, count: stageCount(s.key) }));
 
   if (loading) return (
     <p className="text-center py-20" style={{ color: "var(--text-muted)" }}>טוען...</p>
@@ -146,6 +175,40 @@ export default function AdminOrdersPage() {
     )}
     <div className="flex flex-col h-full" style={{ minHeight: "calc(100vh - 80px)" }}>
 
+      {/* Search — name, phone or e-mail, across every stage */}
+      <div className="relative mb-4">
+        <span
+          className="absolute top-1/2 -translate-y-1/2 right-4 pointer-events-none"
+          style={{ color: "var(--text-muted)" }}
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setExpandedId(null); }}
+          placeholder="חיפוש לפי שם, טלפון או אימייל"
+          className="w-full pr-11 pl-11 py-3 rounded-2xl border text-right text-sm outline-none"
+          style={{ background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" }}
+        />
+        {searching && (
+          <button
+            onClick={() => { setQuery(""); setExpandedId(null); }}
+            className="absolute top-1/2 -translate-y-1/2 left-3 p-1 rounded-full transition-opacity hover:opacity-70"
+            style={{ color: "var(--text-muted)" }}
+            title="נקה חיפוש"
+          >
+            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        )}
+      </div>
+
+      {searching && matching.length === 0 && (
+        <div className="flex-1 flex flex-col items-center justify-center py-20 gap-2">
+          <p style={{ color: "var(--text-muted)" }}>לא נמצאו הזמנות עבור &quot;{query.trim()}&quot;</p>
+        </div>
+      )}
+
       {/* Pending orders — awaiting payment confirmation */}
       {pendingOrders.length > 0 && (
         <div className="mb-5 rounded-2xl border overflow-hidden" style={{ borderColor: "#f59e0b", background: "#fffbeb" }}>
@@ -160,7 +223,7 @@ export default function AdminOrdersPage() {
             </div>
             <span className="font-bold text-sm flex items-center gap-1.5" style={{ color: "#92400e" }}>
               <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              {pendingOrders.length} הזמנות ממתינות לאישור תשלום
+              {pendingOrders.length} הזמנות ממתינות לאישור תשלום{searching ? " (מסונן)" : ""}
             </span>
           </button>
           {!pendingCollapsed && (
@@ -217,6 +280,8 @@ export default function AdminOrdersPage() {
       )}
 
       {/* Stage tab bar */}
+      {!(searching && matching.length === 0) && (
+      <>
       <div
         className="flex rounded-2xl border overflow-hidden mb-5 text-sm"
         style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}
@@ -257,7 +322,25 @@ export default function AdminOrdersPage() {
       {visible.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
           <span style={{ opacity: 0.3 }}>{STAGE_ICONS[activeStage]}</span>
-          <p style={{ color: "var(--text-muted)" }}>אין הזמנות ב{STAGES.find((s) => s.key === activeStage)?.label}</p>
+          <p style={{ color: "var(--text-muted)" }}>
+            {searching
+              ? `אין תוצאות ב${STAGES.find((s) => s.key === activeStage)?.label}`
+              : `אין הזמנות ב${STAGES.find((s) => s.key === activeStage)?.label}`}
+          </p>
+          {searching && otherStageMatches.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              {otherStageMatches.map(({ key, label, count }) => (
+                <button
+                  key={key}
+                  onClick={() => { setActiveStage(key); setExpandedId(null); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-opacity hover:opacity-70"
+                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  {count} ב{label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
@@ -400,6 +483,8 @@ export default function AdminOrdersPage() {
             </table>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
     </>
