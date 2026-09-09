@@ -3,6 +3,13 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
 export async function GET() {
+  // Returns every SiteConfig row, so it has always needed the same gate as the
+  // writes below. It is only ever called from the admin screens, and the lock
+  // exempts /api/admin so the admin keeps working while the store is closed —
+  // which would otherwise leave this readable by anyone for the duration.
+  const session = await auth();
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
   const rows = await prisma.siteConfig.findMany();
   const config: Record<string, string> = {};
   rows.forEach((r) => { config[r.key] = r.value; });

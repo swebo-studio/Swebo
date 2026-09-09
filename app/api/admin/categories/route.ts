@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
 export async function GET() {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   // id breaks ties so the admin list and the storefront agree even if two
   // categories ended up sharing a sortOrder.
   const categories = await prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }] });
