@@ -30,7 +30,17 @@ export async function POST(req: NextRequest) {
     create: { phone, code, expiresAt },
   });
 
-  await sendSMS(phone, `קוד הכניסה שלך לניהול SWEBO: ${code}. בתוקף ל-${CODE_VALIDITY_MINUTES} דקות.`);
+  const sent = await sendSMS(phone, `קוד הכניסה שלך לניהול SWEBO: ${code}. בתוקף ל-${CODE_VALIDITY_MINUTES} דקות.`);
+
+  if (!sent) {
+    // Drop the code we just stored: keeping it would hold the caller to the
+    // resend cooldown for a message that was never delivered.
+    await prisma.adminOtp.delete({ where: { phone } }).catch(() => {});
+    return Response.json(
+      { error: "שליחת קוד האימות נכשלה. נסה שוב בעוד רגע." },
+      { status: 502 }
+    );
+  }
 
   return Response.json({ ok: true });
 }

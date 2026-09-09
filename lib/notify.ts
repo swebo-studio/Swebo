@@ -22,7 +22,17 @@ function atHeaders() {
 // ── SMS ───────────────────────────────────────────────────────────────────
 export async function sendSMS(phone: string, message: string): Promise<boolean> {
   const apiKey = process.env.ACTIVETRAIL_API_KEY;
-  if (!apiKey || !phone) return false;
+  // Returning quietly here once cost hours of looking in the wrong place: the
+  // request succeeded, the code reached the database, and nothing anywhere
+  // said the message had not been sent.
+  if (!apiKey) {
+    console.error("[ActiveTrail] ACTIVETRAIL_API_KEY is empty or unset — no SMS sent");
+    return false;
+  }
+  if (!phone) {
+    console.error("[ActiveTrail] no phone number given — no SMS sent");
+    return false;
+  }
 
   // Normalise to Israeli international format (remove leading 0, add 972)
   const normalised = phone.replace(/\D/g, "").replace(/^0/, "972");
