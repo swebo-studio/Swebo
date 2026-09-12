@@ -23,6 +23,10 @@ export default async function ClosedPage() {
   return (
     <main
       id="main-content"
+      // Read by NewsletterPopup, which lives in the root layout and so renders
+      // here too. The proxy reaches this page by rewrite, so the URL cannot tell
+      // it apart from the storefront.
+      data-site-closed=""
       className="min-h-screen flex flex-col items-center justify-center text-center px-6 py-16"
       style={{ background: "var(--cream)" }}
     >

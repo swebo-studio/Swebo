@@ -14,6 +14,12 @@ export default function NewsletterPopup() {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Not on the holding page shown while the store is closed: signing up would
+    // only fail, /api/newsletter being closed too, and dismissing it there would
+    // hide the offer for good once the store reopens. The page marks itself —
+    // the proxy reaches it by rewrite, so the pathname still reads whatever URL
+    // the visitor asked for.
+    if (document.querySelector("[data-site-closed]")) return;
     try {
       if (localStorage.getItem(STORAGE_KEY)) return;
     } catch {
