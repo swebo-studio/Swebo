@@ -20,8 +20,10 @@ export async function getSiteLock(): Promise<SiteLock> {
     const lock = parseSiteLock(config);
     cached = { lock, at: Date.now() };
     return lock;
-  } catch {
-    // A database blip must not take the storefront down: fail open.
+  } catch (e) {
+    // A database blip must not take the storefront down: fail open. But say so
+    // — failing open silently means a store meant to be closed is quietly open.
+    console.error("[siteLock] could not read the lock, treating the store as open:", e);
     return cached?.lock ?? EMPTY_SITE_LOCK;
   }
 }
