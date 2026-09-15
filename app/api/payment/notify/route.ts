@@ -1,7 +1,7 @@
 import { NextRequest, after } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyHypayTransaction } from "@/lib/hypay";
-import { notifyOrderConfirmation, notifyAdmin } from "@/lib/notify";
+import { notifyOrderConfirmation, notifyAdmin, newOrderAdminMessage, checkSmsBalance } from "@/lib/notify";
 import { createHFDShipment } from "@/lib/hfd";
 
 /**
@@ -138,15 +138,7 @@ export async function GET(req: NextRequest) {
 
       // 3. Admin notification SMS
       try {
-        const itemLines = order.items
-          .map((i) => `• ${i.product.nameHe} × ${i.quantity} (${i.color ?? "ללא צבע"} / מידה ${i.size}) ₪${i.price * i.quantity}`)
-          .join("\n");
-        const deliveryLine =
-          order.deliveryMode === "self" ? "איסוף עצמי" :
-          order.deliveryMode === "epost" ? `נקודת איסוף: ${order.pudoPointName ?? ""} (${order.city})` :
-          `משלוח לכתובת: ${order.address}${order.floor ? `, קומה ${order.floor}` : ""}${order.apartment ? `, דירה ${order.apartment}` : ""}, ${order.city}`;
-        const msg = `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n${deliveryLine}\n\n${itemLines}`;
-        await notifyAdmin("הזמנה חדשה", msg);
+        await notifyAdmin("הזמנה חדשה", newOrderAdminMessage(order));
       } catch (e) {
         console.error("[Post-payment] admin SMS failed:", order.id, e);
       }
@@ -184,6 +176,9 @@ export async function GET(req: NextRequest) {
         console.error("[Post-payment] HFD shipment failed:", order.id, e);
         await notifyAdmin("שגיאת HFD", `הזמנה #${order.id.slice(-6).toUpperCase()} — יצירת משלוח נכשלה עם שגיאה`).catch(() => {});
       }
+
+      // 5. Warn the admins if this order's texts took credits below the line
+      await checkSmsBalance().catch((e) => console.error("[Post-payment] SMS balance check failed:", e));
     });
 
     return Response.redirect(`${origin}/order/${orderId}?status=success`);

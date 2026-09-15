@@ -183,6 +183,37 @@ export function stageSmsTemplateKey(
   return entry.home;
 }
 
+/** At or below this many credits every admin gets one "time to refill" SMS. */
+export const SMS_LOW_BALANCE_THRESHOLD = 300;
+
+const GSM7_BASIC ="@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
+const GSM7_EXTENDED = "^{}\\[~]|€\f"; // cost two characters each
+
+export interface SmsCost {
+  chars: number;
+  credits: number;
+  /** Characters that must go for the message to cost one credit less (0 at one credit). */
+  charsToSave: number;
+}
+
+/**
+ * What a message costs in ActiveTrail credits — every segment is billed as a
+ * separate SMS. Plain Latin text fits 160 characters (153 per part once
+ * split), but a single Hebrew letter, ₪ or emoji switches the whole message
+ * to Unicode: 70 characters, 67 per part. Every SWEBO message is Hebrew.
+ */
+export function smsCost(text: string): SmsCost {
+  if (!text) return { chars: 0, credits: 0, charsToSave: 0 };
+  const gsm = [...text].every((c) => GSM7_BASIC.includes(c) || GSM7_EXTENDED.includes(c));
+  const chars = gsm
+    ? [...text].reduce((n, c) => n + (GSM7_EXTENDED.includes(c) ? 2 : 1), 0)
+    : text.length; // UTF-16 units — an emoji takes two, as it does on the wire
+  const [single, part] = gsm ? [160, 153] : [70, 67];
+  const capacity = (credits: number) => (credits <= 1 ? single : credits * part);
+  const credits = chars <= single ? 1 : Math.ceil(chars / part);
+  return { chars, credits, charsToSave: credits > 1 ? chars - capacity(credits - 1) : 0 };
+}
+
 export function renderSmsTemplate(template: string, vars: Record<string, string>): string {
   let out = template;
   for (const [key, value] of Object.entries(vars)) {
