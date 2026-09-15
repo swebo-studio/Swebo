@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import ConfirmModal from "@/components/ConfirmModal";
 import { parseSizePresets, parseSizeLabels, MAX_SIZE_LABEL, type SizePreset } from "@/lib/sizes";
+import { SELF_PICKUP_DEFAULT_TEXT, SELF_PICKUP_LOCATION } from "@/lib/selfPickup";
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
 interface AdminPhone { id: string; phone: string; label: string | null }
@@ -28,6 +29,7 @@ export default function AdminConfigPage() {
   const [phoneError, setPhoneError] = useState("");
   const [legal, setLegal] = useState({ privacy: "", terms: "" });
   const [shippingInfoText, setShippingInfoText] = useState("משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP");
+  const [selfPickupText, setSelfPickupText] = useState(SELF_PICKUP_DEFAULT_TEXT);
   const [orderSteps, setOrderSteps] = useState({
     step1: "ההזמנה התקבלה",
     step2: "ארוז ונשלח תוך 1-2 ימי עסקים",
@@ -83,6 +85,7 @@ export default function AdminConfigPage() {
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
       if (cfg["shippingInfo.text"]) setShippingInfoText(cfg["shippingInfo.text"]);
+      if (cfg["selfPickup.text"]) setSelfPickupText(cfg["selfPickup.text"]);
       setOrderSteps((prev) => ({
         step1: cfg["orderSteps.step1"] || prev.step1,
         step2: cfg["orderSteps.step2"] || prev.step2,
@@ -170,6 +173,7 @@ export default function AdminConfigPage() {
         "legal.privacy": legal.privacy,
         "legal.terms": legal.terms,
         "shippingInfo.text": shippingInfoText,
+        "selfPickup.text": selfPickupText,
         "orderSteps.step1": orderSteps.step1,
         "orderSteps.step2": orderSteps.step2,
         "orderSteps.step3Home": orderSteps.step3Home,
@@ -588,6 +592,22 @@ export default function AdminConfigPage() {
           placeholder={"משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP"}
           rows={6}
           className="w-full px-4 py-3 rounded-xl border text-right outline-none resize-none"
+          style={inputStyle}
+        />
+      </section>
+
+      {/* ── Self pickup instructions (shown at checkout) ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>איסוף עצמי</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          הטקסט המוצג בעמוד התשלום כשבוחרים איסוף עצמי, מתחת למפה של {SELF_PICKUP_LOCATION.name}, {SELF_PICKUP_LOCATION.city}. השאר ריק להצגת טקסט ברירת המחדל.
+        </p>
+        <textarea
+          value={selfPickupText}
+          onChange={(e) => setSelfPickupText(e.target.value)}
+          placeholder={SELF_PICKUP_DEFAULT_TEXT}
+          rows={7}
+          className="w-full px-4 py-3 rounded-xl border text-right outline-none resize-y"
           style={inputStyle}
         />
       </section>

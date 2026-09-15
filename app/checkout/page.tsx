@@ -6,8 +6,13 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { promotionPricing } from "@/lib/cartPricing";
+import { SELF_PICKUP_LOCATION, SELF_PICKUP_DEFAULT_TEXT } from "@/lib/selfPickup";
 
 const EpostMap = dynamic(() => import("@/components/EpostMap"), { ssr: false });
+
+// Rendered through the EPOST map so self-pickup looks the same as a locker
+const SELF_PICKUP_POINT = { n_code: 0, street: "", house: 0, ...SELF_PICKUP_LOCATION };
+const noop = () => {};
 
 type DeliveryMode = "home" | "epost" | "self";
 
@@ -44,6 +49,14 @@ export default function CheckoutPage() {
   const [selectedPoint, setSelectedPoint] = useState<EpostPoint | null>(null);
   const [loadingPoints, setLoadingPoints] = useState(false);
   const [pointsError, setPointsError] = useState("");
+
+  const [selfPickupText, setSelfPickupText] = useState(SELF_PICKUP_DEFAULT_TEXT);
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((cfg: Record<string, string>) => { if (cfg["selfPickup.text"]?.trim()) setSelfPickupText(cfg["selfPickup.text"]); })
+      .catch(() => {});
+  }, []);
 
   async function applyCoupon() {
     if (!couponInput.trim()) return;
@@ -414,6 +427,45 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Self pickup location + instructions */}
+          {deliveryMode === "self" && (
+            <div className="rounded-2xl border p-4 flex flex-col gap-3 w-full overflow-hidden" style={{ borderColor: "var(--border)" }}>
+              <div className="text-right">
+                <p className="text-sm font-bold" style={{ color: "var(--text)" }}>מקום האיסוף</p>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>{SELF_PICKUP_LOCATION.name}, {SELF_PICKUP_LOCATION.city}</p>
+              </div>
+
+              <div className="rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)", height: 220 }}>
+                <EpostMap points={[SELF_PICKUP_POINT]} selected={SELF_PICKUP_POINT} onSelect={noop} />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <a
+                  href={`https://waze.com/ul?ll=${SELF_PICKUP_LOCATION.lat},${SELF_PICKUP_LOCATION.lng}&navigate=yes`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl border text-xs font-medium transition-opacity hover:opacity-70"
+                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  ניווט ב-Waze
+                </a>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${SELF_PICKUP_LOCATION.lat},${SELF_PICKUP_LOCATION.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl border text-xs font-medium transition-opacity hover:opacity-70"
+                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                >
+                  Google Maps
+                </a>
+              </div>
+
+              <p className="text-sm text-right whitespace-pre-line leading-relaxed" style={{ color: "var(--text)" }}>
+                {selfPickupText}
+              </p>
             </div>
           )}
 

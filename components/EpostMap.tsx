@@ -97,7 +97,7 @@ export default function EpostMap({ points, selected, onSelect }: Props) {
             <Popup>
               <div style={{ textAlign: "right", direction: "rtl", minWidth: 140 }}>
                 <strong>{point.name}</strong><br />
-                <span style={{ fontSize: 12, color: "#666" }}>{point.street} {point.house}</span>
+                <span style={{ fontSize: 12, color: "#666" }}>{point.street ? `${point.street} ${point.house}` : point.city}</span>
                 {point.remarks && <><br /><span style={{ fontSize: 11, color: "#888" }}>{point.remarks}</span></>}
               </div>
             </Popup>
