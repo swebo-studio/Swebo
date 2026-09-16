@@ -6,7 +6,7 @@ import { parseSizePresets, parseSizeLabels, MAX_SIZE_LABEL, type SizePreset } fr
 import { SELF_PICKUP_DEFAULT_TEXT, SELF_PICKUP_LOCATION } from "@/lib/selfPickup";
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
-interface AdminPhone { id: string; phone: string; label: string | null }
+interface AdminPhone { id: string; phone: string; label: string | null; orderSms: boolean }
 
 const DEFAULT_SIZES: SizeRow[] = [
   { size: "S",  chest: 96,  waist: 80,  length: 68 },
@@ -117,6 +117,16 @@ export default function AdminConfigPage() {
     setNewPhone("");
     setNewLabel("");
     fetchPhones();
+  }
+
+  async function toggleOrderSms(id: string, orderSms: boolean) {
+    setPhones((prev) => prev.map((p) => (p.id === id ? { ...p, orderSms } : p)));
+    const res = await fetch("/api/admin/phones", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, orderSms }),
+    });
+    if (!res.ok) fetchPhones();
   }
 
   async function deletePhone(id: string) {
@@ -644,7 +654,8 @@ export default function AdminConfigPage() {
       <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
         <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>מספרי טלפון למנהלים</h2>
         <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
-          מספרים אלו יכולים להתחבר לניהול האתר באמצעות קוד חד-פעמי שיישלח ב-SMS
+          מספרים אלו יכולים להתחבר לניהול האתר באמצעות קוד חד-פעמי שיישלח ב-SMS.
+          סמנו &quot;הודעות על הזמנות&quot; כדי שהמספר יקבל SMS על כל הזמנה חדשה. אם לא סומן אף מספר, ההודעות נשלחות למספר ברירת המחדל של האתר.
         </p>
 
         <div className="flex flex-col gap-2 mb-4">
@@ -653,7 +664,17 @@ export default function AdminConfigPage() {
           )}
           {phones.map((p) => (
             <div key={p.id} className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-              <button onClick={() => deletePhone(p.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
+              <div className="flex items-center gap-4">
+                <button onClick={() => deletePhone(p.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "var(--text-muted)" }}>
+                  <input
+                    type="checkbox"
+                    checked={p.orderSms}
+                    onChange={(e) => toggleOrderSms(p.id, e.target.checked)}
+                  />
+                  הודעות על הזמנות
+                </label>
+              </div>
               <span className="font-medium text-right" style={{ color: "var(--text)" }}>
                 {p.phone}{p.label ? ` — ${p.label}` : ""}
               </span>

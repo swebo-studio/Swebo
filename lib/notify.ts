@@ -171,9 +171,20 @@ function adminSmsText(subject: string, body: string): string {
   return `SWEBO – ${subject}\n${body}`;
 }
 
+/**
+ * Who gets order alerts: the numbers ticked in the admin center, or ADMIN_PHONE
+ * when none are — so changing the recipient needs no redeploy, and a store that
+ * never touched the setting keeps texting the number it always did.
+ */
+async function orderAlertPhones(): Promise<string[]> {
+  const rows = await prisma.adminPhone.findMany({ where: { orderSms: true }, select: { phone: true } });
+  if (rows.length > 0) return rows.map((r) => r.phone);
+  return process.env.ADMIN_PHONE ? [process.env.ADMIN_PHONE] : [];
+}
+
 export async function notifyAdmin(subject: string, body: string): Promise<void> {
-  const adminPhone = process.env.ADMIN_PHONE;
-  if (adminPhone) await sendSMS(adminPhone, adminSmsText(subject, body));
+  const message = adminSmsText(subject, body);
+  for (const phone of await orderAlertPhones()) await sendSMS(phone, message);
 }
 
 interface OrderForAdminSms {
@@ -235,7 +246,7 @@ export interface OrderSmsEstimate {
   perOrder: number;
   /** Order confirmation plus the three stage updates. */
   customer: number;
-  /** The "new order" SMS to ADMIN_PHONE (0 when that is unset). */
+  /** The "new order" SMS to every order-alert number (0 when there are none). */
   admin: number;
   /** How many recent paid orders the average is taken over. */
   sampleSize: number;
@@ -258,7 +269,7 @@ export async function estimateOrderSmsCredits(sample = 50): Promise<OrderSmsEsti
   const rows = await prisma.siteConfig.findMany({ where: { key: { in: Object.keys(SMS_TEMPLATES) } } });
   const template = (key: string) => (rows.find((r) => r.key === key)?.value || SMS_TEMPLATES[key].default).trim();
   const credits = (text: string) => smsCost(text).credits;
-  const adminEnabled = Boolean(process.env.ADMIN_PHONE);
+  const adminRecipients = (await orderAlertPhones()).length;
 
   let customer = 0;
   let admin = 0;
@@ -269,7 +280,7 @@ export async function estimateOrderSmsCredits(sample = 50): Promise<OrderSmsEsti
       const key = stageSmsTemplateKey(stage, order.deliveryMode)!;
       customer += credits(renderSmsTemplate(template(key), stageSmsVars(order)));
     }
-    if (adminEnabled) admin += credits(adminSmsText("הזמנה חדשה", newOrderAdminMessage(order)));
+    if (adminRecipients) admin += adminRecipients * credits(adminSmsText("הזמנה חדשה", newOrderAdminMessage(order)));
   }
 
   const round = (n: number) => Math.round((n / orders.length) * 10) / 10;

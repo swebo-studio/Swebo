@@ -140,6 +140,9 @@ model AdminPhone {
   id        String   @id @default(cuid())
   phone     String   @unique
   label     String?
+  /// Gets the "new order" SMS (and other order alerts). When no number has
+  /// this on, those texts fall back to ADMIN_PHONE.
+  orderSms  Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 

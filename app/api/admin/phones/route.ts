@@ -26,6 +26,17 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await auth();
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id, orderSms } = await req.json();
+  if (!id || typeof orderSms !== "boolean") return Response.json({ error: "נדרש מזהה" }, { status: 400 });
+
+  const updated = await prisma.adminPhone.update({ where: { id }, data: { orderSms } });
+  return Response.json(updated);
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });

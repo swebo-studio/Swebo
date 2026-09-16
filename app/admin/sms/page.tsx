@@ -113,7 +113,7 @@ function SmsBalanceCard({ state }: { state: BalanceState }) {
           </p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>
             הזמנה עולה בממוצע {estimate.perOrder} קרדיטים: {estimate.customer} להודעות ללקוח (אישור הזמנה ו-3 עדכוני סטטוס)
-            {estimate.admin > 0 && <>, {estimate.admin} להודעת &quot;הזמנה חדשה&quot; אליך</>}.
+            {estimate.admin > 0 && <>, {estimate.admin} להודעת &quot;הזמנה חדשה&quot; למנהלים</>}.
             {" "}מחושב לפי {estimate.sampleSize === 1 ? "ההזמנה האחרונה" : `${estimate.sampleSize} ההזמנות האחרונות`} וההודעות השמורות. הרשמות לניוזלטר ותזכורות קופון אינן כלולות.
           </p>
         </div>
