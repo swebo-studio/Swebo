@@ -1,105 +1,39 @@
 "use client";
 import { useState, useEffect } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
+import type { Category, Product, Promotion, PromotionDraft, PromotionKind } from "@/components/promotions/types";
+import { draftFor, draftProblem, emptyCondition, emptyReward } from "@/components/promotions/types";
+import { Switch, inputStyle } from "@/components/promotions/controls";
+import RulesForm from "@/components/promotions/RulesForm";
+import BundleForm from "@/components/promotions/BundleForm";
+import BuyGetForm from "@/components/promotions/BuyGetForm";
+import PromotionSummary from "@/components/promotions/PromotionSummary";
 
-interface Product { id: string; nameHe: string; price: number }
-
-interface Condition {
-  id?: string;
-  type: "min_cart_total" | "product_in_cart";
-  minTotal?: number | null;
-  productId?: string | null;
-}
-
-interface Reward {
-  id?: string;
-  type: "free_shipping" | "cart_discount" | "product_discount";
-  discountPct?: number | null;
-  discountAmount?: number | null;
-  productId?: string | null;
-  /** product_discount: units the discount reaches; null = every unit in the cart */
-  maxUnits?: number | null;
-}
-
-type ConditionLogic = "all" | "any";
-
-interface Promotion {
-  id: string;
-  name: string;
-  active: boolean;
-  /** "all" = every condition must hold (AND) · "any" = one is enough (OR) */
-  conditionLogic: ConditionLogic;
-  /** true = no other promotion may discount the products this one discounts */
-  exclusive: boolean;
-  conditions: Condition[];
-  rewards: Reward[];
-}
-
-const CONDITION_LABELS: Record<string, string> = {
-  min_cart_total: "סכום סל מינימלי",
-  product_in_cart: "מוצר בסל",
-};
-
-const REWARD_LABELS: Record<string, string> = {
-  free_shipping: "משלוח חינם",
-  cart_discount: "הנחה כללית על הסל",
-  product_discount: "הנחה על מוצר ספציפי",
-};
-
-const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
-
-function conditionText(c: Condition, products: Product[]) {
-  if (c.type === "min_cart_total") return `סל מעל ₪${c.minTotal}`;
-  if (c.type === "product_in_cart") {
-    const p = products.find((x) => x.id === c.productId);
-    return `מוצר בסל: ${p?.nameHe ?? c.productId}`;
-  }
-  return c.type;
-}
-
-function rewardText(r: Reward, products: Product[]) {
-  if (r.type === "free_shipping") return "משלוח חינם";
-  if (r.type === "cart_discount") {
-    if (r.discountAmount) return `₪${r.discountAmount} הנחה על הסל`;
-    return `${r.discountPct}% הנחה על כל הסל`;
-  }
-  if (r.type === "product_discount") {
-    const p = products.find((x) => x.id === r.productId);
-    const pct = r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`;
-    const scope = !r.maxUnits ? "כל הפריטים בסל" : r.maxUnits === 1 ? "פריט אחד בלבד" : `עד ${r.maxUnits} פריטים`;
-    return `${pct} על ${p?.nameHe ?? r.productId} · ${scope}`;
-  }
-  return r.type;
-}
-
-function emptyCondition(): Condition { return { type: "min_cart_total", minTotal: 300, productId: null }; }
-function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null, maxUnits: null }; }
-
-const LOGIC_OPTIONS: { value: ConditionLogic; label: string; hint: string }[] = [
-  { value: "all", label: "כל התנאים (וגם)", hint: "המבצע יחול רק אם כל התנאים מתקיימים" },
-  { value: "any", label: "לפחות תנאי אחד (או)", hint: "מספיק שתנאי אחד יתקיים כדי שהמבצע יחול" },
+const KINDS: { kind: PromotionKind; label: string; hint: string; placeholder: string }[] = [
+  { kind: "rules", label: "הנחה / משלוח", hint: "משלוח חינם, הנחה על הסל או על מוצר", placeholder: "משלוח חינם מעל ₪300" },
+  { kind: "bundle", label: "חבילה במחיר", hint: "למשל 3 פריטים ב-₪200", placeholder: "3 פריטים ב-₪200" },
+  { kind: "buy_get", label: "קנה וקבל", hint: "קונים מרשימה אחת, מקבלים מאחרת", placeholder: "קונים מהחורף, מקבלים מהקיץ" },
 ];
+const kindInfo = (kind: PromotionKind) => KINDS.find((k) => k.kind === kind) ?? KINDS[0];
 
 export default function AdminPromotionsPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Promotion | null>(null);
-
-  // Form state
-  const [name, setName] = useState("");
-  const [active, setActive] = useState(true);
-  const [conditionLogic, setConditionLogic] = useState<ConditionLogic>("all");
-  const [exclusive, setExclusive] = useState(true);
-  const [conditions, setConditions] = useState<Condition[]>([emptyCondition()]);
-  const [rewards, setRewards] = useState<Reward[]>([emptyReward()]);
+  const [draft, setDraft] = useState<PromotionDraft>(() => draftFor("rules"));
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+
+  const patch = (p: Partial<PromotionDraft>) => setDraft((d) => ({ ...d, ...p }));
 
   useEffect(() => {
     load();
     fetch("/api/admin/products-list").then((r) => r.json()).then(setProducts).catch(() => {});
+    fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
   }, []);
 
   async function load() {
@@ -111,36 +45,51 @@ export default function AdminPromotionsPage() {
 
   function openCreate() {
     setEditing(null);
-    setName("");
-    setActive(true);
-    setConditionLogic("all");
-    setExclusive(true);
-    setConditions([emptyCondition()]);
-    setRewards([emptyReward()]);
+    setDraft(draftFor("rules"));
+    setSaveError(null);
     setModalOpen(true);
   }
 
   function openEdit(p: Promotion) {
     setEditing(p);
-    setName(p.name);
-    setActive(p.active);
-    setConditionLogic(p.conditionLogic ?? "all");
-    setExclusive(p.exclusive ?? true);
-    setConditions(p.conditions.length ? p.conditions : [emptyCondition()]);
-    setRewards(p.rewards.length ? p.rewards : [emptyReward()]);
+    setDraft({
+      ...p,
+      kind: p.kind ?? "rules",
+      conditionLogic: p.conditionLogic ?? "all",
+      exclusive: p.exclusive ?? true,
+      conditions: p.conditions.length || p.kind !== "rules" ? p.conditions : [emptyCondition()],
+      rewards: p.rewards.length || p.kind !== "rules" ? p.rewards : [emptyReward()],
+      items: p.items ?? [],
+    });
+    setSaveError(null);
     setModalOpen(true);
   }
 
+  /** Only offered while creating: an existing promotion keeps its kind. */
+  function switchKind(kind: PromotionKind) {
+    if (kind === draft.kind) return;
+    setDraft((d) => draftFor(kind, { name: d.name, active: d.active, exclusive: d.exclusive }));
+    setSaveError(null);
+  }
+
+  const problem = draftProblem(draft);
+
   async function handleSave() {
-    if (!name.trim()) return;
+    if (problem) return;
     setSaving(true);
-    const body = { name: name.trim(), active, conditionLogic, exclusive, conditions, rewards };
-    if (editing) {
-      await fetch("/api/admin/promotions", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editing.id, ...body }) });
-    } else {
-      await fetch("/api/admin/promotions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    }
+    setSaveError(null);
+    const body = { ...draft, name: draft.name.trim(), ...(editing ? { id: editing.id } : {}) };
+    const res = await fetch("/api/admin/promotions", {
+      method: editing ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setSaveError(data.error ?? "השמירה נכשלה");
+      return;
+    }
     setModalOpen(false);
     load();
   }
@@ -153,34 +102,14 @@ export default function AdminPromotionsPage() {
 
   async function toggleActive(p: Promotion) {
     await fetch("/api/admin/promotions", {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      // PUT replaces the whole promotion, so every field has to be sent back —
-      // omitting one silently resets it to its default.
-      body: JSON.stringify({
-        id: p.id,
-        name: p.name,
-        active: !p.active,
-        conditionLogic: p.conditionLogic ?? "all",
-        exclusive: p.exclusive ?? true,
-        conditions: p.conditions,
-        rewards: p.rewards,
-      }),
+      body: JSON.stringify({ id: p.id, active: !p.active }),
     });
     load();
   }
 
-  // Condition helpers
-  function setCondition(i: number, patch: Partial<Condition>) {
-    setConditions((prev) => prev.map((c, idx) => idx === i ? { ...c, ...patch } : c));
-  }
-  function removeCondition(i: number) { setConditions((prev) => prev.filter((_, idx) => idx !== i)); }
-
-  // Reward helpers
-  function setReward(i: number, patch: Partial<Reward>) {
-    setRewards((prev) => prev.map((r, idx) => idx === i ? { ...r, ...patch } : r));
-  }
-  function removeReward(i: number) { setRewards((prev) => prev.filter((_, idx) => idx !== i)); }
+  const formProps = { draft, patch, products, categories };
 
   return (
     <>
@@ -199,297 +128,99 @@ export default function AdminPromotionsPage() {
       {/* Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded-3xl overflow-hidden flex flex-col" style={{ background: "var(--cream)", maxHeight: "90vh" }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="promotion-modal-title" className="w-full max-w-lg rounded-3xl overflow-hidden flex flex-col" style={{ background: "var(--cream)", maxHeight: "90vh" }}>
             <div className="p-6 overflow-y-auto flex-1">
-              <h2 className="font-extrabold text-lg text-right mb-4" style={{ color: "var(--text)" }}>
-                {editing ? "עריכת מבצע" : "מבצע חדש"}
+              <h2 id="promotion-modal-title" className="font-extrabold text-lg text-right mb-4" style={{ color: "var(--text)" }}>
+                {editing ? `עריכת מבצע · ${kindInfo(draft.kind).label}` : "מבצע חדש"}
               </h2>
+
+              {/* One tab per kind of promotion — each has its own, short form */}
+              {!editing && (
+                <>
+                  <div role="tablist" aria-label="סוג המבצע" className="grid grid-cols-3 gap-1 p-1 mb-2 sm:mb-5 rounded-2xl" style={{ background: "var(--cream-dark)" }}>
+                    {KINDS.map(({ kind, label, hint }) => {
+                      const selected = draft.kind === kind;
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          role="tab"
+                          aria-selected={selected}
+                          onClick={() => switchKind(kind)}
+                          className="px-2 py-2 rounded-xl text-center transition-all"
+                          style={{
+                            background: selected ? "var(--cream)" : "transparent",
+                            boxShadow: selected ? "0 1px 3px rgba(0,0,0,0.12)" : undefined,
+                          }}
+                        >
+                          <span className="block text-sm font-bold whitespace-nowrap" style={{ color: selected ? "var(--text)" : "var(--text-muted)" }}>{label}</span>
+                          {/* The hints only fit from sm up; on a phone they would triple the tabs' height */}
+                          <span className="hidden sm:block text-[11px] leading-tight mt-0.5" style={{ color: "var(--text-muted)" }}>{hint}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="sm:hidden text-xs text-right mb-5" style={{ color: "var(--text-muted)" }}>{kindInfo(draft.kind).hint}</p>
+                </>
+              )}
 
               {/* Name */}
               <div className="mb-5">
-                <label className="text-sm text-right block mb-1" style={{ color: "var(--text-muted)" }}>שם המבצע</label>
+                <label htmlFor="promotion-name" className="text-sm text-right block mb-1" style={{ color: "var(--text-muted)" }}>שם המבצע</label>
                 <input
+                  id="promotion-name"
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="משלוח חינם מעל ₪300"
+                  value={draft.name}
+                  onChange={(e) => patch({ name: e.target.value })}
+                  placeholder={kindInfo(draft.kind).placeholder}
                   className="w-full px-4 py-3 rounded-xl border text-right outline-none"
                   style={inputStyle}
                 />
+                {draft.kind !== "rules" && (
+                  <p className="text-xs text-right mt-1" style={{ color: "var(--text-muted)" }}>השם מוצג ללקוחות בעגלה</p>
+                )}
               </div>
 
               {/* Active */}
-              <label className="flex items-center justify-end gap-3 cursor-pointer mb-6">
-                <span className="text-sm" style={{ color: "var(--text-muted)" }}>{active ? "פעיל" : "מושבת"}</span>
-                <div
-                  className="relative w-12 h-6 rounded-full transition-colors cursor-pointer"
-                  style={{ background: active ? "var(--green)" : "var(--border)" }}
-                  onClick={() => setActive((v) => !v)}
-                >
-                  <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow"
-                    style={{ transform: active ? "translateX(-28px)" : "translateX(-4px)" }} />
-                </div>
-              </label>
-
-              {/* Conditions */}
-              <div className="mb-5">
-                <div className="flex items-center justify-between mb-2">
-                  <button
-                    onClick={() => setConditions((prev) => [...prev, emptyCondition()])}
-                    className="text-xs px-3 py-1.5 rounded-lg font-bold"
-                    style={{ background: "var(--text)", color: "var(--cream)" }}
-                  >+ הוסף תנאי</button>
-                  <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>תנאים</p>
-                </div>
-
-                {/* AND / OR — lets one promotion replace several near-identical ones */}
-                <div className="flex gap-2 mb-2">
-                  {LOGIC_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setConditionLogic(opt.value)}
-                      className="flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all"
-                      style={{
-                        borderColor: conditionLogic === opt.value ? "var(--text)" : "var(--border)",
-                        background: conditionLogic === opt.value ? "var(--text)" : "transparent",
-                        color: conditionLogic === opt.value ? "var(--cream)" : "var(--text-muted)",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-right mb-2" style={{ color: "var(--text-muted)" }}>
-                  {LOGIC_OPTIONS.find((o) => o.value === conditionLogic)?.hint}
-                </p>
-
-                <div className="flex flex-col gap-2">
-                  {conditions.map((c, i) => (
-                    <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                      <div className="flex items-center gap-2 justify-end">
-                        <button onClick={() => removeCondition(i)} className="text-xs" style={{ color: "var(--maroon)" }} aria-label="הסר תנאי"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                        <select
-                          value={c.type}
-                          onChange={(e) => setCondition(i, { type: e.target.value as Condition["type"], minTotal: null, productId: null })}
-                          className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                          style={inputStyle}
-                        >
-                          {Object.entries(CONDITION_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                        </select>
-                      </div>
-                      {c.type === "min_cart_total" && (
-                        <input
-                          type="number"
-                          value={c.minTotal ?? ""}
-                          onChange={(e) => setCondition(i, { minTotal: Number(e.target.value) })}
-                          placeholder="סכום מינימלי (₪)"
-                          className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                          style={inputStyle}
-                        />
-                      )}
-                      {c.type === "product_in_cart" && (
-                        <select
-                          value={c.productId ?? ""}
-                          onChange={(e) => setCondition(i, { productId: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                          style={inputStyle}
-                        >
-                          <option value="">בחר מוצר...</option>
-                          {products.map((p) => <option key={p.id} value={p.id}>{p.nameHe}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center justify-end gap-3 mb-6">
+                <span className="text-sm" style={{ color: "var(--text-muted)" }}>{draft.active ? "פעיל" : "מושבת"}</span>
+                <Switch on={draft.active} onToggle={() => patch({ active: !draft.active })} label="מבצע פעיל" />
               </div>
 
-              {/* Rewards */}
-              <div className="mb-5">
-                <div className="flex items-center justify-between mb-2">
-                  <button
-                    onClick={() => setRewards((prev) => [...prev, emptyReward()])}
-                    className="text-xs px-3 py-1.5 rounded-lg font-bold"
-                    style={{ background: "var(--text)", color: "var(--cream)" }}
-                  >+ הוסף פרס</button>
-                  <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>פרסים (כולם יחולו)</p>
-                </div>
+              <div role="tabpanel" aria-label={kindInfo(draft.kind).label}>
+                {draft.kind === "rules" && <RulesForm {...formProps} />}
+                {draft.kind === "bundle" && <BundleForm {...formProps} />}
+                {draft.kind === "buy_get" && <BuyGetForm {...formProps} />}
+              </div>
 
-                {/* Exclusivity — the guard against several offers gutting one item */}
-                <div className="mb-3 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                  <label className="flex items-center justify-end gap-3 cursor-pointer">
-                    <span className="text-xs font-bold" style={{ color: "var(--text)" }}>
-                      {exclusive ? "לא משתלב עם מבצעים אחרים" : "ניתן לשילוב עם מבצעים אחרים"}
-                    </span>
-                    <div
-                      className="relative w-12 h-6 rounded-full transition-colors cursor-pointer flex-shrink-0"
-                      style={{ background: exclusive ? "var(--green)" : "var(--border)" }}
-                      onClick={() => setExclusive((v) => !v)}
-                    >
-                      <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow"
-                        style={{ transform: exclusive ? "translateX(-28px)" : "translateX(-4px)" }} />
-                    </div>
-                  </label>
-                  <p className="text-xs text-right mt-1.5" style={{ color: "var(--text-muted)" }}>
-                    {exclusive
-                      ? "מבצע אחר לא יוכל להוסיף הנחה על מוצר שהמבצע הזה כבר מוזיל."
-                      : "מבצע אחר יוכל להוזיל פריטים נוספים של אותו מוצר. הנחות לעולם לא מצטברות על אותו פריט — תמיד חלה ההנחה הגבוהה ביותר."}
-                  </p>
+              {/* Exclusivity — the guard against several offers gutting one item */}
+              <div className="p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center justify-end gap-3">
+                  <span className="text-xs font-bold" style={{ color: "var(--text)" }}>
+                    {draft.exclusive ? "לא משתלב עם מבצעים אחרים" : "ניתן לשילוב עם מבצעים אחרים"}
+                  </span>
+                  <Switch on={draft.exclusive} onToggle={() => patch({ exclusive: !draft.exclusive })} label="לא משתלב עם מבצעים אחרים" />
                 </div>
-                <div className="flex flex-col gap-2">
-                  {rewards.map((r, i) => (
-                    <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
-                      <div className="flex items-center gap-2 justify-end">
-                        <button onClick={() => removeReward(i)} className="text-xs" style={{ color: "var(--maroon)" }} aria-label="הסר פרס"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-                        <select
-                          value={r.type}
-                          onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, discountAmount: null, productId: null, maxUnits: null })}
-                          className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                          style={inputStyle}
-                        >
-                          {Object.entries(REWARD_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                        </select>
-                      </div>
-                      {r.type === "cart_discount" && (
-                        <>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setReward(i, { discountPct: r.discountPct ?? 10, discountAmount: null })}
-                              className="flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all"
-                              style={{
-                                borderColor: !r.discountAmount ? "var(--text)" : "var(--border)",
-                                background: !r.discountAmount ? "var(--text)" : "transparent",
-                                color: !r.discountAmount ? "var(--cream)" : "var(--text-muted)",
-                              }}
-                            >
-                              הנחה באחוזים %
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setReward(i, { discountAmount: r.discountAmount ?? 10, discountPct: null })}
-                              className="flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all"
-                              style={{
-                                borderColor: r.discountAmount ? "var(--text)" : "var(--border)",
-                                background: r.discountAmount ? "var(--text)" : "transparent",
-                                color: r.discountAmount ? "var(--cream)" : "var(--text-muted)",
-                              }}
-                            >
-                              הנחה בשקלים ₪
-                            </button>
-                          </div>
-                          {!r.discountAmount ? (
-                            <input
-                              type="number"
-                              min={1} max={100}
-                              value={r.discountPct ?? ""}
-                              onChange={(e) => setReward(i, { discountPct: Number(e.target.value) })}
-                              placeholder="אחוז הנחה (1–100)"
-                              className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                              style={inputStyle}
-                            />
-                          ) : (
-                            <input
-                              type="number"
-                              min={1}
-                              value={r.discountAmount ?? ""}
-                              onChange={(e) => setReward(i, { discountAmount: Number(e.target.value) })}
-                              placeholder="סכום הנחה בשקלים (₪)"
-                              className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                              style={inputStyle}
-                            />
-                          )}
-                        </>
-                      )}
-                      {r.type === "product_discount" && (
-                        <>
-                          <select
-                            value={r.productId ?? ""}
-                            onChange={(e) => setReward(i, { productId: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                            style={inputStyle}
-                          >
-                            <option value="">בחר מוצר...</option>
-                            {products.map((p) => <option key={p.id} value={p.id}>{p.nameHe} – ₪{p.price}</option>)}
-                          </select>
-                          <div className="flex gap-2 flex-wrap">
-                            {[10, 15, 20, 25, 50, 75, 100].map((pct) => (
-                              <button
-                                key={pct}
-                                type="button"
-                                onClick={() => setReward(i, { discountPct: pct })}
-                                className="px-3 py-1 rounded-lg text-xs font-bold border transition-all"
-                                style={{
-                                  borderColor: r.discountPct === pct ? "var(--text)" : "var(--border)",
-                                  background: r.discountPct === pct ? "var(--text)" : "transparent",
-                                  color: r.discountPct === pct ? "var(--cream)" : "var(--text-muted)",
-                                }}
-                              >
-                                {pct === 100 ? "חינם" : `${pct}%`}
-                              </button>
-                            ))}
-                          </div>
-                          <input
-                            type="number"
-                            min={1} max={100}
-                            value={r.discountPct ?? ""}
-                            onChange={(e) => setReward(i, { discountPct: Number(e.target.value) })}
-                            placeholder="אחוז הנחה (100 = חינם)"
-                            className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                            style={inputStyle}
-                          />
-
-                          {/* How many units of the product the discount reaches */}
-                          <p className="text-xs text-right font-medium" style={{ color: "var(--text-muted)" }}>
-                            על כמה פריטים ההנחה חלה?
-                          </p>
-                          <div className="flex gap-2">
-                            {([
-                              { limited: false, label: "כל הפריטים בסל" },
-                              { limited: true,  label: "כמות מוגבלת" },
-                            ]).map(({ limited, label }) => {
-                              const selected = limited ? r.maxUnits != null : r.maxUnits == null;
-                              return (
-                                <button
-                                  key={label}
-                                  type="button"
-                                  onClick={() => setReward(i, { maxUnits: limited ? (r.maxUnits ?? 1) : null })}
-                                  className="flex-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all"
-                                  style={{
-                                    borderColor: selected ? "var(--text)" : "var(--border)",
-                                    background: selected ? "var(--text)" : "transparent",
-                                    color: selected ? "var(--cream)" : "var(--text-muted)",
-                                  }}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {r.maxUnits != null && (
-                            <input
-                              type="number"
-                              min={1}
-                              value={r.maxUnits}
-                              onChange={(e) => setReward(i, { maxUnits: Math.max(1, Number(e.target.value) || 1) })}
-                              placeholder="כמה פריטים מקבלים את ההנחה"
-                              className="w-full px-3 py-2 rounded-xl border text-right outline-none text-sm"
-                              style={inputStyle}
-                            />
-                          )}
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-xs text-right mt-1.5" style={{ color: "var(--text-muted)" }}>
+                  {draft.exclusive
+                    ? "מבצע אחר לא יוכל להוסיף הנחה על מוצר שהמבצע הזה כבר מוזיל."
+                    : "מבצע אחר יוכל להוזיל פריטים נוספים של אותו מוצר. הנחות לעולם לא מצטברות על אותו פריט — תמיד חלה ההנחה הגבוהה ביותר."}
+                </p>
               </div>
             </div>
 
-            <div className="flex gap-3 p-6 border-t" style={{ borderColor: "var(--border)" }}>
-              <button onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl border font-medium" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
-              <button onClick={handleSave} disabled={saving || !name.trim()} className="flex-1 py-3 rounded-xl font-bold disabled:opacity-50" style={{ background: "var(--text)", color: "var(--cream)" }}>
-                {saving ? "שומר..." : "שמור מבצע"}
-              </button>
+            <div className="p-6 border-t" style={{ borderColor: "var(--border)" }}>
+              {(saveError || (problem && draft.name.trim())) && (
+                <p role="alert" className="text-xs text-right mb-3 font-medium" style={{ color: "var(--maroon)" }}>
+                  {saveError ?? problem}
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl border font-medium" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
+                <button onClick={handleSave} disabled={saving || !!problem} className="flex-1 py-3 rounded-xl font-bold disabled:opacity-50" style={{ background: "var(--text)", color: "var(--cream)" }}>
+                  {saving ? "שומר..." : "שמור מבצע"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -506,61 +237,29 @@ export default function AdminPromotionsPage() {
         <div className="flex flex-col gap-4">
           {promotions.map((p) => (
             <div key={p.id} className="rounded-2xl border p-5" style={{ borderColor: "var(--border)", background: p.active ? "var(--cream)" : "var(--cream-dark)", opacity: p.active ? 1 : 0.7 }}>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-wrap-reverse items-center justify-between gap-3 mb-3">
                 <div className="flex gap-2">
                   <button onClick={() => setPendingDelete(p.id)} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
                   <button onClick={() => openEdit(p)} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
                   {!p.exclusive && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#fff4e5", color: "var(--maroon)" }}>
                       משתלב
                     </span>
                   )}
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "var(--cream-dark)", color: "var(--text-muted)" }}>
+                    {kindInfo(p.kind).label}
+                  </span>
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: p.active ? "#e8f5e9" : "#f0f0f0", color: p.active ? "var(--green)" : "#888" }}>
                     {p.active ? "פעיל" : "מושבת"}
                   </span>
-                  <div
-                    className="relative w-10 h-5 rounded-full transition-colors cursor-pointer"
-                    style={{ background: p.active ? "var(--green)" : "var(--border)" }}
-                    onClick={() => toggleActive(p)}
-                  >
-                    <div className="absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow"
-                      style={{ transform: p.active ? "translateX(-22px)" : "translateX(-2px)" }} />
-                  </div>
+                  <Switch small on={p.active} onToggle={() => toggleActive(p)} label={`${p.name} פעיל`} />
                   <h3 className="font-bold text-right" style={{ color: "var(--text)" }}>{p.name}</h3>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-xl p-3" style={{ background: "var(--cream-dark)" }}>
-                  <p className="font-bold mb-1.5 text-right text-xs" style={{ color: "var(--text-muted)" }}>
-                    תנאים {p.conditions.length > 1 && (p.conditionLogic === "any" ? "· מספיק אחד" : "· כולם")}
-                  </p>
-                  {p.conditions.length === 0
-                    ? <p className="text-right text-xs" style={{ color: "var(--text-muted)" }}>ללא תנאים</p>
-                    : p.conditions.map((c, i) => (
-                        <p key={i} className="text-right text-xs mb-0.5" style={{ color: "var(--text)" }}>
-                          {i > 0 && (
-                            <span className="font-bold" style={{ color: "var(--text-muted)" }}>
-                              {p.conditionLogic === "any" ? "או " : "וגם "}
-                            </span>
-                          )}
-                          {conditionText(c, products)}
-                        </p>
-                      ))
-                  }
-                </div>
-                <div className="rounded-xl p-3" style={{ background: "var(--cream-dark)" }}>
-                  <p className="font-bold mb-1.5 text-right text-xs" style={{ color: "var(--text-muted)" }}>פרסים</p>
-                  {p.rewards.length === 0
-                    ? <p className="text-right text-xs" style={{ color: "var(--text-muted)" }}>ללא פרסים</p>
-                    : p.rewards.map((r, i) => (
-                        <p key={i} className="text-right text-xs mb-0.5 flex items-center gap-1 justify-end" style={{ color: "var(--green)" }}><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>{rewardText(r, products)}</p>
-                      ))
-                  }
-                </div>
-              </div>
+              <PromotionSummary p={p} products={products} categories={categories} />
             </div>
           ))}
         </div>

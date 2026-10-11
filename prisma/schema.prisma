@@ -13,6 +13,7 @@ model Category {
   sortOrder     Int                    @default(0)
   products      Product[]              @relation("ProductCategories")
   productOrders CategoryProductOrder[]
+  promotionItems PromotionItem[]
 }
 
 model CategoryProductOrder {
@@ -47,6 +48,7 @@ model Product {
   orderItems    OrderItem[]
   images        ProductImage[]
   colors        ProductColor[]
+  promotionItems PromotionItem[]
 }
 
 model ProductImage {
@@ -178,9 +180,37 @@ model Promotion {
   /// discount that same product in the same cart. Safe default: it is what
   /// stops several overlapping offers from gutting one item's price.
   exclusive      Boolean @default(true)
+  /// "rules"   = the conditions + rewards below
+  /// "bundle"  = buyQuantity items from the "buy" list for bundlePrice (3 for ₪200)
+  /// "buy_get" = buy buyQuantity from the "buy" list, get getQuantity from the
+  ///             "get" list at getDiscountPct off (100 = free)
+  kind            String  @default("rules")
+  buyQuantity     Int?
+  bundlePrice     Int?
+  getQuantity     Int?
+  getDiscountPct  Int?
+  /// bundle / buy_get: how many times it applies per cart; null = no limit
+  maxApplications Int?
   createdAt      DateTime             @default(now())
   conditions     PromotionCondition[]
   rewards        PromotionReward[]
+  items          PromotionItem[]
+}
+
+/// One entry in a bundle / buy_get list: a whole category or a single product.
+/// Categories are resolved when a cart is priced, so products added to the
+/// category later are covered without editing the promotion.
+model PromotionItem {
+  id          String    @id @default(cuid())
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  role        String    // "buy" | "get"
+  productId   String?
+  product     Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId])
 }
 
 model PromotionCondition {

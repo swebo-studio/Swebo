@@ -9,25 +9,33 @@ import type { AppliedReward } from "./promotions";
  * that is the only level at which "how many items actually got the discount"
  * is a well-defined question. The rules, in order:
  *
- *  1. A unit never receives more than one product discount. When several
- *     rewards reach the same unit the best one wins — they do not compound.
+ *  1. A unit never receives more than one discount. When several rewards
+ *     reach the same unit the best one wins — they do not compound.
  *     (Four "50% off" rewards used to compound to 93.75% off; they now cap
  *     at 50%.)
  *  2. A product_discount reward reaches at most `maxUnits` units across the
  *     whole cart — three shirts under a "50% off one" promotion get one
  *     discounted unit between them, not one per line.
- *  3. An `exclusive` promotion (the default) applies on its own: it never
+ *  3. Bundle ("3 for ₪200") and buy_get ("buy a winter item, get a summer item
+ *     free") rewards *claim* units: the units inside a bundle, and both the
+ *     bought and the discounted units of a buy_get, take part in that one
+ *     promotion and nothing else. A bundle is built from the dearest units it
+ *     can reach and only formed while it actually saves money; a buy_get
+ *     discounts the cheapest qualifying units, as shoppers expect.
+ *  4. An `exclusive` promotion (the default) applies on its own: it never
  *     shares a product with another promotion. Promotions marked stackable may
- *     share. For each product the engine prices every legal combination — each
- *     exclusive promotion alone, or all the stackable ones together — and keeps
- *     whichever is cheapest for the shopper.
- *  4. At most one cart-wide discount applies — whichever is worth the most.
- *  5. Free shipping is granted if any qualifying promotion grants it.
+ *     share.
+ *  5. At most one cart-wide discount applies — whichever is worth the most.
+ *  6. Free shipping is granted if any qualifying promotion grants it.
  *
- * Rule 3 is deliberately a search rather than a priority order. Letting the
- * "first" exclusive promotion claim a product meant switching on a small
- * capped offer could knock out a broader one and *raise* the price — a
- * merchant turning a promotion on must never cost a shopper money.
+ * Rules 3 and 4 are resolved by search rather than by priority. Every order in
+ * which the bundle / buy_get promotions could claim units (including leaving
+ * any of them out) is tried; for each, every product then gets the cheapest
+ * legal combination of product discounts — each exclusive promotion alone, or
+ * all the stackable ones together. The cheapest plan for the shopper wins.
+ * Letting the "first" promotion claim a product meant switching on a small
+ * offer could knock out a broader one and *raise* the price — a merchant
+ * turning a promotion on must never cost a shopper money.
  */
 
 export interface PricedLine {
@@ -41,7 +49,7 @@ export interface LineBucket {
   quantity: number;
   /** what each of these units is actually charged */
   unitPrice: number;
-  /** 0 when these units carry no discount */
+  /** 0 when these units carry no discount; not always whole (a bundle's share) */
   discountPct: number;
   promotionName?: string;
 }
@@ -93,15 +101,43 @@ interface Offer {
   exclusive: boolean;
 }
 
-/** One unit of one cart line, and the discount that ended up reaching it. */
+/** A bundle or buy_get reward, normalised. */
+type MultiOffer = {
+  promotionId: string;
+  promotionName: string;
+  exclusive: boolean;
+  buy: Set<string>;
+  buyQuantity: number;
+  /** Infinity when the reward is uncapped */
+  maxApplications: number;
+} & (
+  | { type: "bundle"; bundlePrice: number }
+  | { type: "buy_get"; get: Set<string>; getQuantity: number; pct: number }
+);
+
+/** One unit of one cart line, and what it ended up being charged. */
 interface Unit {
   lineIndex: number;
+  productId: string;
   price: number;
+  charged: number;
+  /** the advertised % off (a bundle's is its effective share, so not always whole) */
   pct: number;
   promotionName?: string;
+  /** taken by a bundle / buy_get, so nothing else may touch it */
+  claimed: boolean;
 }
 
+/** Which promotions have touched a product so far in one plan. */
+type Touches = Map<string, { ids: Set<string>; exclusive: boolean }>;
+
 const clampPct = (pct: number) => Math.max(0, Math.min(100, pct));
+
+const unitPriceAt = (price: number, pct: number) =>
+  pct > 0 ? Math.max(0, Math.round(price * (1 - pct / 100))) : price;
+
+/** Above this many bundle / buy_get promotions the plan search stops being exhaustive. */
+const MAX_SEARCHED_MULTI_OFFERS = 5;
 
 /**
  * Rewards are keyed by promotion, so two promotions granting "50% off the same
@@ -133,8 +169,153 @@ function toOffers(rewards: AppliedReward[]): Offer[] {
   );
 }
 
-const unitPriceAt = (price: number, pct: number) =>
-  pct > 0 ? Math.max(0, Math.round(price * (1 - pct / 100))) : price;
+function toMultiOffers(rewards: AppliedReward[]): MultiOffer[] {
+  const offers: MultiOffer[] = [];
+  rewards.forEach((r, i) => {
+    if (r.type !== "bundle" && r.type !== "buy_get") return;
+    const buyQuantity = Math.floor(r.buyQuantity ?? 0);
+    if (buyQuantity < 1 || !r.buyProductIds?.length) return;
+    const base = {
+      promotionId: r.promotionId ?? `reward:${i}`,
+      promotionName: r.promotionName,
+      exclusive: r.exclusive ?? true,
+      buy: new Set(r.buyProductIds),
+      buyQuantity,
+      maxApplications: r.maxApplications && r.maxApplications > 0 ? r.maxApplications : Infinity,
+    };
+    if (r.type === "bundle") {
+      if (r.bundlePrice == null || r.bundlePrice < 0) return;
+      offers.push({ ...base, type: "bundle", bundlePrice: r.bundlePrice });
+    } else {
+      const getQuantity = Math.floor(r.getQuantity ?? 0);
+      const pct = clampPct(r.discountPct ?? 0);
+      if (getQuantity < 1 || pct <= 0 || !r.getProductIds?.length) return;
+      offers.push({ ...base, type: "buy_get", get: new Set(r.getProductIds), getQuantity, pct });
+    }
+  });
+  return offers.sort((a, b) => a.promotionName.localeCompare(b.promotionName) || a.promotionId.localeCompare(b.promotionId));
+}
+
+/** Every ordered selection of the offers, the empty one first. */
+function plansFor(offers: MultiOffer[]): MultiOffer[][] {
+  if (offers.length > MAX_SEARCHED_MULTI_OFFERS) {
+    // Too many to try every order: try none, each one alone, and all of them.
+    return [[], ...offers.map((o) => [o]), offers];
+  }
+  const plans: MultiOffer[][] = [];
+  const walk = (prefix: MultiOffer[], rest: MultiOffer[]) => {
+    plans.push(prefix);
+    rest.forEach((o, i) => walk([...prefix, o], [...rest.slice(0, i), ...rest.slice(i + 1)]));
+  };
+  walk([], offers);
+  return plans;
+}
+
+/** Whether `promotionId` may still take units of `productId` under rule 4. */
+function mayTouch(touches: Touches, productId: string, promotionId: string, exclusive: boolean) {
+  const t = touches.get(productId);
+  if (!t) return true;
+  const others = [...t.ids].some((id) => id !== promotionId);
+  if (!others) return true;
+  return !t.exclusive && !exclusive;
+}
+
+function touch(touches: Touches, productId: string, promotionId: string, exclusive: boolean) {
+  const t = touches.get(productId) ?? { ids: new Set<string>(), exclusive: false };
+  t.ids.add(promotionId);
+  t.exclusive ||= exclusive;
+  touches.set(productId, t);
+}
+
+const dearestFirst = (a: Unit, b: Unit) => b.price - a.price || a.lineIndex - b.lineIndex;
+const cheapestFirst = (a: Unit, b: Unit) => a.price - b.price || a.lineIndex - b.lineIndex;
+
+/**
+ * Splits `total` across units in proportion to their prices, in whole
+ * shekels, so the shares add up to exactly `total` and no unit is charged more
+ * than its own price.
+ */
+function shareOut(total: number, units: Unit[]): number[] {
+  const sum = units.reduce((s, u) => s + u.price, 0);
+  const exact = units.map((u) => (sum > 0 ? (total * u.price) / sum : 0));
+  const shares = exact.map(Math.floor);
+  let left = total - shares.reduce((s, x) => s + x, 0);
+  const byRemainder = exact.map((x, i) => ({ i, r: x - Math.floor(x) })).sort((a, b) => b.r - a.r || a.i - b.i);
+  for (const { i } of byRemainder) {
+    if (left <= 0) break;
+    if (shares[i] + 1 > units[i].price) continue;
+    shares[i] += 1;
+    left -= 1;
+  }
+  return shares;
+}
+
+/** Forms bundles from the dearest available units for as long as a bundle saves money. */
+function applyBundle(offer: Extract<MultiOffer, { type: "bundle" }>, available: Unit[]): Unit[] {
+  const pool = available.filter((u) => offer.buy.has(u.productId)).sort(dearestFirst);
+  const taken: Unit[] = [];
+  for (let k = 0; k < offer.maxApplications; k++) {
+    const group = pool.slice(k * offer.buyQuantity, (k + 1) * offer.buyQuantity);
+    if (group.length < offer.buyQuantity) break;
+    // Bundles further down the list only get cheaper, so the first that
+    // would not save anything ends the run.
+    if (group.reduce((s, u) => s + u.price, 0) <= offer.bundlePrice) break;
+    shareOut(offer.bundlePrice, group).forEach((charged, i) => {
+      const u = group[i];
+      u.charged = charged;
+      u.pct = u.price > 0 ? (1 - charged / u.price) * 100 : 0;
+      u.promotionName = offer.promotionName;
+    });
+    taken.push(...group);
+  }
+  return taken;
+}
+
+/**
+ * Applies a buy_get as many times as the cart allows. The discounted units are
+ * the cheapest the shopper qualifies for; when the two lists overlap, a unit
+ * cannot pay for its own discount, so fewer overlapping units may be picked.
+ */
+function applyBuyGet(offer: Extract<MultiOffer, { type: "buy_get" }>, available: Unit[]): Unit[] {
+  const { buyQuantity: N, getQuantity: M } = offer;
+  const buyOnly = available.filter((u) => offer.buy.has(u.productId) && !offer.get.has(u.productId));
+  const both = available.filter((u) => offer.buy.has(u.productId) && offer.get.has(u.productId));
+  const getEligible = available.filter((u) => offer.get.has(u.productId)).sort(cheapestFirst);
+
+  const buyEligible = buyOnly.length + both.length;
+  const upper = Math.min(
+    offer.maxApplications,
+    Math.floor(getEligible.length / M),
+    Math.floor(buyEligible / N),
+    Math.floor(new Set([...buyOnly, ...getEligible]).size / (N + M))
+  );
+
+  for (let k = upper; k >= 1; k--) {
+    // Overlapping units handed out as "get" stop counting towards "buy".
+    const overlapCap = buyEligible - k * N;
+    if (overlapCap < 0) continue;
+    const gets: Unit[] = [];
+    let overlapTaken = 0;
+    for (const u of getEligible) {
+      if (gets.length === k * M) break;
+      if (offer.buy.has(u.productId)) {
+        if (overlapTaken >= overlapCap) continue;
+        overlapTaken++;
+      }
+      gets.push(u);
+    }
+    if (gets.length < k * M) continue;
+
+    const buys = [...buyOnly, ...both].filter((u) => !gets.includes(u)).sort(cheapestFirst).slice(0, k * N);
+    for (const u of gets) {
+      u.charged = unitPriceAt(u.price, offer.pct);
+      u.pct = offer.pct;
+      u.promotionName = offer.promotionName;
+    }
+    return [...gets, ...buys];
+  }
+  return [];
+}
 
 /**
  * Spends one set of offers over one product's units. Deepest discount first,
@@ -144,13 +325,13 @@ const unitPriceAt = (price: number, pct: number) =>
  */
 function spend(offers: Offer[], units: Unit[]): { pct: number; promotionName?: string }[] {
   const out = units.map(() => ({ pct: 0 }) as { pct: number; promotionName?: string });
-  const dearestFirst = units
+  const order = units
     .map((u, index) => ({ price: u.price, index }))
     .sort((a, b) => b.price - a.price || a.index - b.index);
 
   for (const offer of offers) {
     let taken = 0;
-    for (const { index } of dearestFirst) {
+    for (const { index } of order) {
       if (taken >= offer.maxUnits) break;
       if (out[index].pct > 0) continue;
       out[index] = { pct: offer.pct, promotionName: offer.promotionName };
@@ -160,30 +341,18 @@ function spend(offers: Offer[], units: Unit[]): { pct: number; promotionName?: s
   return out;
 }
 
-/**
- * Hands out product discounts unit by unit. Returns the units of every line,
- * each stamped with the discount (if any) that reached it.
- */
-function allocateProductDiscounts(items: PricedLine[], rewards: AppliedReward[]): Unit[][] {
-  const unitsByLine: Unit[][] = items.map((item, lineIndex) =>
-    Array.from({ length: Math.max(0, Math.floor(item.quantity)) }, () => ({
-      lineIndex,
-      price: item.price,
-      pct: 0,
-    }))
-  );
+/** Hands out product discounts over the units no bundle / buy_get has claimed. */
+function applyProductDiscounts(units: Unit[], offers: Offer[], touches: Touches) {
+  const byProduct = new Map<string, Unit[]>();
+  for (const u of units) {
+    if (u.claimed) continue;
+    const bucket = byProduct.get(u.productId) ?? [];
+    bucket.push(u);
+    byProduct.set(u.productId, bucket);
+  }
 
-  const unitsByProduct = new Map<string, Unit[]>();
-  items.forEach((item, lineIndex) => {
-    const bucket = unitsByProduct.get(item.productId) ?? [];
-    bucket.push(...unitsByLine[lineIndex]);
-    unitsByProduct.set(item.productId, bucket);
-  });
-
-  const offers = toOffers(rewards);
-
-  for (const [productId, units] of unitsByProduct) {
-    const forProduct = offers.filter((o) => o.productId === productId);
+  for (const [productId, productUnits] of byProduct) {
+    const forProduct = offers.filter((o) => o.productId === productId && mayTouch(touches, productId, o.promotionId, o.exclusive));
     if (forProduct.length === 0) continue;
 
     // The legal combinations: every stackable promotion together, or any one
@@ -201,8 +370,8 @@ function allocateProductDiscounts(items: PricedLine[], rewards: AppliedReward[])
     let best: { pct: number; promotionName?: string }[] | null = null;
     let bestCost = Infinity;
     for (const candidate of candidates) {
-      const assignment = spend(candidate, units);
-      const cost = assignment.reduce((sum, a, i) => sum + unitPriceAt(units[i].price, a.pct), 0);
+      const assignment = spend(candidate, productUnits);
+      const cost = assignment.reduce((sum, a, i) => sum + unitPriceAt(productUnits[i].price, a.pct), 0);
       if (cost < bestCost) {
         bestCost = cost;
         best = assignment;
@@ -211,50 +380,91 @@ function allocateProductDiscounts(items: PricedLine[], rewards: AppliedReward[])
     if (!best) continue;
 
     best.forEach((a, i) => {
-      units[i].pct = a.pct;
-      units[i].promotionName = a.promotionName;
+      if (a.pct <= 0) return;
+      productUnits[i].charged = unitPriceAt(productUnits[i].price, a.pct);
+      productUnits[i].pct = a.pct;
+      productUnits[i].promotionName = a.promotionName;
     });
   }
+}
 
-  return unitsByLine;
+/** Prices every unit under one plan: the given bundle / buy_get order, then product discounts. */
+function runPlan(items: PricedLine[], plan: MultiOffer[], offers: Offer[]): Unit[] {
+  const units: Unit[] = items.flatMap((item, lineIndex) =>
+    Array.from({ length: Math.max(0, Math.floor(item.quantity)) }, () => ({
+      lineIndex,
+      productId: item.productId,
+      price: item.price,
+      charged: item.price,
+      pct: 0,
+      claimed: false,
+    }))
+  );
+  const touches: Touches = new Map();
+
+  for (const offer of plan) {
+    const available = units.filter((u) => !u.claimed && mayTouch(touches, u.productId, offer.promotionId, offer.exclusive));
+    const taken = offer.type === "bundle" ? applyBundle(offer, available) : applyBuyGet(offer, available);
+    for (const u of taken) {
+      u.claimed = true;
+      touch(touches, u.productId, offer.promotionId, offer.exclusive);
+    }
+  }
+
+  // Product discounts touch products too, but only at the very end, so they
+  // never need recording: nothing after them can be blocked.
+  applyProductDiscounts(units, offers, touches);
+  return units;
 }
 
 /** Groups a line's units into one bucket per distinct price, deepest discount first. */
 function toBuckets(units: Unit[]): LineBucket[] {
   const byKey = new Map<string, LineBucket>();
   for (const unit of units) {
-    const unitPrice = unitPriceAt(unit.price, unit.pct);
-    const key = `${unit.pct}|${unitPrice}|${unit.promotionName ?? ""}`;
+    const key = `${unit.pct}|${unit.charged}|${unit.promotionName ?? ""}`;
     const bucket = byKey.get(key);
     if (bucket) {
       bucket.quantity += 1;
     } else {
-      byKey.set(key, { quantity: 1, unitPrice, discountPct: unit.pct, promotionName: unit.promotionName });
+      byKey.set(key, { quantity: 1, unitPrice: unit.charged, discountPct: unit.pct, promotionName: unit.promotionName });
     }
   }
   return [...byKey.values()].sort((a, b) => b.discountPct - a.discountPct);
 }
 
 export function promotionPricing(items: PricedLine[], rewards: AppliedReward[]): PromotionPricing {
-  const unitsByLine = allocateProductDiscounts(items, rewards);
+  const offers = toOffers(rewards);
+
+  // Cheapest plan wins; ties keep the earlier plan, and the plan order is
+  // fixed (fewest promotions first), so the outcome is deterministic.
+  let best: Unit[] = [];
+  let bestCost = Infinity;
+  for (const plan of plansFor(toMultiOffers(rewards))) {
+    const units = runPlan(items, plan, offers);
+    const cost = units.reduce((s, u) => s + u.charged, 0);
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = units;
+    }
+  }
 
   const lines: LinePricing[] = [];
   let rawSubtotal = 0;
   let itemSubtotal = 0;
 
   items.forEach((item, index) => {
-    const buckets = toBuckets(unitsByLine[index]);
+    const buckets = toBuckets(best.filter((u) => u.lineIndex === index));
     const discounted = buckets.filter((b) => b.discountPct > 0);
-    const best = discounted[0];
+    const deepest = discounted[0];
 
     const rawTotal = item.price * Math.max(0, Math.floor(item.quantity));
     const total = buckets.reduce((sum, b) => sum + b.unitPrice * b.quantity, 0);
 
     lines.push({
       buckets,
-      discountPct: best?.discountPct ?? 0,
+      discountPct: deepest?.discountPct ?? 0,
       discountedUnits: discounted.reduce((sum, b) => sum + b.quantity, 0),
-      discountedUnitPrice: best?.unitPrice ?? item.price,
+      discountedUnitPrice: deepest?.unitPrice ?? item.price,
       total,
       rawTotal,
       // De-duplicated: one promotion covering several buckets is named once.

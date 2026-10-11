@@ -513,11 +513,16 @@ export default function CheckoutPage() {
             <div className="rounded-xl border p-3 flex flex-col gap-1" style={{ borderColor: "var(--green)", background: "#e8f5e9" }}>
               <p className="text-xs font-bold text-right mb-1" style={{ color: "var(--green)" }}>מבצעים פעילים</p>
               {promotionRewards.map((r, i) => (
-                <p key={i} className="text-xs text-right" style={{ color: "var(--green)" }}>
-                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> {r.promotionName}
-                  {r.type === "free_shipping" && " — משלוח חינם"}
-                  {r.type === "cart_discount" && (r.discountAmount ? ` — ₪${r.discountAmount} הנחה על הסל` : ` — ${r.discountPct}% הנחה על הסל`)}
-                  {r.type === "product_discount" && ` — ${r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`} על ${r.productName}`}
+                <p key={i} className="flex items-start gap-1 text-xs text-right" style={{ color: "var(--green)" }}>
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="flex-shrink-0 mt-px" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>
+                    {r.promotionName}
+                    {r.type === "free_shipping" && " — משלוח חינם"}
+                    {r.type === "cart_discount" && (r.discountAmount ? ` — ₪${r.discountAmount} הנחה על הסל` : ` — ${r.discountPct}% הנחה על הסל`)}
+                    {r.type === "product_discount" && ` — ${r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`} על ${r.productName}`}
+                    {r.type === "bundle" && ` — ${r.buyQuantity} פריטים ב-₪${r.bundlePrice}`}
+                    {r.type === "buy_get" && ` — ${r.getQuantity === 1 ? "פריט" : `${r.getQuantity} פריטים`} ${r.discountPct === 100 ? "חינם" : `ב-${r.discountPct}% הנחה`}`}
+                  </span>
                 </p>
               ))}
             </div>
