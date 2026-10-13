@@ -19,7 +19,7 @@ export default function BundleForm({
     <>
       <Field
         label="המבצע"
-        hint="המחיר הוא לכל הפריטים יחד. החבילה נבנית מהפריטים היקרים בסל, ורק כשהיא באמת זולה מהמחיר הרגיל."
+        hint="המחיר הוא לכל הפריטים יחד. החבילה נבנית מהפריטים הזולים בסל, ורק כשהיא באמת זולה מהמחיר הרגיל."
       >
         <div className="flex items-center gap-2">
           <NumberInput value={draft.buyQuantity} onChange={(v) => patch({ buyQuantity: v })} min={2} placeholder="3" ariaLabel="כמות פריטים בחבילה" />

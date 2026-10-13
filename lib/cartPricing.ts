@@ -19,9 +19,10 @@ import type { AppliedReward } from "./promotions";
  *  3. Bundle ("3 for ₪200") and buy_get ("buy a winter item, get a summer item
  *     free") rewards *claim* units: the units inside a bundle, and both the
  *     bought and the discounted units of a buy_get, take part in that one
- *     promotion and nothing else. A bundle is built from the dearest units it
- *     can reach and only formed while it actually saves money; a buy_get
- *     discounts the cheapest qualifying units, as shoppers expect.
+ *     promotion and nothing else. Both always take the *cheapest* qualifying
+ *     units, as the store asked: a bundle is built from the cheapest units
+ *     (and only when that actually saves money), and a buy_get discounts the
+ *     cheapest units it can.
  *  4. An `exclusive` promotion (the default) applies on its own: it never
  *     shares a product with another promotion. Promotions marked stackable may
  *     share.
@@ -227,7 +228,6 @@ function touch(touches: Touches, productId: string, promotionId: string, exclusi
   touches.set(productId, t);
 }
 
-const dearestFirst = (a: Unit, b: Unit) => b.price - a.price || a.lineIndex - b.lineIndex;
 const cheapestFirst = (a: Unit, b: Unit) => a.price - b.price || a.lineIndex - b.lineIndex;
 
 /**
@@ -250,25 +250,30 @@ function shareOut(total: number, units: Unit[]): number[] {
   return shares;
 }
 
-/** Forms bundles from the dearest available units for as long as a bundle saves money. */
+/**
+ * Forms as many bundles as the cart allows from the cheapest available units —
+ * the store's rule is that the cheapest items are always the ones included.
+ * The bundles' combined price is shared over all their units together, so a
+ * cheap first bundle never charges a unit more than its own price. When even
+ * that would not save money (three ₪50 items under "3 for ₪200"), fewer
+ * bundles are tried, and none are formed if none save anything.
+ */
 function applyBundle(offer: Extract<MultiOffer, { type: "bundle" }>, available: Unit[]): Unit[] {
-  const pool = available.filter((u) => offer.buy.has(u.productId)).sort(dearestFirst);
-  const taken: Unit[] = [];
-  for (let k = 0; k < offer.maxApplications; k++) {
-    const group = pool.slice(k * offer.buyQuantity, (k + 1) * offer.buyQuantity);
-    if (group.length < offer.buyQuantity) break;
-    // Bundles further down the list only get cheaper, so the first that
-    // would not save anything ends the run.
-    if (group.reduce((s, u) => s + u.price, 0) <= offer.bundlePrice) break;
-    shareOut(offer.bundlePrice, group).forEach((charged, i) => {
+  const pool = available.filter((u) => offer.buy.has(u.productId)).sort(cheapestFirst);
+  const most = Math.min(offer.maxApplications, Math.floor(pool.length / offer.buyQuantity));
+  for (let k = most; k >= 1; k--) {
+    const group = pool.slice(0, k * offer.buyQuantity);
+    const total = k * offer.bundlePrice;
+    if (group.reduce((s, u) => s + u.price, 0) <= total) continue;
+    shareOut(total, group).forEach((charged, i) => {
       const u = group[i];
       u.charged = charged;
       u.pct = u.price > 0 ? (1 - charged / u.price) * 100 : 0;
       u.promotionName = offer.promotionName;
     });
-    taken.push(...group);
+    return group;
   }
-  return taken;
+  return [];
 }
 
 /**
@@ -319,15 +324,16 @@ function applyBuyGet(offer: Extract<MultiOffer, { type: "buy_get" }>, available:
 
 /**
  * Spends one set of offers over one product's units. Deepest discount first,
- * dearest unit first — that pairing is what makes a capped offer save the most
- * it can — and a unit already discounted is never revisited, so offers within
- * a set fill each other's gaps instead of compounding.
+ * cheapest unit first — the store's rule is that a capped discount always
+ * reaches the cheapest items — and a unit already discounted is never
+ * revisited, so offers within a set fill each other's gaps instead of
+ * compounding.
  */
 function spend(offers: Offer[], units: Unit[]): { pct: number; promotionName?: string }[] {
   const out = units.map(() => ({ pct: 0 }) as { pct: number; promotionName?: string });
   const order = units
     .map((u, index) => ({ price: u.price, index }))
-    .sort((a, b) => b.price - a.price || a.index - b.index);
+    .sort((a, b) => a.price - b.price || a.index - b.index);
 
   for (const offer of offers) {
     let taken = 0;
