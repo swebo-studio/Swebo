@@ -20,6 +20,17 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(category);
 }
 
+/** Renames one category. */
+export async function PUT(req: NextRequest) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id, nameHe } = await req.json();
+  const name = typeof nameHe === "string" ? nameHe.trim() : "";
+  if (!id || !name) return NextResponse.json({ error: "חסר שם לקטגוריה" }, { status: 400 });
+  const category = await prisma.category.update({ where: { id }, data: { nameHe: name } });
+  return NextResponse.json(category);
+}
+
 export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

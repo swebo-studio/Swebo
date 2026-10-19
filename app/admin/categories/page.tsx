@@ -17,6 +17,7 @@ export default function AdminCategoriesPage() {
   const [products, setProducts] = useState<Record<string, CategoryProduct[]>>({});
   const [loadingProducts, setLoadingProducts] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => { fetchCategories(); }, []);
 
@@ -42,6 +43,28 @@ export default function AdminCategoriesPage() {
       if (expandedId === id) setExpandedId(null);
       fetchCategories();
     }});
+  }
+
+  async function saveRename() {
+    if (!editing) return;
+    const name = editing.name.trim();
+    const current = categories.find((c) => c.id === editing.id);
+    if (!name || name === current?.nameHe) { setEditing(null); return; }
+    const previous = categories;
+    setCategories((cats) => cats.map((c) => (c.id === editing.id ? { ...c, nameHe: name } : c)));
+    setEditing(null);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editing.id, nameHe: name }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setCategories(previous);
+      setError("שינוי שם הקטגוריה נכשל, נסה שוב");
+    }
   }
 
   // Always writes the whole list back as 0..n-1. Swapping two sortOrder values
@@ -117,6 +140,7 @@ export default function AdminCategoriesPage() {
         >
           {({ item: cat, dragging, handle }) => {
             const isExpanded = expandedId === cat.id;
+            const isEditing = editing?.id === cat.id;
             const catProducts = products[cat.id];
             return (
               <div
@@ -128,16 +152,43 @@ export default function AdminCategoriesPage() {
                 }}
               >
                 <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => deleteCategory(cat.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
-                    <DragHandle handle={handle} />
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {isEditing ? (
+                      <>
+                        <button onClick={() => setEditing(null)} className="text-xs hover:opacity-70" style={{ color: "var(--text-muted)" }}>ביטול</button>
+                        <button onClick={saveRename} className="text-xs font-bold hover:opacity-70" style={{ color: "var(--green)" }}>שמור</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => deleteCategory(cat.id)} className="text-xs hover:opacity-70" style={{ color: "var(--maroon)" }}>מחק</button>
+                        <button onClick={() => setEditing({ id: cat.id, name: cat.nameHe })} className="text-xs hover:opacity-70" style={{ color: "var(--text)" }}>ערוך</button>
+                        <DragHandle handle={handle} />
+                      </>
+                    )}
                   </div>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      onFocus={(e) => e.target.select()}
+                      value={editing.name}
+                      onChange={(e) => setEditing({ id: cat.id, name: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveRename();
+                        if (e.key === "Escape") setEditing(null);
+                      }}
+                      aria-label="שם הקטגוריה"
+                      className="flex-1 min-w-0 mr-3 px-3 py-1.5 rounded-lg border text-right outline-none text-base sm:text-sm"
+                      style={inputStyle}
+                    />
+                  ) : (
                   <button onClick={() => toggleExpand(cat.id)} className="flex items-center gap-2 hover:opacity-70 transition-opacity">
                     <span className="font-medium text-right" style={{ color: "var(--text)" }}>{cat.nameHe}</span>
                     <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ color: "var(--text-muted)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
                       <polyline points="6 9 12 15 18 9"/>
                     </svg>
                   </button>
+                  )}
                 </div>
 
                 {isExpanded && (
