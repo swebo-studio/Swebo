@@ -4,7 +4,8 @@ import { BADGE_POSITION_CLASS, BADGE_SIZE_CLASS, badgeTextColor, type CardBadge 
 export function ProductBadge({ badge }: { badge: Omit<CardBadge, "position"> }) {
   return (
     <span
-      className={`${BADGE_SIZE_CLASS[badge.size]} font-bold rounded-full leading-tight whitespace-nowrap shadow-sm`}
+      // A long text wraps inside the card rather than running off it; rounded-2xl is still a pill on one line
+      className={`${BADGE_SIZE_CLASS[badge.size]} max-w-full font-bold rounded-2xl leading-tight text-center break-words shadow-sm`}
       style={{ background: badge.color, color: badgeTextColor(badge.color) }}
     >
       {badge.text}
