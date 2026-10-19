@@ -15,8 +15,17 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { nameHe, sortOrder } = await req.json();
-  const category = await prisma.category.create({ data: { nameHe, sortOrder: sortOrder ?? 0 } });
+  const { nameHe, sortOrder, productIds } = await req.json();
+  // Optional: the products to start with, in the order given
+  const ids: string[] = Array.isArray(productIds) ? [...new Set(productIds.filter((p: unknown): p is string => typeof p === "string"))] : [];
+  const category = await prisma.category.create({
+    data: {
+      nameHe,
+      sortOrder: sortOrder ?? 0,
+      products: { connect: ids.map((id) => ({ id })) },
+      productOrders: { create: ids.map((productId, i) => ({ productId, sortOrder: i })) },
+    },
+  });
   return NextResponse.json(category);
 }
 

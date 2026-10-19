@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import ConfirmModal from "@/components/ConfirmModal";
 import DragList, { DragHandle } from "@/components/DragList";
+import CategoryProductPicker from "@/components/CategoryProductPicker";
 
 interface Category { id: string; nameHe: string; sortOrder: number }
 interface CategoryProduct { id: string; nameHe: string; image: string; active: boolean }
@@ -18,6 +19,8 @@ export default function AdminCategoriesPage() {
   const [loadingProducts, setLoadingProducts] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  /** The product picker: for a category about to be created, or for an existing one */
+  const [picker, setPicker] = useState<{ name: string; categoryId?: string } | null>(null);
 
   useEffect(() => { fetchCategories(); }, []);
 
@@ -25,15 +28,39 @@ export default function AdminCategoriesPage() {
     fetch("/api/admin/categories").then((r) => r.json()).then(setCategories).catch(() => {});
   }
 
-  async function addCategory() {
+  /** A new category starts by choosing its products; nothing is created until that is saved. */
+  function addCategory() {
     if (!newCatName.trim()) return;
-    await fetch("/api/admin/categories", {
+    setPicker({ name: newCatName.trim() });
+  }
+
+  async function createCategory(productIds: string[]) {
+    const res = await fetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nameHe: newCatName.trim(), sortOrder: categories.reduce((max, c) => Math.max(max, c.sortOrder), -1) + 1 }),
+      body: JSON.stringify({ nameHe: picker!.name, productIds, sortOrder: categories.reduce((max, c) => Math.max(max, c.sortOrder), -1) + 1 }),
     });
+    if (!res.ok) throw new Error();
     setNewCatName("");
+    setPicker(null);
     fetchCategories();
+  }
+
+  async function loadProducts(catId: string) {
+    const res = await fetch(`/api/admin/categories/${catId}/products`);
+    const data = await res.json();
+    setProducts((prev) => ({ ...prev, [catId]: Array.isArray(data) ? data : [] }));
+  }
+
+  async function setCategoryProducts(catId: string, productIds: string[]) {
+    const res = await fetch(`/api/admin/categories/${catId}/products`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds }),
+    });
+    if (!res.ok) throw new Error();
+    setPicker(null);
+    await loadProducts(catId);
   }
 
   async function deleteCategory(id: string) {
@@ -95,9 +122,7 @@ export default function AdminCategoriesPage() {
     setExpandedId(catId);
     if (!products[catId]) {
       setLoadingProducts(catId);
-      const res = await fetch(`/api/admin/categories/${catId}/products`);
-      const data = await res.json();
-      setProducts((prev) => ({ ...prev, [catId]: Array.isArray(data) ? data : [] }));
+      await loadProducts(catId);
       setLoadingProducts(null);
     }
   }
@@ -193,6 +218,15 @@ export default function AdminCategoriesPage() {
 
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                    {loadingProducts !== cat.id && (
+                      <button
+                        onClick={() => setPicker({ name: cat.nameHe, categoryId: cat.id })}
+                        className="w-full mb-3 py-2 rounded-lg border text-sm font-bold transition-opacity hover:opacity-70"
+                        style={{ borderColor: "var(--text)", color: "var(--text)" }}
+                      >
+                        בחירת מוצרים{catProducts ? ` (${catProducts.length})` : ""}
+                      </button>
+                    )}
                     {loadingProducts === cat.id ? (
                       <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>טוען...</p>
                     ) : !catProducts || catProducts.length === 0 ? (
@@ -261,6 +295,15 @@ export default function AdminCategoriesPage() {
         </div>
       </section>
     </div>
+    {picker && (
+      <CategoryProductPicker
+        title={picker.categoryId ? `מוצרים בקטגוריה "${picker.name}"` : `אילו מוצרים בקטגוריה "${picker.name}"?`}
+        initialSelected={picker.categoryId ? (products[picker.categoryId] ?? []).map((p) => p.id) : []}
+        saveLabel={picker.categoryId ? "שמור" : "צור קטגוריה"}
+        onSave={(ids) => (picker.categoryId ? setCategoryProducts(picker.categoryId, ids) : createCategory(ids))}
+        onCancel={() => setPicker(null)}
+      />
+    )}
     {confirmState && (
       <ConfirmModal
         message={confirmState.message}
