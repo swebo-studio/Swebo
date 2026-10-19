@@ -114,7 +114,7 @@ export default async function ProductPage(
     <>
       <Header />
       <main id="main-content" className="max-w-4xl mx-auto px-4 py-10">
-        <h1 className="text-2xl font-extrabold mb-1 text-right" style={{ color: "var(--text)" }}>
+        <h1 dir="auto" className="text-2xl font-extrabold mb-1 text-start" style={{ color: "var(--text)" }}>
           {product.nameHe}
         </h1>
         {product.descriptionHe && (

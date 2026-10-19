@@ -110,7 +110,7 @@ export default function CartPage() {
 
                   {/* Details */}
                   <div className="flex-1 text-right min-w-0">
-                    <p className="font-bold leading-snug" style={{ color: "var(--text)" }}>
+                    <p dir="auto" className="font-bold leading-snug text-start" style={{ color: "var(--text)" }}>
                       {item.nameHe}
                     </p>
                     <div className="flex items-center justify-end gap-1.5 mt-0.5">

@@ -47,7 +47,7 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
           {stock > 0 && <ProductBadges badges={[...lowStock, ...badges]} />}
         </div>
         <div className="p-4">
-          <h3 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>
+          <h3 dir="auto" className="font-bold text-lg mb-1 text-start" style={{ color: "var(--text)" }}>
             {nameHe}
           </h3>
           <div className="flex items-center gap-2 justify-end">
