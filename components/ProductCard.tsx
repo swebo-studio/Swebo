@@ -1,6 +1,8 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { ProductBadges } from "@/components/ProductBadge";
+import type { CardBadge } from "@/lib/promotionBadges";
 
 interface Props {
   id: string;
@@ -9,9 +11,14 @@ interface Props {
   image: string;
   stock: number;
   discountedPrice?: number;
+  /** promotion tags, each in the corner its promotion chose */
+  badges?: CardBadge[];
 }
 
-export default function ProductCard({ id, nameHe, price, image, stock, discountedPrice }: Props) {
+export default function ProductCard({ id, nameHe, price, image, stock, discountedPrice, badges = [] }: Props) {
+  const lowStock: CardBadge[] = stock > 0 && stock <= 3
+    ? [{ text: "אחרונים במלאי", color: "var(--warn)", size: "sm", position: "top-right" }]
+    : [];
   return (
     <Link href={`/product/${id}`} className="group block">
       <div
@@ -37,13 +44,7 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
               </span>
             </div>
           )}
-          {stock > 0 && stock <= 3 && (
-            <div className="absolute top-2 right-2">
-              <span className="text-xs font-bold px-2 py-1 rounded-full text-white" style={{ background: "var(--warn)" }}>
-                אחרונים במלאי
-              </span>
-            </div>
-          )}
+          {stock > 0 && <ProductBadges badges={[...lowStock, ...badges]} />}
         </div>
         <div className="p-4">
           <h3 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>

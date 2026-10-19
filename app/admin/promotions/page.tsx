@@ -8,6 +8,9 @@ import RulesForm from "@/components/promotions/RulesForm";
 import BundleForm from "@/components/promotions/BundleForm";
 import BuyGetForm from "@/components/promotions/BuyGetForm";
 import PromotionSummary from "@/components/promotions/PromotionSummary";
+import BadgeEditor from "@/components/promotions/BadgeEditor";
+import { ProductBadge } from "@/components/ProductBadge";
+import { defaultBadgeText } from "@/lib/promotionBadges";
 
 const KINDS: { kind: PromotionKind; label: string; hint: string; placeholder: string }[] = [
   { kind: "rules", label: "הנחה / משלוח", hint: "משלוח חינם, הנחה על הסל או על מוצר", placeholder: "משלוח חינם מעל ₪300" },
@@ -60,6 +63,7 @@ export default function AdminPromotionsPage() {
       conditions: p.conditions.length || p.kind !== "rules" ? p.conditions : [emptyCondition()],
       rewards: p.rewards.length || p.kind !== "rules" ? p.rewards : [emptyReward()],
       items: p.items ?? [],
+      badgeText: p.badgeText ?? "", // stored as null when it follows the offer
     });
     setSaveError(null);
     setModalOpen(true);
@@ -68,7 +72,10 @@ export default function AdminPromotionsPage() {
   /** Only offered while creating: an existing promotion keeps its kind. */
   function switchKind(kind: PromotionKind) {
     if (kind === draft.kind) return;
-    setDraft((d) => draftFor(kind, { name: d.name, active: d.active, exclusive: d.exclusive }));
+    setDraft((d) => draftFor(kind, {
+      name: d.name, active: d.active, exclusive: d.exclusive,
+      badgeEnabled: d.badgeEnabled, badgeText: d.badgeText, badgeColor: d.badgeColor, badgeSize: d.badgeSize, badgePosition: d.badgePosition,
+    }));
     setSaveError(null);
   }
 
@@ -193,6 +200,8 @@ export default function AdminPromotionsPage() {
                 {draft.kind === "buy_get" && <BuyGetForm {...formProps} />}
               </div>
 
+              <BadgeEditor draft={draft} patch={patch} />
+
               {/* Exclusivity — the guard against several offers gutting one item */}
               <div className="p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
                 <div className="flex items-center justify-end gap-3">
@@ -243,6 +252,9 @@ export default function AdminPromotionsPage() {
                   <button onClick={() => openEdit(p)} className="text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+                  {p.badgeEnabled && (
+                    <ProductBadge badge={{ text: p.badgeText || defaultBadgeText(p), color: p.badgeColor, size: "sm" }} />
+                  )}
                   {!p.exclusive && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#fff4e5", color: "var(--maroon)" }}>
                       משתלב

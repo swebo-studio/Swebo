@@ -191,6 +191,15 @@ model Promotion {
   getDiscountPct  Int?
   /// bundle / buy_get: how many times it applies per cart; null = no limit
   maxApplications Int?
+  /// A tag on the product cards of every product this promotion covers.
+  /// badgeText null = a text worked out from the offer ("2 ב-₪299").
+  badgeEnabled  Boolean @default(false)
+  badgeText     String?
+  badgeColor    String  @default("#1E6B3C")
+  /// "sm" | "md" | "lg"
+  badgeSize     String  @default("md")
+  /// "top-right" | "top-left" | "bottom-right" | "bottom-left"
+  badgePosition String  @default("bottom-left")
   createdAt      DateTime             @default(now())
   conditions     PromotionCondition[]
   rewards        PromotionReward[]

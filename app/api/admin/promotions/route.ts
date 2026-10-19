@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { BADGE_TEXT_MAX, DEFAULT_BADGE_COLOR, isBadgePosition, isBadgeSize, isHexColor } from "@/lib/promotionBadges";
 
 export async function GET() {
   const session = await auth();
@@ -59,6 +60,18 @@ function mapLogic(v: unknown) {
   return CONDITION_LOGIC.includes(v as (typeof CONDITION_LOGIC)[number]) ? (v as string) : "all";
 }
 
+/** The card tag's settings; anything unrecognised falls back to a default rather than failing the save. */
+function mapBadge(body: Record<string, unknown>) {
+  const text = typeof body.badgeText === "string" ? body.badgeText.trim().slice(0, BADGE_TEXT_MAX) : "";
+  return {
+    badgeEnabled: !!body.badgeEnabled,
+    badgeText: text || null,
+    badgeColor: isHexColor(body.badgeColor) ? body.badgeColor : DEFAULT_BADGE_COLOR,
+    badgeSize: isBadgeSize(body.badgeSize) ? body.badgeSize : "md",
+    badgePosition: isBadgePosition(body.badgePosition) ? body.badgePosition : "bottom-left",
+  };
+}
+
 const KINDS = ["rules", "bundle", "buy_get"] as const;
 type Kind = (typeof KINDS)[number];
 
@@ -84,6 +97,7 @@ function toPromotionData(body: Record<string, unknown>) {
     kind,
     active: body.active === undefined ? true : !!body.active,
     exclusive: body.exclusive === undefined ? true : !!body.exclusive,
+    ...mapBadge(body),
   };
   const noMulti = { buyQuantity: null, bundlePrice: null, getQuantity: null, getDiscountPct: null, maxApplications: null };
 

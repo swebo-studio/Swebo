@@ -6,6 +6,7 @@ import ProductCard from "@/components/ProductCard";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import { Suspense } from "react";
 import { computeDisplayPrice } from "@/lib/promotions";
+import { BADGE_PROMOTION_INCLUDE, promotionBadges } from "@/lib/promotionBadges";
 
 export const dynamic = "force-dynamic";
 
@@ -55,13 +56,14 @@ export default async function ProductPage(
       },
     }),
     prisma.siteConfig.findMany(),
-    prisma.promotion.findMany({ where: { active: true }, include: { rewards: true } }),
+    prisma.promotion.findMany({ where: { active: true }, include: BADGE_PROMOTION_INCLUDE }),
   ]);
 
   const cartDiscountPct = activePromotions
     .flatMap((p) => p.rewards)
     .filter((r) => r.type === "cart_discount" && r.discountPct)
     .reduce((max, r) => Math.max(max, r.discountPct ?? 0), 0);
+  const badgesFor = promotionBadges(activePromotions);
 
   if (!product || !product.active) notFound();
 
@@ -177,6 +179,7 @@ export default async function ProductPage(
                     image={displayImg}
                     stock={totalStock}
                     discountedPrice={related.originalPrice ? related.displayPrice : undefined}
+                    badges={badgesFor(p.id)}
                   />
                 );
               })}

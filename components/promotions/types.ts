@@ -1,4 +1,5 @@
 /** Shapes shared by the admin promotions page and its per-kind forms. */
+import { DEFAULT_BADGE_COLOR, type BadgePosition, type BadgeSize } from "@/lib/promotionBadges";
 
 export interface Product { id: string; nameHe: string; price: number }
 export interface Category { id: string; nameHe: string }
@@ -50,6 +51,13 @@ export interface PromotionDraft {
   /** null = applies as many times as the cart allows */
   maxApplications: number | null;
   items: ListItem[];
+  // the tag on the product cards
+  badgeEnabled: boolean;
+  /** empty = the text worked out from the offer */
+  badgeText: string;
+  badgeColor: string;
+  badgeSize: BadgeSize;
+  badgePosition: BadgePosition;
 }
 
 export interface Promotion extends PromotionDraft {
@@ -62,7 +70,8 @@ export function emptyCondition(): Condition { return { type: "min_cart_total", m
 export function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null, maxUnits: null }; }
 
 /** The starting point for each tab; switching tabs on a new promotion resets to these. */
-export function draftFor(kind: PromotionKind, keep?: Pick<PromotionDraft, "name" | "active" | "exclusive">): PromotionDraft {
+type Kept = "name" | "active" | "exclusive" | "badgeEnabled" | "badgeText" | "badgeColor" | "badgeSize" | "badgePosition";
+export function draftFor(kind: PromotionKind, keep?: Partial<Pick<PromotionDraft, Kept>>): PromotionDraft {
   const base: PromotionDraft = {
     kind,
     name: keep?.name ?? "",
@@ -77,6 +86,11 @@ export function draftFor(kind: PromotionKind, keep?: Pick<PromotionDraft, "name"
     getDiscountPct: null,
     maxApplications: null,
     items: [],
+    badgeEnabled: keep?.badgeEnabled ?? false,
+    badgeText: keep?.badgeText ?? "",
+    badgeColor: keep?.badgeColor ?? DEFAULT_BADGE_COLOR,
+    badgeSize: keep?.badgeSize ?? "md",
+    badgePosition: keep?.badgePosition ?? "bottom-left",
   };
   if (kind === "rules") return { ...base, conditions: [emptyCondition()], rewards: [emptyReward()] };
   if (kind === "bundle") return { ...base, buyQuantity: 3, maxApplications: null };

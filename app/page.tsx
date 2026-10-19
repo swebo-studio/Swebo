@@ -5,6 +5,7 @@ import HeroSection from "@/components/HeroSection";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import NewsletterSection from "@/components/NewsletterSection";
 import { computeDisplayPrice } from "@/lib/promotions";
+import { BADGE_PROMOTION_INCLUDE, promotionBadges } from "@/lib/promotionBadges";
 import { buildWhatsAppHref } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
@@ -44,10 +45,7 @@ export default async function HomePage({ searchParams }: Props) {
       },
     }),
     prisma.siteConfig.findMany(),
-    prisma.promotion.findMany({
-      where: { active: true },
-      include: { rewards: true },
-    }),
+    prisma.promotion.findMany({ where: { active: true }, include: BADGE_PROMOTION_INCLUDE }),
     prisma.categoryProductOrder.findMany(),
   ]);
 
@@ -72,6 +70,7 @@ export default async function HomePage({ searchParams }: Props) {
     .flatMap((p) => p.rewards)
     .filter((r) => r.type === "cart_discount" && r.discountPct)
     .reduce((max, r) => Math.max(max, r.discountPct ?? 0), 0);
+  const badgesFor = promotionBadges(activePromotions);
 
   const cfg: Record<string, string> = {};
   configRows.forEach((r) => { cfg[r.key] = r.value; });
@@ -158,6 +157,7 @@ export default async function HomePage({ searchParams }: Props) {
                         image={displayImg}
                         stock={totalStock}
                         discountedPrice={originalPrice ? displayPrice : undefined}
+                        badges={badgesFor(p.id)}
                       />
                     );
                   })}
