@@ -130,7 +130,7 @@ export default function CategoryProductPicker({
                       ) : (
                         <div className="w-10 h-10 rounded-md flex-shrink-0" style={{ background: "var(--cream-dark)" }} />
                       )}
-                      <span dir="auto" className="text-sm flex-1 text-start truncate" style={{ color: "var(--text)", opacity: p.active ? 1 : 0.55 }}>
+                      <span dir="auto" className="text-sm flex-1 min-w-0 text-start line-clamp-2 break-words" style={{ color: "var(--text)", opacity: p.active ? 1 : 0.55 }}>
                         {p.nameHe}
                       </span>
                       {!p.active && <span className="text-[10px] flex-shrink-0" style={{ color: "var(--text-muted)" }}>לא פעיל</span>}

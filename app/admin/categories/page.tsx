@@ -260,7 +260,7 @@ export default function AdminCategoriesPage() {
                               ) : (
                                 <div className="w-9 h-9 rounded-md flex-shrink-0" style={{ background: "var(--cream)" }} />
                               )}
-                              <span className="text-sm flex-1 text-right truncate" style={{ color: "var(--text)" }}>
+                              <span dir="auto" className="text-sm flex-1 min-w-0 text-start line-clamp-2 break-words" style={{ color: "var(--text)" }}>
                                 {p.nameHe}{!p.active && " (לא פעיל)"}
                               </span>
                             </div>
