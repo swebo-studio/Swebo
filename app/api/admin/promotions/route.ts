@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { isFreeShippingScope } from "@/lib/shippingScope";
 import { BADGE_TEXT_MAX, DEFAULT_BADGE_COLOR, isBadgePosition, isBadgeSize, isHexColor } from "@/lib/promotionBadges";
 
 export async function GET() {
@@ -15,7 +16,7 @@ export async function GET() {
 }
 
 type ConditionInput = { type: string; minTotal?: number | null; productId?: string | null };
-type RewardInput = { type: string; discountPct?: number | null; discountAmount?: number | null; productId?: string | null; maxUnits?: number | null };
+type RewardInput = { type: string; discountPct?: number | null; discountAmount?: number | null; productId?: string | null; maxUnits?: number | null; shippingScope?: string | null };
 type ItemInput = { role: string; productId?: string | null; categoryId?: string | null };
 
 function mapCondition(c: ConditionInput) {
@@ -45,6 +46,7 @@ function mapReward(r: RewardInput) {
     discountAmount: clampAmount(r.discountAmount),
     productId: r.productId ?? null,
     maxUnits,
+    shippingScope: r.type === "free_shipping" && isFreeShippingScope(r.shippingScope) ? r.shippingScope : r.type === "free_shipping" ? "all" : null,
   };
 }
 

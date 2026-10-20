@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { generateCode } from "@/lib/coupon";
-import { isFreeShippingScope } from "@/lib/couponShipping";
+import { isFreeShippingScope } from "@/lib/shippingScope";
 
 export async function GET() {
   const session = await auth();

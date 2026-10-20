@@ -1,6 +1,14 @@
 "use client";
 import type { Condition, ConditionLogic, PatchDraft, Product, PromotionDraft, Reward } from "./types";
 import { emptyCondition, emptyReward } from "./types";
+import { Choice } from "./controls";
+import type { FreeShippingScope } from "@/lib/shippingScope";
+
+const SHIPPING_SCOPES: { value: FreeShippingScope; label: string }[] = [
+  { value: "all", label: "בית + נקודת איסוף" },
+  { value: "home", label: "עד הבית" },
+  { value: "epost", label: "נקודת איסוף" },
+];
 
 const CONDITION_LABELS: Record<string, string> = {
   min_cart_total: "סכום סל מינימלי",
@@ -130,13 +138,20 @@ export default function RulesForm({ draft, patch, products }: { draft: Promotion
                 <button onClick={() => removeReward(i)} className="text-xs p-2 -m-2" style={{ color: "var(--maroon)" }} aria-label="הסר פרס"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 <select
                   value={r.type}
-                  onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, discountAmount: null, productId: null, maxUnits: null })}
+                  onChange={(e) => setReward(i, { type: e.target.value as Reward["type"], discountPct: null, discountAmount: null, productId: null, maxUnits: null, shippingScope: e.target.value === "free_shipping" ? "all" : null })}
                   className="flex-1 px-3 py-2 rounded-xl border text-right outline-none text-base sm:text-sm"
                   style={inputStyle}
                 >
                   {Object.entries(REWARD_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
+              {r.type === "free_shipping" && (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>על איזה משלוח?</p>
+                  <Choice size="sm" value={r.shippingScope ?? "all"} options={SHIPPING_SCOPES} onChange={(v) => setReward(i, { shippingScope: v })} />
+                  <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>איסוף עצמי ממילא חינם.</p>
+                </div>
+              )}
               {r.type === "cart_discount" && (
                 <>
                   <div className="flex gap-2">

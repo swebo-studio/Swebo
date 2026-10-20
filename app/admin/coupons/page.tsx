@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
-import { freeShippingLabel, type FreeShippingScope } from "@/lib/couponShipping";
+import { freeShippingLabel, type FreeShippingScope } from "@/lib/shippingScope";
 
 type DiscountType = "pct" | "amount" | "shipping";
 const TYPE_LABELS: Record<DiscountType, string> = { pct: "אחוזים (%)", amount: "שקלים (₪)", shipping: "משלוח חינם" };

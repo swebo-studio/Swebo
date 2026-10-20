@@ -1,4 +1,5 @@
 import type { Category, Condition, ListItem, Product, Promotion, Reward } from "./types";
+import { freeShippingLabel } from "@/lib/shippingScope";
 
 function conditionText(c: Condition, products: Product[]) {
   if (c.type === "min_cart_total") return `סל מעל ₪${c.minTotal}`;
@@ -10,7 +11,7 @@ function conditionText(c: Condition, products: Product[]) {
 }
 
 function rewardText(r: Reward, products: Product[]) {
-  if (r.type === "free_shipping") return "משלוח חינם";
+  if (r.type === "free_shipping") return freeShippingLabel(r.shippingScope ?? "all");
   if (r.type === "cart_discount") {
     if (r.discountAmount) return `₪${r.discountAmount} הנחה על הסל`;
     return `${r.discountPct}% הנחה על כל הסל`;

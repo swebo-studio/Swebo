@@ -208,10 +208,10 @@ export default function CartPage() {
               <span>הנחת מבצע על הסל</span>
             </div>
           )}
-          {pricing.freeShipping && (
+          {pricing.freeShippingScope && (
             <div className="flex justify-between text-sm font-bold mb-2" style={{ color: "var(--green)" }}>
               <span>חינם</span>
-              <span>משלוח</span>
+              <span>{pricing.freeShippingScope === "home" ? "משלוח עד הבית" : pricing.freeShippingScope === "epost" ? "משלוח לנקודת איסוף" : "משלוח"}</span>
             </div>
           )}
           <div

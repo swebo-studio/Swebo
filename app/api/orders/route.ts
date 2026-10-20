@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { validateCoupon } from "@/lib/coupon";
-import { couponCoversDelivery } from "@/lib/couponShipping";
+import { scopeCoversDelivery, type DeliveryMode } from "@/lib/shippingScope";
 import { evaluatePromotions } from "@/lib/promotions";
 import { promotionPricing } from "@/lib/cartPricing";
 
@@ -81,9 +81,11 @@ export async function POST(req: NextRequest) {
   // Evaluate promotions server-side
   const rewards = await evaluatePromotions(cartItems, rawSubtotal);
   const baseDelivery = requestedDelivery === 0 ? 0 : requestedDelivery === 25 ? 25 : 40;
+  const mode: DeliveryMode = baseDelivery === 40 ? "home" : baseDelivery === 25 ? "epost" : "self";
   const pricing = promotionPricing(cartItems, rewards);
   const promoSubtotal = pricing.subtotal;
-  const promoDelivery = pricing.freeShipping ? 0 : baseDelivery;
+  // Only the delivery a free-shipping promotion covers — the same rule the checkout shows
+  const promoDelivery = scopeCoversDelivery(pricing.freeShippingScope, mode) ? 0 : baseDelivery;
 
   // Same rule the checkout enforces: a cart whose price is already cut by a
   // promotion cannot also redeem a coupon.
@@ -100,8 +102,7 @@ export async function POST(req: NextRequest) {
   // single-use code is not spent on an order it did not help.
   let delivery = promoDelivery;
   if (freeShippingScope) {
-    const mode = baseDelivery === 40 ? "home" : baseDelivery === 25 ? "epost" : "self";
-    if (couponCoversDelivery(freeShippingScope, mode) && promoDelivery > 0) delivery = 0;
+    if (scopeCoversDelivery(freeShippingScope, mode) && promoDelivery > 0) delivery = 0;
     else appliedCouponCode = null;
   }
 

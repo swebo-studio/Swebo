@@ -48,6 +48,8 @@ export interface AppliedReward {
   productName?: string;
   /** product_discount: units the discount reaches; undefined = every unit */
   maxUnits?: number;
+  /** free_shipping: which delivery it makes free; undefined = home and pickup point */
+  shippingScope?: string;
   /** bundle: the products the bundle is made of · buy_get: what counts as a purchase */
   buyProductIds?: string[];
   /** buy_get: the products that get the discount */
@@ -142,6 +144,7 @@ export async function evaluateCartPromotions(
       productId: r.productId ?? undefined,
       productName: r.productId ? productName(r.productId) : undefined,
       maxUnits: r.maxUnits ?? undefined,
+      shippingScope: r.shippingScope ?? undefined,
     });
 
     const meetsCondition = (c: (typeof promotion.conditions)[number]) => {

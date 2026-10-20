@@ -3,6 +3,8 @@
  * so nothing here may reach for the database.
  */
 
+import { freeShippingLabel, isFreeShippingScope } from "./shippingScope";
+
 export const BADGE_SIZES = ["sm", "md", "lg"] as const;
 export const BADGE_POSITIONS = ["top-right", "top-left", "bottom-right", "bottom-left"] as const;
 export type BadgeSize = (typeof BADGE_SIZES)[number];
@@ -26,7 +28,7 @@ export interface BadgeOffer {
   bundlePrice?: number | null;
   getQuantity?: number | null;
   getDiscountPct?: number | null;
-  rewards?: { type: string; discountPct?: number | null; discountAmount?: number | null }[];
+  rewards?: { type: string; discountPct?: number | null; discountAmount?: number | null; shippingScope?: string | null }[];
 }
 
 /** A short line for the tag when the admin leaves the text empty: "2 ב-₪299", "1+1", "20% הנחה". */
@@ -38,7 +40,8 @@ export function defaultBadgeText(p: BadgeOffer): string {
   const discount = p.rewards?.find((r) => (r.type === "product_discount" || r.type === "cart_discount") && (r.discountPct || r.discountAmount));
   if (discount?.discountPct) return `${discount.discountPct}% הנחה`;
   if (discount?.discountAmount) return `₪${discount.discountAmount} הנחה`;
-  if (p.rewards?.some((r) => r.type === "free_shipping")) return "משלוח חינם";
+  const shipping = p.rewards?.find((r) => r.type === "free_shipping");
+  if (shipping) return freeShippingLabel(isFreeShippingScope(shipping.shippingScope) ? shipping.shippingScope : "all");
   return "מבצע";
 }
 

@@ -3,12 +3,13 @@ import { useState, useEffect, useRef } from "react";
 import { useCart } from "./CartProvider";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import type { AppliedReward, PotentialReward } from "@/lib/promotions";
+import { freeShippingLabel, isFreeShippingScope } from "@/lib/shippingScope";
 
 const items = (n: number) => (n === 1 ? "פריט אחד" : `${n} פריטים`);
 const gift = (pct?: number) => (pct === 100 ? "חינם" : `ב-${pct}% הנחה`);
 
 function rewardLabel(r: AppliedReward): string {
-  if (r.type === "free_shipping") return "משלוח חינם";
+  if (r.type === "free_shipping") return freeShippingLabel(isFreeShippingScope(r.shippingScope) ? r.shippingScope : "all");
   if (r.type === "bundle") return `${r.buyQuantity} פריטים ${r.buyFrom ? `${r.buyFrom} ` : ""}ב-₪${r.bundlePrice}`;
   if (r.type === "buy_get") return `${items(r.getQuantity ?? 1)} ${r.getFrom ?? "מהמבצע"} ${gift(r.discountPct)}`;
   if (r.type === "cart_discount") {

@@ -1,4 +1,5 @@
 import type { AppliedReward } from "./promotions";
+import { mergeScopes, type FreeShippingScope } from "./shippingScope";
 
 /**
  * Pricing maths for a cart that has promotions applied to it. Used by the
@@ -89,6 +90,8 @@ export interface PromotionPricing {
   /** rawSubtotal − subtotal */
   savings: number;
   freeShipping: boolean;
+  /** which delivery the free-shipping promotions cover together; null = none */
+  freeShippingScope: FreeShippingScope | null;
 }
 
 /** A single product_discount reward, normalised into something allocatable. */
@@ -507,5 +510,6 @@ export function promotionPricing(items: PricedLine[], rewards: AppliedReward[]):
     cartDiscountName,
     savings: rawSubtotal - subtotal,
     freeShipping: rewards.some((r) => r.type === "free_shipping"),
+    freeShippingScope: mergeScopes(rewards.filter((r) => r.type === "free_shipping").map((r) => r.shippingScope ?? "all")),
   };
 }

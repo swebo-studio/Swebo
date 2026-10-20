@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { promotionPricing } from "@/lib/cartPricing";
 import { SELF_PICKUP_LOCATION, SELF_PICKUP_DEFAULT_TEXT } from "@/lib/selfPickup";
-import { couponCoversDelivery, freeShippingLabel, isFreeShippingScope, type FreeShippingScope } from "@/lib/couponShipping";
+import { scopeCoversDelivery, freeShippingLabel, isFreeShippingScope, type FreeShippingScope } from "@/lib/shippingScope";
 
 const EpostMap = dynamic(() => import("@/components/EpostMap"), { ssr: false });
 
@@ -107,8 +107,9 @@ export default function CheckoutPage() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", floor: "", apartment: "", city: "" });
 
   const pricing = promotionPricing(items, promotionRewards);
-  const hasFreeShipping = pricing.freeShipping;
-  const deliveryPrice = (mode: DeliveryMode) => (mode === "home" ? (hasFreeShipping ? 0 : 40) : mode === "epost" ? 25 : 0);
+  // A free-shipping promotion zeroes only the delivery it covers — the same rule the order API applies
+  const promoFreesDelivery = (mode: DeliveryMode) => scopeCoversDelivery(pricing.freeShippingScope, mode);
+  const deliveryPrice = (mode: DeliveryMode) => (promoFreesDelivery(mode) ? 0 : mode === "home" ? 40 : mode === "epost" ? 25 : 0);
   const baseDelivery = deliveryPrice(deliveryMode);
 
   const cartLevelDiscount = pricing.itemSubtotal - pricing.subtotal;
@@ -121,7 +122,7 @@ export default function CheckoutPage() {
   const finalSubtotal = pricing.subtotal - couponSavings;
   // A free-shipping coupon only counts where it covers this delivery and there is a fee to cover
   const shippingCoupon = discountAlreadyActive ? null : couponFreeShipping;
-  const couponFreesDelivery = (mode: DeliveryMode) => couponCoversDelivery(shippingCoupon, mode) && deliveryPrice(mode) > 0;
+  const couponFreesDelivery = (mode: DeliveryMode) => scopeCoversDelivery(shippingCoupon, mode) && deliveryPrice(mode) > 0;
   const shippingCouponSavings = couponFreesDelivery(deliveryMode) ? baseDelivery : 0;
   const delivery = baseDelivery - shippingCouponSavings;
   const total = finalSubtotal + delivery;
@@ -257,7 +258,7 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={() => { setDeliveryMode(val); setError(""); }}
                 aria-pressed={deliveryMode === val}
-                aria-label={`${line1}, ${couponFreesDelivery(val) ? "חינם עם הקופון" : line2}`}
+                aria-label={`${line1}, ${couponFreesDelivery(val) ? "חינם עם הקופון" : promoFreesDelivery(val) ? "חינם במבצע" : line2}`}
                 className="flex-1 min-w-0 py-2.5 rounded-xl transition-all flex flex-col items-center gap-0.5 px-1"
                 style={{
                   background: deliveryMode === val ? "var(--text)" : "transparent",
@@ -265,7 +266,7 @@ export default function CheckoutPage() {
                 }}
               >
                 <span className="text-xs font-bold leading-tight text-center">{line1}</span>
-                <span className="text-xs leading-tight">{couponFreesDelivery(val) ? <><s className="opacity-60">{line2}</s> חינם</> : line2}</span>
+                <span className="text-xs leading-tight">{couponFreesDelivery(val) || promoFreesDelivery(val) ? <><s className="opacity-60">{line2}</s> חינם</> : line2}</span>
               </button>
             ))}
           </div>
@@ -543,7 +544,7 @@ export default function CheckoutPage() {
                   <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="flex-shrink-0 mt-px" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
                   <span>
                     {r.promotionName}
-                    {r.type === "free_shipping" && " — משלוח חינם"}
+                    {r.type === "free_shipping" && ` — ${freeShippingLabel(isFreeShippingScope(r.shippingScope) ? r.shippingScope : "all")}`}
                     {r.type === "cart_discount" && (r.discountAmount ? ` — ₪${r.discountAmount} הנחה על הסל` : ` — ${r.discountPct}% הנחה על הסל`)}
                     {r.type === "product_discount" && ` — ${r.discountPct === 100 ? "חינם" : `${r.discountPct}% הנחה`} על ${r.productName}`}
                     {r.type === "bundle" && ` — ${r.buyQuantity} פריטים ב-₪${r.bundlePrice}`}
@@ -594,8 +595,8 @@ export default function CheckoutPage() {
               </div>
             )}
             <div className="flex justify-between text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-              <span style={{ color: ((hasFreeShipping && deliveryMode === "home") || shippingCouponSavings > 0) ? "var(--green)" : "inherit" }}>
-                {deliveryMode === "self" ? "חינם" : shippingCouponSavings > 0 ? <><s className="opacity-60">₪{baseDelivery}</s> חינם</> : deliveryMode === "epost" ? "₪25" : hasFreeShipping ? "חינם 🎉" : "₪40"}
+              <span style={{ color: (promoFreesDelivery(deliveryMode) || shippingCouponSavings > 0) ? "var(--green)" : "inherit" }}>
+                {deliveryMode === "self" ? "חינם" : shippingCouponSavings > 0 ? <><s className="opacity-60">₪{baseDelivery}</s> חינם</> : promoFreesDelivery(deliveryMode) ? "חינם 🎉" : `₪${baseDelivery}`}
               </span>
               <span>
                 {deliveryMode === "home" ? "משלוח" : deliveryMode === "epost" ? "נקודות איסוף" : "איסוף עצמי"}

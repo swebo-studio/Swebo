@@ -1,4 +1,5 @@
 /** Shapes shared by the admin promotions page and its per-kind forms. */
+import type { FreeShippingScope } from "@/lib/shippingScope";
 import { DEFAULT_BADGE_COLOR, type BadgePosition, type BadgeSize } from "@/lib/promotionBadges";
 
 export interface Product { id: string; nameHe: string; price: number }
@@ -19,6 +20,8 @@ export interface Reward {
   productId?: string | null;
   /** product_discount: units the discount reaches; null = every unit in the cart */
   maxUnits?: number | null;
+  /** free_shipping: which delivery it makes free; null = home and pickup point */
+  shippingScope?: FreeShippingScope | null;
 }
 
 /** One entry of a bundle / buy_get list: a whole category or one product. */
@@ -67,7 +70,7 @@ export interface Promotion extends PromotionDraft {
 export type PatchDraft = (patch: Partial<PromotionDraft>) => void;
 
 export function emptyCondition(): Condition { return { type: "min_cart_total", minTotal: 300, productId: null }; }
-export function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null, maxUnits: null }; }
+export function emptyReward(): Reward { return { type: "free_shipping", discountPct: null, discountAmount: null, productId: null, maxUnits: null, shippingScope: "all" }; }
 
 /** The starting point for each tab; switching tabs on a new promotion resets to these. */
 type Kept = "name" | "active" | "exclusive" | "badgeEnabled" | "badgeText" | "badgeColor" | "badgeSize" | "badgePosition";
