@@ -247,6 +247,9 @@ model Coupon {
   code           String    @unique
   discountPct    Int?
   discountAmount Int?
+  /// A free-shipping coupon instead of a discount: which delivery it makes free.
+  /// "all" = home and pickup point · "home" · "epost" (pickup point) · null = a discount coupon
+  freeShipping   String?
   singleUse      Boolean   @default(true)
   usedByEmail    String?
   expiresAt      DateTime?

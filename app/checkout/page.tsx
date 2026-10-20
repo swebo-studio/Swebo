@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { promotionPricing } from "@/lib/cartPricing";
 import { SELF_PICKUP_LOCATION, SELF_PICKUP_DEFAULT_TEXT } from "@/lib/selfPickup";
+import { couponCoversDelivery, freeShippingLabel, isFreeShippingScope, type FreeShippingScope } from "@/lib/couponShipping";
 
 const EpostMap = dynamic(() => import("@/components/EpostMap"), { ssr: false });
 
@@ -40,6 +41,8 @@ export default function CheckoutPage() {
   const [couponInput, setCouponInput] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
+  /** Set when the redeemed code is a free-shipping coupon: which delivery it covers */
+  const [couponFreeShipping, setCouponFreeShipping] = useState<FreeShippingScope | null>(null);
   const [couponError, setCouponError] = useState("");
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
@@ -72,10 +75,12 @@ export default function CheckoutPage() {
     if (data.valid) {
       setCouponDiscount(data.discountPct ?? 0);
       setCouponDiscountAmount(data.discountAmount ?? 0);
+      setCouponFreeShipping(isFreeShippingScope(data.freeShipping) ? data.freeShipping : null);
     } else {
       setCouponError(data.error || "קוד לא תקין");
       setCouponDiscount(0);
       setCouponDiscountAmount(0);
+      setCouponFreeShipping(null);
     }
   }
 
@@ -103,7 +108,8 @@ export default function CheckoutPage() {
 
   const pricing = promotionPricing(items, promotionRewards);
   const hasFreeShipping = pricing.freeShipping;
-  const baseDelivery = deliveryMode === "home" ? (hasFreeShipping ? 0 : 40) : deliveryMode === "epost" ? 25 : 0;
+  const deliveryPrice = (mode: DeliveryMode) => (mode === "home" ? (hasFreeShipping ? 0 : 40) : mode === "epost" ? 25 : 0);
+  const baseDelivery = deliveryPrice(deliveryMode);
 
   const cartLevelDiscount = pricing.itemSubtotal - pricing.subtotal;
   // A promotion that already cuts the price blocks the coupon box. Free
@@ -113,8 +119,13 @@ export default function CheckoutPage() {
     ? Math.min(couponDiscountAmount, pricing.subtotal)
     : couponDiscount > 0 ? Math.round(pricing.subtotal * couponDiscount / 100) : 0;
   const finalSubtotal = pricing.subtotal - couponSavings;
-  const delivery = baseDelivery;
+  // A free-shipping coupon only counts where it covers this delivery and there is a fee to cover
+  const shippingCoupon = discountAlreadyActive ? null : couponFreeShipping;
+  const couponFreesDelivery = (mode: DeliveryMode) => couponCoversDelivery(shippingCoupon, mode) && deliveryPrice(mode) > 0;
+  const shippingCouponSavings = couponFreesDelivery(deliveryMode) ? baseDelivery : 0;
+  const delivery = baseDelivery - shippingCouponSavings;
   const total = finalSubtotal + delivery;
+  const couponApplied = couponSavings > 0 || shippingCoupon !== null;
 
   // Drop anything already typed/applied the moment a promotion takes over
   useEffect(() => {
@@ -122,6 +133,7 @@ export default function CheckoutPage() {
     setCouponInput("");
     setCouponDiscount(0);
     setCouponDiscountAmount(0);
+    setCouponFreeShipping(null);
     setCouponError("");
   }, [discountAlreadyActive]);
 
@@ -158,7 +170,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          couponCode: (!discountAlreadyActive && (couponDiscount > 0 || couponDiscountAmount > 0)) ? couponInput.trim().toUpperCase() : undefined,
+          couponCode: (!discountAlreadyActive && (couponDiscount > 0 || couponDiscountAmount > 0 || shippingCouponSavings > 0)) ? couponInput.trim().toUpperCase() : undefined,
           customer: {
             name: form.name,
             email: form.email,
@@ -245,7 +257,7 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={() => { setDeliveryMode(val); setError(""); }}
                 aria-pressed={deliveryMode === val}
-                aria-label={`${line1}, ${line2}`}
+                aria-label={`${line1}, ${couponFreesDelivery(val) ? "חינם עם הקופון" : line2}`}
                 className="flex-1 min-w-0 py-2.5 rounded-xl transition-all flex flex-col items-center gap-0.5 px-1"
                 style={{
                   background: deliveryMode === val ? "var(--text)" : "transparent",
@@ -253,7 +265,7 @@ export default function CheckoutPage() {
                 }}
               >
                 <span className="text-xs font-bold leading-tight text-center">{line1}</span>
-                <span className="text-xs leading-tight">{line2}</span>
+                <span className="text-xs leading-tight">{couponFreesDelivery(val) ? <><s className="opacity-60">{line2}</s> חינם</> : line2}</span>
               </button>
             ))}
           </div>
@@ -474,38 +486,52 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={applyCoupon}
-              disabled={validatingCoupon || couponSavings > 0 || discountAlreadyActive}
+              disabled={validatingCoupon || couponApplied || discountAlreadyActive}
               className="px-4 py-3 rounded-xl border font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
               style={{ borderColor: "var(--border)", color: "var(--text)" }}
             >
-              {validatingCoupon ? "..." : couponSavings > 0 ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> : "הפעל"}
+              {validatingCoupon ? "..." : couponApplied ? <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> : "הפעל"}
             </button>
             <label htmlFor="coupon-code" className="sr-only">קוד קופון</label>
             <input
               id="coupon-code"
               type="text"
               value={discountAlreadyActive ? "הנחה כבר פעילה" : couponInput}
-              onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponError(""); }}
+              onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponFreeShipping(null); setCouponError(""); }}
               placeholder="קוד קופון (אופציונלי)"
-              disabled={couponSavings > 0 || discountAlreadyActive}
+              disabled={couponApplied || discountAlreadyActive}
               readOnly={discountAlreadyActive}
               aria-describedby={couponError ? "coupon-error" : undefined}
               aria-invalid={couponError ? true : undefined}
               className="flex-1 px-4 py-3 rounded-xl border text-right text-sm disabled:cursor-not-allowed"
               style={{
                 background: "var(--cream-dark)",
-                borderColor: (couponSavings > 0 || discountAlreadyActive) ? "var(--green)" : "var(--border)",
+                borderColor: (couponApplied || discountAlreadyActive) ? "var(--green)" : "var(--border)",
                 color: discountAlreadyActive ? "var(--text-muted)" : "var(--text)",
               }}
             />
           </div>
           {couponError && <p id="coupon-error" role="alert" className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
           {couponSavings > 0 && (
-            <p role="status" className="text-xs text-center font-bold" style={{ color: "var(--green)" }}>
+            <p role="status" className="text-xs font-bold flex items-center justify-center gap-1 flex-wrap" style={{ color: "var(--green)" }}>
               <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> קופון פעיל –{" "}
               {couponDiscountAmount > 0 ? `₪${couponDiscountAmount} הנחה` : `${couponDiscount}% הנחה`}
               {" "}(חיסכון ₪{couponSavings})
             </p>
+          )}
+          {shippingCoupon && (
+            shippingCouponSavings > 0 ? (
+              <p role="status" className="text-xs font-bold flex items-center justify-center gap-1 flex-wrap" style={{ color: "var(--green)" }}>
+                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> קופון פעיל –{" "}
+                {freeShippingLabel(shippingCoupon)} (חיסכון ₪{shippingCouponSavings})
+              </p>
+            ) : (
+              <p role="status" className="text-xs text-center font-medium" style={{ color: "var(--text-muted)" }}>
+                {deliveryMode === "self" || baseDelivery === 0
+                  ? "המשלוח כבר חינם — הקופון לא ינוצל בהזמנה הזו"
+                  : `הקופון תקף ל${shippingCoupon === "home" ? "משלוח עד הבית" : "נקודת איסוף"} בלבד — בחרו אותו למעלה כדי ליהנות ממשלוח חינם`}
+              </p>
+            )
           )}
 
           {/* Active promotions */}
@@ -568,8 +594,8 @@ export default function CheckoutPage() {
               </div>
             )}
             <div className="flex justify-between text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-              <span style={{ color: (hasFreeShipping && deliveryMode === "home") ? "var(--green)" : "inherit" }}>
-                {deliveryMode === "self" ? "חינם" : deliveryMode === "epost" ? "₪25" : hasFreeShipping ? "חינם 🎉" : "₪40"}
+              <span style={{ color: ((hasFreeShipping && deliveryMode === "home") || shippingCouponSavings > 0) ? "var(--green)" : "inherit" }}>
+                {deliveryMode === "self" ? "חינם" : shippingCouponSavings > 0 ? <><s className="opacity-60">₪{baseDelivery}</s> חינם</> : deliveryMode === "epost" ? "₪25" : hasFreeShipping ? "חינם 🎉" : "₪40"}
               </span>
               <span>
                 {deliveryMode === "home" ? "משלוח" : deliveryMode === "epost" ? "נקודות איסוף" : "איסוף עצמי"}

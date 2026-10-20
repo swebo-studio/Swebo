@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { generateCode } from "@/lib/coupon";
+import { isFreeShippingScope } from "@/lib/couponShipping";
 
 export async function GET() {
   const session = await auth();
@@ -19,8 +20,10 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const code = body.code?.trim().toUpperCase() || generateCode();
-  const discountAmount = body.discountAmount ? Number(body.discountAmount) : null;
-  const discountPct = discountAmount ? null : (Number(body.discountPct) || 10);
+  // A free-shipping coupon carries no discount; a discount coupon no shipping scope
+  const freeShipping = isFreeShippingScope(body.freeShipping) ? body.freeShipping : null;
+  const discountAmount = !freeShipping && body.discountAmount ? Number(body.discountAmount) : null;
+  const discountPct = freeShipping || discountAmount ? null : (Number(body.discountPct) || 10);
   const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
   const singleUse = body.singleUse !== false;
 
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (existing) return Response.json({ error: "קוד כבר קיים" }, { status: 400 });
 
   const coupon = await prisma.coupon.create({
-    data: { code, discountPct, discountAmount, expiresAt, singleUse },
+    data: { code, discountPct, discountAmount, freeShipping, expiresAt, singleUse },
   });
   return Response.json(coupon, { status: 201 });
 }
@@ -46,13 +49,14 @@ export async function PATCH(req: NextRequest) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, discountPct, discountAmount, expiresAt, resetUsed, singleUse } = await req.json();
+  const { id, discountPct, discountAmount, freeShipping, expiresAt, resetUsed, singleUse } = await req.json();
   const coupon = await prisma.coupon.update({
     where: { id },
     data: {
       ...(discountPct !== undefined ? { discountPct: discountPct ? Number(discountPct) : null } : {}),
       ...(discountAmount !== undefined ? { discountAmount: discountAmount ? Number(discountAmount) : null } : {}),
       ...(expiresAt !== undefined ? { expiresAt: expiresAt ? new Date(expiresAt) : null } : {}),
+      ...(freeShipping !== undefined ? { freeShipping: isFreeShippingScope(freeShipping) ? freeShipping : null } : {}),
       ...(singleUse !== undefined ? { singleUse } : {}),
       ...(resetUsed ? { usedAt: null, usedByEmail: null } : {}),
     },

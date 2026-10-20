@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { validateCoupon } from "@/lib/coupon";
+import { couponCoversDelivery } from "@/lib/couponShipping";
 import { evaluatePromotions } from "@/lib/promotions";
 import { promotionPricing } from "@/lib/cartPricing";
 
@@ -61,12 +62,14 @@ export async function POST(req: NextRequest) {
   // Validate coupon (marked as used only once payment is confirmed — see /api/payment/notify)
   let discountPct = 0;
   let discountAmount = 0;
+  let freeShippingScope: string | null = null;
   let appliedCouponCode: string | null = null;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode);
     if (coupon) {
       discountPct = coupon.discountPct ?? 0;
       discountAmount = coupon.discountAmount ?? 0;
+      freeShippingScope = coupon.freeShipping;
       appliedCouponCode = couponCode.toUpperCase();
     }
   }
@@ -87,7 +90,19 @@ export async function POST(req: NextRequest) {
   if (promoSubtotal < rawSubtotal) {
     discountPct = 0;
     discountAmount = 0;
+    freeShippingScope = null;
     appliedCouponCode = null;
+  }
+
+  // A free-shipping coupon zeroes the delivery it covers. When it covers
+  // nothing here (self-pickup, or a home-only coupon on a pickup point, or
+  // delivery a promotion already made free) it is not recorded, so a
+  // single-use code is not spent on an order it did not help.
+  let delivery = promoDelivery;
+  if (freeShippingScope) {
+    const mode = baseDelivery === 40 ? "home" : baseDelivery === 25 ? "epost" : "self";
+    if (couponCoversDelivery(freeShippingScope, mode) && promoDelivery > 0) delivery = 0;
+    else appliedCouponCode = null;
   }
 
   // Apply coupon on top of promotion-adjusted subtotal
@@ -95,7 +110,6 @@ export async function POST(req: NextRequest) {
     ? Math.min(discountAmount, promoSubtotal)
     : Math.round(promoSubtotal * discountPct / 100);
   const subtotal = promoSubtotal - couponSavings;
-  const delivery = promoDelivery;
   const total = subtotal + delivery;
 
   // Merge effective prices into cartItems. A discount capped below the line's

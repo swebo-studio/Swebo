@@ -1,12 +1,28 @@
 "use client";
 import { useState, useEffect } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
+import { freeShippingLabel, type FreeShippingScope } from "@/lib/couponShipping";
+
+type DiscountType = "pct" | "amount" | "shipping";
+const TYPE_LABELS: Record<DiscountType, string> = { pct: "אחוזים (%)", amount: "שקלים (₪)", shipping: "משלוח חינם" };
+const SCOPES: { value: FreeShippingScope; label: string }[] = [
+  { value: "all", label: "בית + נקודת איסוף" },
+  { value: "home", label: "עד הבית" },
+  { value: "epost", label: "נקודת איסוף" },
+];
+
+/** What the coupon gives, for the table */
+function couponValue(c: Coupon) {
+  if (c.freeShipping) return freeShippingLabel(c.freeShipping);
+  return c.discountAmount ? `₪${c.discountAmount}` : `${c.discountPct}%`;
+}
 
 interface Coupon {
   id: string;
   code: string;
   discountPct: number | null;
   discountAmount: number | null;
+  freeShipping: FreeShippingScope | null;
   singleUse: boolean;
   expiresAt: string | null;
   usedAt: string | null;
@@ -33,9 +49,10 @@ export default function AdminCouponsPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   // Create form
-  const [form, setForm] = useState({ code: "", discountType: "pct" as "pct" | "amount", discountPct: "10", discountAmount: "", expiresAt: "", singleUse: true });
+  const emptyForm = { code: "", discountType: "pct" as DiscountType, discountPct: "10", discountAmount: "", freeShipping: "all" as FreeShippingScope, expiresAt: "", singleUse: true };
+  const [form, setForm] = useState(emptyForm);
   // Edit form
-  const [editForm, setEditForm] = useState({ discountType: "pct" as "pct" | "amount", discountPct: "", discountAmount: "", expiresAt: "" });
+  const [editForm, setEditForm] = useState({ discountType: "pct" as DiscountType, discountPct: "", discountAmount: "", freeShipping: "all" as FreeShippingScope, expiresAt: "" });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -61,13 +78,14 @@ export default function AdminCouponsPage() {
         code: form.code || undefined,
         discountPct: form.discountType === "pct" ? Number(form.discountPct) : undefined,
         discountAmount: form.discountType === "amount" ? Number(form.discountAmount) : undefined,
+        freeShipping: form.discountType === "shipping" ? form.freeShipping : undefined,
         expiresAt: form.expiresAt || null,
         singleUse: form.singleUse,
       }),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error || "שגיאה"); setSaving(false); return; }
-    setForm({ code: "", discountType: "pct", discountPct: "10", discountAmount: "", expiresAt: "", singleUse: true });
+    setForm(emptyForm);
     setCreating(false);
     setSaving(false);
     load();
@@ -84,9 +102,10 @@ export default function AdminCouponsPage() {
   async function handleEdit(c: Coupon) {
     setEditingId(c.id);
     setEditForm({
-      discountType: c.discountAmount ? "amount" : "pct",
+      discountType: c.freeShipping ? "shipping" : c.discountAmount ? "amount" : "pct",
       discountPct: c.discountPct ? String(c.discountPct) : "",
       discountAmount: c.discountAmount ? String(c.discountAmount) : "",
+      freeShipping: c.freeShipping ?? "all",
       expiresAt: c.expiresAt ? c.expiresAt.split("T")[0] : "",
     });
   }
@@ -100,6 +119,7 @@ export default function AdminCouponsPage() {
         id,
         discountPct: editForm.discountType === "pct" ? Number(editForm.discountPct) : null,
         discountAmount: editForm.discountType === "amount" ? Number(editForm.discountAmount) : null,
+        freeShipping: editForm.discountType === "shipping" ? editForm.freeShipping : null,
         expiresAt: editForm.expiresAt || null,
       }),
     });
@@ -181,18 +201,18 @@ export default function AdminCouponsPage() {
             <div className="flex flex-col gap-1">
               <label className="text-sm text-right" style={{ color: "var(--text-muted)" }}>סוג הנחה</label>
               <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-                {(["pct", "amount"] as const).map((t) => (
+                {(["pct", "amount", "shipping"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, discountType: t }))}
-                    className="flex-1 py-2 text-sm font-bold transition-all"
+                    className="flex-1 py-2 text-sm font-bold transition-all whitespace-nowrap"
                     style={{
                       background: form.discountType === t ? "var(--text)" : "transparent",
                       color: form.discountType === t ? "var(--cream)" : "var(--text-muted)",
                     }}
                   >
-                    {t === "pct" ? "אחוזים (%)" : "שקלים (₪)"}
+                    {TYPE_LABELS[t]}
                   </button>
                 ))}
               </div>
@@ -224,6 +244,26 @@ export default function AdminCouponsPage() {
                     ))}
                   </div>
                 </>
+              ) : form.discountType === "shipping" ? (
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <span className="text-sm text-right" style={{ color: "var(--text-muted)" }}>על איזה משלוח?</span>
+                  <div className="flex gap-2 flex-wrap justify-end">
+                    {SCOPES.map(({ value, label }) => (
+                      <button
+                        key={value} type="button"
+                        onClick={() => setForm((f) => ({ ...f, freeShipping: value }))}
+                        aria-pressed={form.freeShipping === value}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                        style={{
+                          borderColor: form.freeShipping === value ? "var(--text)" : "var(--border)",
+                          background: form.freeShipping === value ? "var(--text)" : "transparent",
+                          color: form.freeShipping === value ? "var(--cream)" : "var(--text-muted)",
+                        }}
+                      >{label}</button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>הלקוח משלם רק על המוצרים. באיסוף עצמי המשלוח ממילא חינם, והקופון לא ינוצל.</p>
+                </div>
               ) : (
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm font-bold" style={{ color: "var(--text)" }}>₪</span>
@@ -319,15 +359,21 @@ export default function AdminCouponsPage() {
                         {isEditing ? (
                           <div className="flex flex-col gap-1">
                             <div className="flex rounded-lg overflow-hidden border text-xs" style={{ borderColor: "var(--border)" }}>
-                              {(["pct", "amount"] as const).map((t) => (
+                              {(["pct", "amount", "shipping"] as const).map((t) => (
                                 <button key={t} type="button" onClick={() => setEditForm((f) => ({ ...f, discountType: t }))}
                                   className="flex-1 py-1 font-bold transition-all"
                                   style={{ background: editForm.discountType === t ? "var(--text)" : "transparent", color: editForm.discountType === t ? "var(--cream)" : "var(--text-muted)" }}>
-                                  {t === "pct" ? "%" : "₪"}
+                                  {t === "pct" ? "%" : t === "amount" ? "₪" : "משלוח"}
                                 </button>
                               ))}
                             </div>
-                            {editForm.discountType === "pct" ? (
+                            {editForm.discountType === "shipping" ? (
+                              <select value={editForm.freeShipping} aria-label="על איזה משלוח"
+                                onChange={(e) => setEditForm((f) => ({ ...f, freeShipping: e.target.value as FreeShippingScope }))}
+                                className="px-2 py-1 rounded-lg border outline-none text-sm" style={inputStyle}>
+                                {SCOPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                              </select>
+                            ) : editForm.discountType === "pct" ? (
                               <input type="number" min={1} max={100} value={editForm.discountPct}
                                 onChange={(e) => setEditForm((f) => ({ ...f, discountPct: e.target.value }))}
                                 className="w-16 px-2 py-1 rounded-lg border text-center outline-none text-sm" style={inputStyle} />
@@ -339,7 +385,7 @@ export default function AdminCouponsPage() {
                           </div>
                         ) : (
                           <span className="font-bold" style={{ color: "var(--text)" }}>
-                            {c.discountAmount ? `₪${c.discountAmount}` : `${c.discountPct}%`}
+                            {couponValue(c)}
                           </span>
                         )}
                       </td>
