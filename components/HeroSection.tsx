@@ -33,6 +33,7 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath,
   useEffect(() => { setVideoError(false); }, [effectiveVideoPathRaw]);
   const effectiveVideo = videoError ? undefined : effectiveVideoPathRaw;
   const hasMedia = effectiveVideo || effectiveImagePath;
+  const hasText = Boolean(slogan || catalogName);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -104,7 +105,14 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath,
       {/* Dark overlay */}
       <div
         className="absolute inset-0"
-        style={{ background: hasMedia ? "linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)" : "none" }}
+        style={{
+          background: !hasMedia
+            ? "none"
+            : hasText
+              ? "linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)"
+              // No text to make legible — just enough shade for the scroll arrow.
+              : "linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 25%)",
+        }}
       />
 
       {/* Text — bottom of viewport */}
@@ -128,14 +136,9 @@ export default function HeroSection({ slogan, catalogName, imagePath, videoPath,
             {slogan}
           </h1>
         )}
-        {!slogan && !catalogName && (
-          <h1
-            className="text-4xl md:text-6xl font-extrabold leading-tight"
-            style={{ color: hasMedia ? "white" : "var(--text)" }}
-          >
-            הקולקציה שלנו
-          </h1>
-        )}
+        {/* Admins may leave the banner text empty; the page still needs an h1
+            for screen readers and search engines, so keep one off-screen. */}
+        {!hasText && <h1 className="sr-only">הקולקציה שלנו</h1>}
       </div>
 
       {/* Pause / play for the looping background video */}
