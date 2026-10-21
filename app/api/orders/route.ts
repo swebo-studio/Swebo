@@ -1,10 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { validateCoupon } from "@/lib/coupon";
 import { scopeCoversDelivery, type DeliveryMode } from "@/lib/shippingScope";
 import { evaluatePromotions } from "@/lib/promotions";
 import { promotionPricing } from "@/lib/cartPricing";
+import { alertStalePendingOrders } from "@/lib/pendingOrders";
 
 export async function GET() {
   const session = await auth();
@@ -156,6 +157,9 @@ export async function POST(req: NextRequest) {
 
   // Coupon is marked as used, and stock decremented, only in /api/payment/notify
   // once payment is actually confirmed — not here at order creation.
+
+  // Every checkout also looks for earlier orders still stuck unpaid
+  after(() => alertStalePendingOrders().catch((e) => console.error("[Pending alert] failed:", e)));
 
   return Response.json(order, { status: 201 });
 }

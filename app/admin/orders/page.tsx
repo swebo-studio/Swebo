@@ -94,6 +94,7 @@ export default function AdminOrdersPage() {
   const [advancing, setAdvancing] = useState<string | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Order | null>(null);
+  const [pendingPaid, setPendingPaid] = useState<Order | null>(null);
 
   const loadOrders = useCallback(() => {
     fetch("/api/orders")
@@ -122,6 +123,7 @@ export default function AdminOrdersPage() {
   }
 
   async function markAsPaid(order: Order) {
+    setPendingPaid(null);
     setMarkingPaid(order.id);
     const res = await fetch(`/api/orders/${order.id}/status`, {
       method: "PATCH",
@@ -164,6 +166,15 @@ export default function AdminOrdersPage() {
 
   return (
     <>
+    {pendingPaid && (
+      <ConfirmModal
+        message={`לאשר שהתשלום של ${pendingPaid.customerName} (₪${pendingPaid.total}) התקבל ב-Hyp? יישלח SMS ללקוח, המלאי יעודכן ויפתח משלוח ב-HFD.`}
+        confirmLabel="אשר תשלום"
+        danger={false}
+        onConfirm={() => markAsPaid(pendingPaid)}
+        onCancel={() => setPendingPaid(null)}
+      />
+    )}
     {pendingDelete && (
       <ConfirmModal
         message={`למחוק את ההזמנה של ${pendingDelete.customerName}?`}
@@ -219,7 +230,7 @@ export default function AdminOrdersPage() {
           >
             <div className="flex items-center gap-3">
               <span className="text-xs" style={{ color: "#92400e" }}>{pendingCollapsed ? "הצג" : "הסתר"}</span>
-              <span className="text-xs font-medium" style={{ color: "#92400e" }}>לחץ לסמן כשולם לאחר בדיקה</span>
+              <span className="text-xs font-medium" style={{ color: "#92400e" }}>סמן כשולם רק אחרי שווידאת את החיוב ב-Hyp — זה יפתח משלוח ויעדכן מלאי</span>
             </div>
             <span className="font-bold text-sm flex items-center gap-1.5" style={{ color: "#92400e" }}>
               <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -231,7 +242,7 @@ export default function AdminOrdersPage() {
             {pendingOrders.map((order) => (
               <div key={order.id} className="flex items-center gap-3 px-4 py-3">
                 <button
-                  onClick={() => markAsPaid(order)}
+                  onClick={() => setPendingPaid(order)}
                   disabled={markingPaid === order.id}
                   className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-opacity disabled:opacity-50"
                   style={{ background: "var(--text)", color: "var(--cream)" }}
