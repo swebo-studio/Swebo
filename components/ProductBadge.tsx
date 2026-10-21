@@ -4,6 +4,8 @@ import { BADGE_POSITION_CLASS, BADGE_SIZE_CLASS, badgeTextColor, type CardBadge 
 export function ProductBadge({ badge }: { badge: Omit<CardBadge, "position"> }) {
   return (
     <span
+      // English text ("NEW DROP 🔥") keeps its own order on the RTL page
+      dir="auto"
       // A long text wraps inside the card rather than running off it; rounded-2xl is still a pill on one line
       className={`${BADGE_SIZE_CLASS[badge.size]} max-w-full font-bold rounded-2xl leading-tight text-center break-words shadow-sm`}
       style={{ background: badge.color, color: badgeTextColor(badge.color) }}

@@ -5,7 +5,7 @@ import HeroSection from "@/components/HeroSection";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import NewsletterSection from "@/components/NewsletterSection";
 import { computeDisplayPrice } from "@/lib/promotions";
-import { BADGE_PROMOTION_INCLUDE, promotionBadges } from "@/lib/promotionBadges";
+import { BADGE_PROMOTION_INCLUDE, productOwnBadge, promotionBadges } from "@/lib/promotionBadges";
 import { buildWhatsAppHref } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
@@ -157,7 +157,7 @@ export default async function HomePage({ searchParams }: Props) {
                         image={displayImg}
                         stock={totalStock}
                         discountedPrice={originalPrice ? displayPrice : undefined}
-                        badges={badgesFor(p.id)}
+                        badges={[...productOwnBadge(p), ...badgesFor(p.id)]}
                       />
                     );
                   })}

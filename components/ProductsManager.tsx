@@ -5,6 +5,9 @@ import ImageCropModal from "@/components/ImageCropModal";
 import ConfirmModal from "@/components/ConfirmModal";
 import SizeStockEditor from "@/components/SizeStockEditor";
 import { parseSizePresets, sizeRowsAreValid, type SizePreset } from "@/lib/sizes";
+import BadgeFields from "@/components/promotions/BadgeFields";
+import { Switch } from "@/components/promotions/controls";
+import { DEFAULT_PRODUCT_BADGE_COLOR, isBadgePosition, isBadgeSize, type BadgePosition, type BadgeSize } from "@/lib/promotionBadges";
 
 interface Category { id: string; nameHe: string }
 
@@ -33,11 +36,28 @@ interface Product {
   active: boolean;
   sizeGuideImages: string | null;
   showSizeChart: boolean | null;
+  badgeText: string | null;
+  badgeColor: string;
+  badgeSize: string;
+  badgePosition: string;
   categories: { id: string; nameHe: string }[];
   colors: ProductColor[];
 }
 
-const EMPTY_FORM = { nameHe: "", descriptionHe: "", detailsHe: "", price: 150, comparePrice: "" as number | "", stock: 0, active: true };
+const EMPTY_BADGE = { badgeOn: false, badgeText: "", badgeColor: DEFAULT_PRODUCT_BADGE_COLOR, badgeSize: "md" as BadgeSize, badgePosition: "top-left" as BadgePosition };
+const EMPTY_FORM = { nameHe: "", descriptionHe: "", detailsHe: "", price: 150, comparePrice: "" as number | "", stock: 0, active: true, ...EMPTY_BADGE };
+
+/** The product's own card tag as the form edits it. */
+function badgeForm(p: Product) {
+  const text = p.badgeText?.trim() ?? "";
+  return {
+    badgeOn: text !== "",
+    badgeText: text,
+    badgeColor: p.badgeColor || DEFAULT_PRODUCT_BADGE_COLOR,
+    badgeSize: isBadgeSize(p.badgeSize) ? p.badgeSize : EMPTY_BADGE.badgeSize,
+    badgePosition: isBadgePosition(p.badgePosition) ? p.badgePosition : EMPTY_BADGE.badgePosition,
+  };
+}
 
 export default function ProductsManager({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState(initialProducts);
@@ -126,7 +146,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   }
 
   function openEdit(p: Product) {
-    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, detailsHe: p.detailsHe, price: p.price, comparePrice: p.comparePrice ?? "", stock: p.stock, active: p.active });
+    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, detailsHe: p.detailsHe, price: p.price, comparePrice: p.comparePrice ?? "", stock: p.stock, active: p.active, ...badgeForm(p) });
     setSelectedCategoryIds(p.categories.map((c) => c.id));
     setEditing(p);
     setCreating(false);
@@ -341,7 +361,13 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
 
   async function handleSave() {
     setSaving(true);
-    const payload = { ...form, comparePrice: form.comparePrice === "" ? null : Number(form.comparePrice) };
+    const { badgeOn, ...fields } = form;
+    const payload = {
+      ...fields,
+      comparePrice: form.comparePrice === "" ? null : Number(form.comparePrice),
+      // Switched off, or switched on with no text, means no tag
+      badgeText: badgeOn && form.badgeText.trim() ? form.badgeText.trim() : null,
+    };
     if (editing) {
       const res = await fetch(`/api/products/${editing.id}`, {
         method: "PUT",
@@ -546,6 +572,32 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       className="px-4 py-3 rounded-xl border text-right outline-none"
                       style={inputStyle}
                     />
+                  </div>
+
+                  {/* The product's own tag on its card, apart from promotion tags */}
+                  <div className="p-3 rounded-xl border" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex items-center justify-end gap-3">
+                      <span className="text-sm font-medium" style={{ color: "var(--text)" }}>בלון על המוצר</span>
+                      <Switch on={form.badgeOn} onToggle={() => setForm((f) => ({ ...f, badgeOn: !f.badgeOn }))} label="בלון על המוצר" />
+                    </div>
+                    <p className="text-xs text-right mt-1.5" style={{ color: "var(--text-muted)" }}>
+                      טקסט משלך על כרטיס המוצר (למשל &quot;NEW DROP&quot;), בנוסף לבלונים של המבצעים.
+                    </p>
+                    {form.badgeOn && (
+                      <div className="mt-4">
+                        <BadgeFields
+                          value={{ text: form.badgeText, color: form.badgeColor, size: form.badgeSize, position: form.badgePosition }}
+                          onChange={(v) => setForm((f) => ({
+                            ...f,
+                            ...(v.text !== undefined && { badgeText: v.text }),
+                            ...(v.color !== undefined && { badgeColor: v.color }),
+                            ...(v.size !== undefined && { badgeSize: v.size }),
+                            ...(v.position !== undefined && { badgePosition: v.position }),
+                          }))}
+                          hint={form.badgeText.trim() ? undefined : "בלי טקסט לא יוצג בלון"}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-1">

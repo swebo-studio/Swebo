@@ -6,7 +6,7 @@ import ProductCard from "@/components/ProductCard";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import { Suspense } from "react";
 import { computeDisplayPrice } from "@/lib/promotions";
-import { BADGE_PROMOTION_INCLUDE, promotionBadges } from "@/lib/promotionBadges";
+import { BADGE_PROMOTION_INCLUDE, productOwnBadge, promotionBadges } from "@/lib/promotionBadges";
 
 export const dynamic = "force-dynamic";
 
@@ -179,7 +179,7 @@ export default async function ProductPage(
                     image={displayImg}
                     stock={totalStock}
                     discountedPrice={related.originalPrice ? related.displayPrice : undefined}
-                    badges={badgesFor(p.id)}
+                    badges={[...productOwnBadge(p), ...badgesFor(p.id)]}
                   />
                 );
               })}

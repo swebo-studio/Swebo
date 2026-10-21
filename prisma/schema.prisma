@@ -41,6 +41,14 @@ model Product {
   /// null = follow the store-wide setting. The cm table only fits garments,
   /// so shoe products turn it off without hiding it everywhere.
   showSizeChart Boolean?
+  /// The product's own tag on its card, apart from any promotion's tag.
+  /// badgeText null = no tag.
+  badgeText     String?
+  badgeColor    String         @default("#111111")
+  /// "sm" | "md" | "lg"
+  badgeSize     String         @default("md")
+  /// "top-right" | "top-left" | "bottom-right" | "bottom-left"
+  badgePosition String         @default("top-left")
   categories    Category[]     @relation("ProductCategories")
   categoryOrders CategoryProductOrder[]
   createdAt     DateTime       @default(now())

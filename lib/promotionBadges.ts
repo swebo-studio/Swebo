@@ -77,6 +77,42 @@ export const BADGE_POSITION_CLASS: Record<BadgePosition, string> = {
   "bottom-left": "bottom-2 left-2 items-start",
 };
 
+export const DEFAULT_PRODUCT_BADGE_COLOR = "#111111";
+
+/** The product fields that hold its own tag. */
+export interface ProductBadgeFields {
+  badgeText: string | null;
+  badgeColor: string;
+  badgeSize: string;
+  badgePosition: string;
+}
+
+/** A product's own tag, set on the product itself — none when it has no text. */
+export function productOwnBadge(p: ProductBadgeFields): CardBadge[] {
+  const text = p.badgeText?.trim();
+  if (!text) return [];
+  return [{
+    text,
+    color: isHexColor(p.badgeColor) ? p.badgeColor : DEFAULT_PRODUCT_BADGE_COLOR,
+    size: isBadgeSize(p.badgeSize) ? p.badgeSize : "md",
+    position: isBadgePosition(p.badgePosition) ? p.badgePosition : "top-left",
+  }];
+}
+
+/**
+ * The product's tag fields from an admin request body, checked — anything
+ * missing or malformed is left out so the stored value stays.
+ */
+export function productBadgeInput(body: Record<string, unknown>): Partial<ProductBadgeFields> {
+  const out: Partial<ProductBadgeFields> = {};
+  if (typeof body.badgeText === "string") out.badgeText = body.badgeText.trim().slice(0, BADGE_TEXT_MAX) || null;
+  else if (body.badgeText === null) out.badgeText = null;
+  if (isHexColor(body.badgeColor)) out.badgeColor = body.badgeColor;
+  if (isBadgeSize(body.badgeSize)) out.badgeSize = body.badgeSize;
+  if (isBadgePosition(body.badgePosition)) out.badgePosition = body.badgePosition;
+  return out;
+}
+
 /** An active promotion as the storefront loads it for working out tags. */
 export interface BadgePromotion extends BadgeOffer {
   badgeEnabled: boolean;

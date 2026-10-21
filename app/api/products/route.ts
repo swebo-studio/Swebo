@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { productBadgeInput } from "@/lib/promotionBadges";
 
 export async function GET() {
   const products = await prisma.product.findMany({
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
       stock: body.stock ?? 0,
       image: body.image ?? "",
       active: body.active ?? true,
+      ...productBadgeInput(body),
       categories: categoryIds.length ? { connect: categoryIds.map((id) => ({ id })) } : undefined,
     },
     include: { categories: true },

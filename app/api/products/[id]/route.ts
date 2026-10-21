@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { productBadgeInput } from "@/lib/promotionBadges";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -44,6 +45,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       active: body.active,
       sizeGuideImages: body.sizeGuideImages !== undefined ? body.sizeGuideImages : undefined,
       showSizeChart: body.showSizeChart !== undefined ? body.showSizeChart : undefined,
+      ...productBadgeInput(body),
       categories: { set: categoryIds.map((cid) => ({ id: cid })) },
     },
     include: { categories: true },
