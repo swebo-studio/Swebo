@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import Script from "next/script";
+import { connection } from "next/server";
+import { getSeo } from "@/lib/seo.server";
 import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
 import NewsletterPopup from "@/components/NewsletterPopup";
@@ -28,22 +30,30 @@ var map={contrast:'a11y-contrast',invert:'a11y-invert',lightBg:'a11y-light-bg',g
 for(var k in map){if(p[k])e.classList.add(map[k]);}
 }catch(err){}})();`;
 
-export const metadata: Metadata = {
-  title: {
-    default: "SWEBO | קולקציית מונדיאל 2026",
-    template: "%s | SWEBO",
-  },
-  description: "BUILT ON UNIQUENESS – קולקציית מונדיאל 2026. בגדים מעוצבים במידות S–XL, משלוח מהיר לכל הארץ, תשלום מאובטח.",
-  metadataBase: new URL(siteUrl),
-  openGraph: {
-    siteName: "SWEBO",
-    locale: "he_IL",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // The title and description are edited in the admin. Without this, pages
+  // that are otherwise static would freeze whatever was set at build time.
+  await connection();
+  const seo = await getSeo();
+  return {
+    title: {
+      default: seo.title,
+      template: "%s | SWEBO",
+    },
+    description: seo.description,
+    metadataBase: new URL(siteUrl),
+    openGraph: {
+      title: seo.title,
+      description: seo.description,
+      siteName: "SWEBO",
+      locale: "he_IL",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+    },
+  };
+}
 
 export default function RootLayout({
   children,

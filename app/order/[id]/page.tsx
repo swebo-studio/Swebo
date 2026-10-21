@@ -6,6 +6,9 @@ import CartClearer from "@/components/CartClearer";
 
 export const dynamic = "force-dynamic";
 
+// A customer's order confirmation has no business in search results.
+export const metadata = { title: "אישור הזמנה", robots: { index: false, follow: false } };
+
 export default async function OrderPage(
   { params }: { params: Promise<{ id: string }> }
 ) {

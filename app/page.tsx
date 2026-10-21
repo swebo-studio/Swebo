@@ -10,15 +10,8 @@ import { buildWhatsAppHref } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "SWEBO | קולקציית מונדיאל 2026",
-  description: "BUILT ON UNIQUENESS – קולקציית מונדיאל 2026. בגדים מעוצבים במידות S–XL, משלוח מהיר לכל הארץ, תשלום מאובטח.",
-  openGraph: {
-    title: "SWEBO | קולקציית מונדיאל 2026",
-    description: "BUILT ON UNIQUENESS – קולקציית מונדיאל 2026. בגדים מעוצבים במידות S–XL, משלוח מהיר לכל הארץ.",
-    type: "website",
-  },
-};
+// No metadata here: the home page takes the title and description set in the
+// admin from the root layout.
 
 interface Props {
   searchParams: Promise<{ category?: string }>;

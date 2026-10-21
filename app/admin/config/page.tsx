@@ -4,6 +4,7 @@ import Image from "next/image";
 import ConfirmModal from "@/components/ConfirmModal";
 import { parseSizePresets, parseSizeLabels, MAX_SIZE_LABEL, type SizePreset } from "@/lib/sizes";
 import { SELF_PICKUP_DEFAULT_TEXT, SELF_PICKUP_LOCATION } from "@/lib/selfPickup";
+import { SEO_KEYS, SEO_DEFAULTS, SEO_TITLE_LIMIT, SEO_DESCRIPTION_LIMIT } from "@/lib/seo";
 
 interface SizeRow { size: string; chest: number; waist: number; length: number }
 interface AdminPhone { id: string; phone: string; label: string | null; orderSms: boolean }
@@ -28,6 +29,7 @@ export default function AdminConfigPage() {
   const [newLabel, setNewLabel] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [legal, setLegal] = useState({ privacy: "", terms: "" });
+  const [seo, setSeo] = useState({ title: "", description: "" });
   const [shippingInfoText, setShippingInfoText] = useState("משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP");
   const [selfPickupText, setSelfPickupText] = useState(SELF_PICKUP_DEFAULT_TEXT);
   const [orderSteps, setOrderSteps] = useState({
@@ -84,6 +86,7 @@ export default function AdminConfigPage() {
       } catch { if (cfg["sizeGuide.imagePath"]) setSizeGuideImages([cfg["sizeGuide.imagePath"]]); }
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
+      setSeo({ title: cfg[SEO_KEYS.title] || "", description: cfg[SEO_KEYS.description] || "" });
       if (cfg["shippingInfo.text"]) setShippingInfoText(cfg["shippingInfo.text"]);
       if (cfg["selfPickup.text"]) setSelfPickupText(cfg["selfPickup.text"]);
       setOrderSteps((prev) => ({
@@ -182,6 +185,8 @@ export default function AdminConfigPage() {
           .join("\n"),
         "legal.privacy": legal.privacy,
         "legal.terms": legal.terms,
+        [SEO_KEYS.title]: seo.title.trim(),
+        [SEO_KEYS.description]: seo.description.trim(),
         "shippingInfo.text": shippingInfoText,
         "selfPickup.text": selfPickupText,
         "orderSteps.step1": orderSteps.step1,
@@ -711,6 +716,47 @@ export default function AdminConfigPage() {
             className="flex-1 px-4 py-2.5 rounded-xl border text-right outline-none text-sm"
             style={inputStyle}
           />
+        </div>
+      </section>
+
+      {/* ── Search engines (SEO) ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>תצוגה בגוגל</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          הכותרת והתיאור שגוגל מציג לאתר בתוצאות החיפוש, וגם בשיתוף קישור בוואטסאפ ובאינסטגרם. השאר ריק לטקסט ברירת המחדל.
+          גוגל מתעדכן רק כשהוא סורק את האתר מחדש, בדרך כלל תוך כמה ימים.
+        </p>
+        <div className="flex flex-col gap-3">
+          {([
+            ["title", "כותרת", SEO_TITLE_LIMIT],
+            ["description", "תיאור", SEO_DESCRIPTION_LIMIT],
+          ] as const).map(([key, label, limit]) => {
+            const length = seo[key].trim().length;
+            const props = {
+              value: seo[key],
+              onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setSeo((s) => ({ ...s, [key]: e.target.value })),
+              placeholder: SEO_DEFAULTS[key],
+              className: "w-full px-4 py-2.5 rounded-xl border text-right outline-none text-sm resize-y",
+              style: inputStyle,
+            };
+            return (
+              <div key={key} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: length > limit ? "var(--maroon)" : "var(--text-muted)" }}>
+                    {length}/{limit}{length > limit ? " — גוגל יקצר" : ""}
+                  </span>
+                  <label className="text-sm text-right" style={{ color: "var(--text-muted)" }}>{label}</label>
+                </div>
+                {key === "title" ? <input type="text" {...props} /> : <textarea rows={3} {...props} />}
+              </div>
+            );
+          })}
+        </div>
+        {/* Rough preview of the search result, in Google's own colours. */}
+        <div className="mt-4 p-4 rounded-xl border text-right" style={{ borderColor: "var(--border)", background: "#fff" }} dir="rtl">
+          <div className="text-xs mb-1" style={{ color: "#4d5156" }}>swebo.co.il</div>
+          <div className="text-lg leading-snug truncate" style={{ color: "#1a0dab" }}>{seo.title.trim() || SEO_DEFAULTS.title}</div>
+          <div className="text-sm leading-snug line-clamp-2" style={{ color: "#4d5156" }}>{seo.description.trim() || SEO_DEFAULTS.description}</div>
         </div>
       </section>
 
