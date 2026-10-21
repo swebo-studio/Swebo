@@ -20,9 +20,9 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
     ? [{ text: "אחרונים במלאי", color: "var(--warn)", size: "sm", position: "top-right" }]
     : [];
   return (
-    <Link href={`/product/${id}`} className="group block">
+    <Link href={`/product/${id}`} className="group block h-full">
       <div
-        className="rounded-2xl overflow-hidden border transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1"
+        className="h-full flex flex-col rounded-2xl overflow-hidden border transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1"
         style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}
       >
         <div className="relative w-full aspect-square bg-white">
@@ -46,11 +46,11 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
           )}
           {stock > 0 && <ProductBadges badges={[...lowStock, ...badges]} />}
         </div>
-        <div className="p-4">
-          <h3 dir="auto" className="font-bold text-lg mb-1 text-start" style={{ color: "var(--text)" }}>
+        <div className="p-4 flex-1 flex flex-col">
+          <h3 dir="auto" title={nameHe} className="font-bold text-base md:text-lg leading-6 md:leading-7 mb-1 text-start line-clamp-2 h-12 md:h-14" style={{ color: "var(--text)" }}>
             {nameHe}
           </h3>
-          <div className="flex items-center gap-2 justify-end">
+          <div className="mt-auto flex items-center gap-2 justify-end">
             {discountedPrice !== undefined && discountedPrice < price ? (
               <>
                 <span className="text-sm line-through" style={{ color: "var(--text-muted)" }}>
