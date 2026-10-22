@@ -126,6 +126,8 @@ model Order {
   /// When the admins were texted that this order is still unpaid, so each
   /// stuck order is reported once.
   pendingAlertAt      DateTime?
+  /// Flagged by an admin in the orders list, e.g. to come back to it.
+  starred             Boolean   @default(false)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }

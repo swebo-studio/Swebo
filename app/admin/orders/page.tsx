@@ -80,6 +80,7 @@ interface Order {
   orderStage: Stage;
   shipmentNumber: string | null;
   shipmentRandId: string | null;
+  starred: boolean;
   createdAt: string;
   items: OrderItem[];
 }
@@ -120,6 +121,20 @@ export default function AdminOrdersPage() {
       );
     }
     setAdvancing(null);
+  }
+
+  // Flips the star right away and puts it back if the save fails.
+  async function toggleStar(order: Order) {
+    const starred = !order.starred;
+    const setStar = (value: boolean) =>
+      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, starred: value } : o));
+    setStar(starred);
+    const res = await fetch(`/api/orders/${order.id}/star`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ starred }),
+    }).catch(() => null);
+    if (!res?.ok) setStar(!starred);
   }
 
   async function markAsPaid(order: Order) {
@@ -368,8 +383,8 @@ export default function AdminOrdersPage() {
             <table className="w-full text-sm text-right">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream-dark)" }}>
-                  {["#", "לקוח", "טלפון", "אימייל", "משלוח", "סכום", "תאריך", ""].map((h) => (
-                    <th key={h} className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{h}</th>
+                  {["#", "", "לקוח", "טלפון", "אימייל", "משלוח", "סכום", "תאריך", ""].map((h, i) => (
+                    <th key={i} className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -387,6 +402,18 @@ export default function AdminOrdersPage() {
                       >
                         <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
                           {order.id.slice(-6).toUpperCase()}
+                        </td>
+                        <td className="px-1 py-3" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => toggleStar(order)}
+                            className="p-1 rounded-md transition-opacity hover:opacity-70"
+                            style={{ color: order.starred ? "#f59e0b" : "var(--text-muted)" }}
+                            title={order.starred ? "הסר כוכב" : "סמן בכוכב"}
+                            aria-label={order.starred ? "הסר כוכב" : "סמן בכוכב"}
+                            aria-pressed={order.starred}
+                          >
+                            <svg width="18" height="18" fill={order.starred ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                          </button>
                         </td>
                         <td className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: "var(--text)" }}>{order.customerName}</td>
                         <td className="px-4 py-3 text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -420,7 +447,7 @@ export default function AdminOrdersPage() {
 
                       {isExpanded && (
                         <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream)" }}>
-                          <td colSpan={8} className="px-4 py-4 text-right">
+                          <td colSpan={9} className="px-4 py-4 text-right">
                             <div className="flex flex-col gap-3 max-w-xl mr-0 ml-auto">
                               {/* Coupon */}
                               {order.couponCode && (
