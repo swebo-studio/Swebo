@@ -172,6 +172,8 @@ model AdminOtp {
   phone     String   @id
   code      String
   expiresAt DateTime
+  /// Wrong guesses against this code; at MAX_OTP_ATTEMPTS it stops working.
+  attempts  Int      @default(0)
   createdAt DateTime @default(now())
 }
 

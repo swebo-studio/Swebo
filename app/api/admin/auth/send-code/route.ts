@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomInt } from "crypto";
 import { prisma } from "@/lib/db";
 import { sendSMS } from "@/lib/notify";
 
@@ -21,12 +22,12 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "קוד כבר נשלח, נסה שוב בעוד רגע" }, { status: 429 });
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + CODE_VALIDITY_MINUTES * 60 * 1000);
 
   await prisma.adminOtp.upsert({
     where: { phone },
-    update: { code, expiresAt, createdAt: new Date() },
+    update: { code, expiresAt, createdAt: new Date(), attempts: 0 },
     create: { phone, code, expiresAt },
   });
 

@@ -6,7 +6,10 @@ import { scopeCoversDelivery, type DeliveryMode } from "@/lib/shippingScope";
 import { evaluatePromotions } from "@/lib/promotions";
 import { promotionPricing } from "@/lib/cartPricing";
 import { alertStalePendingOrders } from "@/lib/pendingOrders";
-import { collabCommission } from "@/lib/collab";
+import { collabCommission, isCreatorsOwnOrder } from "@/lib/collab";
+
+const MAX_TEXT = 120;
+const text = (v: unknown, max = MAX_TEXT) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 export async function GET() {
   const session = await auth();
@@ -21,19 +24,53 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { customer, cartItems, delivery: requestedDelivery, couponCode, pudoCodeDestination, pudoPointName, deliveryMode } = body;
+  const { delivery: requestedDelivery, pudoCodeDestination, pudoPointName } = body;
+  const couponCode = typeof body.couponCode === "string" ? body.couponCode.trim() : "";
+
+  // Everything below comes from the browser, so nothing in it is taken on
+  // trust: names are capped (they end up in SMS texts), quantities must be
+  // whole and positive, and each line's price is the product's own.
+  const customer = {
+    name: text(body.customer?.name, 60),
+    email: text(body.customer?.email),
+    phone: text(body.customer?.phone, 20),
+    address: text(body.customer?.address, 200),
+    city: text(body.customer?.city),
+    floor: text(body.customer?.floor, 20) || null,
+    apartment: text(body.customer?.apartment, 20) || null,
+  };
+  if (!customer.name || !customer.phone) {
+    return Response.json({ error: "חסרים פרטי לקוח" }, { status: 400 });
+  }
+  const requested = (Array.isArray(body.cartItems) ? body.cartItems : []) as { productId: unknown; quantity: unknown; size: unknown; color?: unknown }[];
+  if (requested.length === 0 || requested.length > 50) {
+    return Response.json({ error: "הסל ריק" }, { status: 400 });
+  }
+  if (requested.some((i) => typeof i.productId !== "string" || !Number.isInteger(i.quantity) || (i.quantity as number) < 1 || (i.quantity as number) > 100)) {
+    return Response.json({ error: "כמות לא תקינה" }, { status: 400 });
+  }
+
+  type CartLine = { productId: string; price: number; quantity: number; size: string; color?: string };
+  let cartItems: CartLine[];
 
   // Validate stock before accepting the order
   {
-    const typedItems = cartItems as { productId: string; quantity: number; size: string; color?: string }[];
-    const productIds = [...new Set(typedItems.map((i) => i.productId))];
+    const productIds = [...new Set(requested.map((i) => i.productId as string))];
     const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: productIds }, active: true },
       include: { colors: { include: { sizes: true } } },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    for (const item of typedItems) {
+    cartItems = requested.map((i) => ({
+      productId: i.productId as string,
+      quantity: i.quantity as number,
+      size: typeof i.size === "string" ? i.size : "",
+      color: typeof i.color === "string" && i.color ? i.color : undefined,
+      price: productMap.get(i.productId as string)?.price ?? 0,
+    }));
+
+    for (const item of cartItems) {
       const product = productMap.get(item.productId);
       if (!product) return Response.json({ error: "מוצר לא נמצא" }, { status: 400 });
 
@@ -75,18 +112,21 @@ export async function POST(req: NextRequest) {
       discountAmount = coupon.discountAmount ?? 0;
       freeShippingScope = coupon.freeShipping;
       appliedCouponCode = couponCode.toUpperCase();
-      if (coupon.collab) collab = { code: couponCode.toUpperCase(), pct: coupon.collabPct ?? 0 };
+      // A creator buying with their own code earns nothing on it
+      if (coupon.collab && !isCreatorsOwnOrder(coupon.collabPhone, customer.phone)) {
+        collab = { code: couponCode.toUpperCase(), pct: coupon.collabPct ?? 0 };
+      }
     }
   }
 
-  const rawSubtotal = cartItems.reduce(
-    (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0
-  );
+  const rawSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // Evaluate promotions server-side
   const rewards = await evaluatePromotions(cartItems, rawSubtotal);
-  const baseDelivery = requestedDelivery === 0 ? 0 : requestedDelivery === 25 ? 25 : 40;
-  const mode: DeliveryMode = baseDelivery === 40 ? "home" : baseDelivery === 25 ? "epost" : "self";
+  // The fee follows the delivery picked, never a price the browser sends
+  const mode: DeliveryMode = (["home", "epost", "self"] as const).find((m) => m === body.deliveryMode)
+    ?? (requestedDelivery === 0 ? "self" : requestedDelivery === 25 ? "epost" : "home");
+  const baseDelivery = mode === "home" ? 40 : mode === "epost" ? 25 : 0;
   const pricing = promotionPricing(cartItems, rewards);
   const promoSubtotal = pricing.subtotal;
   // Only the delivery a free-shipping promotion covers — the same rule the checkout shows
@@ -123,8 +163,7 @@ export async function POST(req: NextRequest) {
   // every stored unit price is the price actually charged for that unit. The
   // engine already grouped each line's units by the price they pay, so the
   // stored lines are just those buckets.
-  type CartLine = { productId: string; price: number; quantity: number; size: string; color?: string };
-  const effectiveItems = (cartItems as CartLine[]).flatMap((item, i) => {
+  const effectiveItems = cartItems.flatMap((item, i) => {
     const line = pricing.lines[i];
     if (!line || line.buckets.length === 0) return [item];
     return line.buckets.map((bucket) => ({ ...item, quantity: bucket.quantity, price: bucket.unitPrice }));
@@ -136,15 +175,15 @@ export async function POST(req: NextRequest) {
       customerEmail: customer.email,
       customerPhone: customer.phone,
       address: customer.address,
-      floor: customer.floor ?? null,
-      apartment: customer.apartment ?? null,
+      floor: customer.floor,
+      apartment: customer.apartment,
       city: customer.city,
       subtotal,
       delivery,
       total,
       pudoCodeDestination: pudoCodeDestination != null ? String(pudoCodeDestination) : null,
-      pudoPointName: pudoPointName ?? null,
-      deliveryMode: deliveryMode ?? null,
+      pudoPointName: pudoPointName != null ? text(pudoPointName) : null,
+      deliveryMode: mode,
       couponCode: appliedCouponCode,
       collabCode: collab?.code ?? null,
       collabCommission: collab ? collabCommission(subtotal, collab.pct) : null,

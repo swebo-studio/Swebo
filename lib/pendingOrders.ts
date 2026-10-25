@@ -3,6 +3,8 @@ import { notifyAdmin } from "@/lib/notify";
 
 /** How long an order may wait for its payment redirect before the admins hear about it. */
 const STALE_AFTER_MS = 15 * 60 * 1000;
+/** More stuck orders than this in one run get a single summary text. */
+const MAX_ALERTS_PER_RUN = 5;
 /** Older orders are left alone, so the first run does not text the whole backlog. */
 const LOOK_BACK_MS = 24 * 60 * 60 * 1000;
 
@@ -32,6 +34,15 @@ export async function alertStalePendingOrders(): Promise<number> {
       data: { pendingAlertAt: new Date() },
     });
     if (count > 0) claimed.push(order);
+  }
+  // Checkout is open to anyone, so a burst of unpaid orders is more likely
+  // someone scripting it than real customers: one summary instead of a text
+  // each, or the burst could drain the SMS balance.
+  if (claimed.length > MAX_ALERTS_PER_RUN) {
+    await notifyAdmin("הזמנות ממתינות לתשלום", `${claimed.length} הזמנות ממתינות לתשלום כבר 15 דקות — יותר מהרגיל. יש לבדוק בניהול ההזמנות וב-Hyp.`).catch((e) =>
+      console.error("[Pending alert] SMS failed:", e)
+    );
+    return claimed.length;
   }
   // One text per order, so each carries its own ready-to-send customer message
   for (const order of claimed) {

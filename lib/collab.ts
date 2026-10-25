@@ -5,6 +5,16 @@ export function collabCommission(itemsTotal: number, pct: number): number {
   return Math.round(itemsTotal * pct) / 100;
 }
 
+/** Same number however it is written: 050-123 4567, +972501234567 … */
+function phoneKey(phone: string): string {
+  return phone.replace(/\D/g, "").replace(/^972/, "0");
+}
+
+/** An order the creator placed for themselves, by the phone on the order. */
+export function isCreatorsOwnOrder(collabPhone: string | null, customerPhone: string): boolean {
+  return !!collabPhone && phoneKey(collabPhone) === phoneKey(customerPhone);
+}
+
 /** ₪ amounts without a trailing ".00" */
 export function shekels(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
@@ -23,16 +33,19 @@ export interface CollabTotals {
  * What each creator code has earned and been paid, keyed by code. Only paid
  * orders count — an abandoned checkout or a cancelled order earns nothing.
  */
-export async function collabTotals(coupons: { id: string; code: string }[]): Promise<Map<string, CollabTotals>> {
+export async function collabTotals(
+  coupons: { id: string; code: string }[],
+  db: Pick<typeof prisma, "order" | "collabPayout"> = prisma
+): Promise<Map<string, CollabTotals>> {
   const codes = coupons.map((c) => c.code);
   const [orderSums, payoutSums] = await Promise.all([
-    prisma.order.groupBy({
+    db.order.groupBy({
       by: ["collabCode"],
       where: { collabCode: { in: codes }, status: "paid" },
       _sum: { subtotal: true, collabCommission: true },
       _count: true,
     }),
-    prisma.collabPayout.groupBy({
+    db.collabPayout.groupBy({
       by: ["couponId"],
       where: { couponId: { in: coupons.map((c) => c.id) } },
       _sum: { amount: true },

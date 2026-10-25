@@ -114,20 +114,23 @@ export async function verifyHypayTransaction(
   const ccode = returnedParams["CCode"] ?? "";
   if (!["0", "600", "700", "800"].includes(ccode)) return false;
 
+  // Our terminal and credentials go last: the returned params come from the
+  // customer's browser, and a Masof/KEY/PassP among them must not point the
+  // check at someone else's terminal, where their own payment would pass.
   const p = new URLSearchParams({
+    ...returnedParams,
     action: "APISign",
     What:   "VERIFY",
     KEY,
     PassP,
     Masof,
-    ...returnedParams,
   });
 
   try {
     const res = await fetch(`${BASE}?${p.toString()}`);
     const text = await res.text();
-    // Response contains CCode=0 if valid
-    return text.includes("CCode=0");
+    // CCode=0 if valid — read as a field, not anywhere in the text
+    return parseHypayResponse(text.trim())["CCode"] === "0";
   } catch {
     return false;
   }

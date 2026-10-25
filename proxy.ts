@@ -48,6 +48,17 @@ function isLockAsset(req: NextRequest, lock: SiteLock): boolean {
 // In Next.js 16, "proxy" replaces "middleware" and runs on Node.js runtime
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Writes to the API only from this site's own pages. A browser always sends
+  // Origin on a cross-site POST, so another site cannot ride an admin's
+  // cookie into, say, recording a creator payout. (No Origin at all is a
+  // script, which has no admin cookie to borrow.)
+  if (pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    const origin = req.headers.get("origin");
+    if (origin && originHost(origin) !== req.headers.get("host")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
   const isLoginPage = pathname === "/admin-login";
   const isAdminArea = pathname.startsWith("/admin") && !isLoginPage;
 
@@ -87,6 +98,11 @@ export async function proxy(req: NextRequest) {
   const res = NextResponse.rewrite(new URL("/closed", req.url));
   res.headers.set("x-robots-tag", "noindex");
   return res;
+}
+
+/** The host an Origin header names; null for "null" (sandboxed pages) or junk. */
+function originHost(origin: string): string | null {
+  try { return new URL(origin).host; } catch { return null; }
 }
 
 function retryAfter(reopenAt: string): string {
