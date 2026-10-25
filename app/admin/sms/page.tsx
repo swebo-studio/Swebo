@@ -23,6 +23,7 @@ const PREVIEW_VARS: Record<string, Record<string, string>> = {
     items: 'חולצה ירוקה (M) x1, מכנס שחור (L) x2',
     total: "249.00",
   },
+  "sms.collabOrder": { code: "ORI5", name: "ישראל ישראלי", amount: "400", commission: "20" },
   "sms.stagePacked": { name: "ישראל ישראלי", orderId: "A1B2C3" },
   "sms.stageShipped": { name: "ישראל ישראלי", orderId: "A1B2C3", shipment: "12345678" },
   "sms.stageDone": { name: "ישראל ישראלי", orderId: "A1B2C3" },

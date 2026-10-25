@@ -330,3 +330,22 @@ function stageSmsVars(order: {
     pudo: order.pudoPointName ?? "",
   };
 }
+
+// ── notifyCollabOrder: tell a content creator their code made a sale ─────
+/**
+ * Only the customer's name and the money — the creator never gets the
+ * customer's phone, address or what they bought.
+ */
+export async function notifyCollabOrder(
+  phone: string,
+  sale: { code: string; customerName: string; amount: string; commission: string }
+): Promise<void> {
+  const template = (await getSmsTemplate("sms.collabOrder")).trim();
+  if (!template) return;
+  await sendSMS(phone, renderSmsTemplate(template, {
+    code: sale.code,
+    name: sale.customerName,
+    amount: sale.amount,
+    commission: sale.commission,
+  }));
+}

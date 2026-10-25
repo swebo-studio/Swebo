@@ -49,6 +49,18 @@ export const SMS_TEMPLATES: Record<string, SmsTemplateDef> = {
     ],
     group: SMS_GROUP_GENERAL,
   },
+  "sms.collabOrder": {
+    label: "הזמנה חדשה ליוצר תוכן",
+    description: "נשלח ליוצר התוכן אחרי כל הזמנה ששולמה עם קוד שיתוף הפעולה שלו (רק שם הלקוח, הסכום והעמלה — בלי טלפון או כתובת)",
+    default: "הזמנה חדשה דרך הקוד {code}\nשם הלקוח: {name}\nסכום מוצרים: {amount} ₪\nהעמלה שלך: {commission} ₪",
+    placeholders: [
+      { tag: "{code}", desc: "קוד שיתוף הפעולה" },
+      { tag: "{name}", desc: "שם הלקוח" },
+      { tag: "{amount}", desc: "סכום המוצרים אחרי הנחות, ללא משלוח" },
+      { tag: "{commission}", desc: "העמלה של יוצר התוכן מההזמנה" },
+    ],
+    group: SMS_GROUP_GENERAL,
+  },
 
   // ── Stage updates: home delivery (also the fallback for legacy orders
   //    saved before deliveryMode existed) ──────────────────────────────────

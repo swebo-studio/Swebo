@@ -123,6 +123,11 @@ model Order {
   pudoPointName       String?
   deliveryMode        String?
   couponCode          String?
+  /// The creator code this order is credited to — kept even when couponCode
+  /// is not, since a promotion can stop the code from discounting anything.
+  collabCode          String?
+  /// The creator's commission on this order, fixed when it was placed.
+  collabCommission    Float?
   /// When the admins were texted that this order is still unpaid, so each
   /// stuck order is reported once.
   pendingAlertAt      DateTime?
@@ -130,6 +135,8 @@ model Order {
   starred             Boolean   @default(false)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  @@index([collabCode])
 }
 
 model OrderItem {
@@ -271,4 +278,25 @@ model Coupon {
   expiresAt      DateTime?
   createdAt      DateTime  @default(now())
   usedAt         DateTime?
+  /// A content creator's code: every paid order that used it is credited to
+  /// the creator, even when a promotion meant it gave no extra discount.
+  collab         Boolean   @default(false)
+  collabName     String?
+  /// Commission, as a percent of the order's items after every discount (delivery excluded).
+  collabPct      Float?
+  /// Texted the customer's name, the amount and the commission on every paid order.
+  collabPhone    String?
+  payouts        CollabPayout[]
+}
+
+/// Money paid out to a creator against their code's commission. The orders
+/// stay as they are; the balance due is what they earned minus these.
+model CollabPayout {
+  id        String   @id @default(cuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  amount    Float
+  createdAt DateTime @default(now())
+
+  @@index([couponId])
 }

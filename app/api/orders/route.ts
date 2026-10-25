@@ -6,6 +6,7 @@ import { scopeCoversDelivery, type DeliveryMode } from "@/lib/shippingScope";
 import { evaluatePromotions } from "@/lib/promotions";
 import { promotionPricing } from "@/lib/cartPricing";
 import { alertStalePendingOrders } from "@/lib/pendingOrders";
+import { collabCommission } from "@/lib/collab";
 
 export async function GET() {
   const session = await auth();
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest) {
   let discountAmount = 0;
   let freeShippingScope: string | null = null;
   let appliedCouponCode: string | null = null;
+  // A creator code credits the creator whatever the rules below do to its discount
+  let collab: { code: string; pct: number } | null = null;
   if (couponCode) {
     const coupon = await validateCoupon(couponCode);
     if (coupon) {
@@ -72,6 +75,7 @@ export async function POST(req: NextRequest) {
       discountAmount = coupon.discountAmount ?? 0;
       freeShippingScope = coupon.freeShipping;
       appliedCouponCode = couponCode.toUpperCase();
+      if (coupon.collab) collab = { code: couponCode.toUpperCase(), pct: coupon.collabPct ?? 0 };
     }
   }
 
@@ -142,6 +146,8 @@ export async function POST(req: NextRequest) {
       pudoPointName: pudoPointName ?? null,
       deliveryMode: deliveryMode ?? null,
       couponCode: appliedCouponCode,
+      collabCode: collab?.code ?? null,
+      collabCommission: collab ? collabCommission(subtotal, collab.pct) : null,
       items: {
         create: effectiveItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
           productId: item.productId,

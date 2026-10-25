@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { notifyOrderConfirmation, notifyAdmin, newOrderAdminMessage, checkSmsBalance } from "@/lib/notify";
+import { notifyOrderConfirmation, notifyAdmin, newOrderAdminMessage, checkSmsBalance, notifyCollabOrder } from "@/lib/notify";
+import { shekels } from "@/lib/collab";
 import { createHFDShipment } from "@/lib/hfd";
 
 /**
@@ -16,7 +17,7 @@ export async function claimPaid(orderId: string, paymentId?: string | null): Pro
   return claimed.count > 0;
 }
 
-/** Post-payment side effects: stock, coupon, SMS, HFD shipment. */
+/** Post-payment side effects: stock, coupon, SMS (customer, admin, creator), HFD shipment. */
 export async function fulfillPaidOrder(orderId: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -121,6 +122,23 @@ export async function fulfillPaidOrder(orderId: string) {
     await notifyAdmin("הזמנה חדשה", newOrderAdminMessage(order));
   } catch (e) {
     console.error("[Post-payment] admin SMS failed:", order.id, e);
+  }
+
+  // 3b. Creator SMS, when the order came through a creator's code
+  try {
+    if (order.collabCode) {
+      const coupon = await prisma.coupon.findUnique({ where: { code: order.collabCode } });
+      if (coupon?.collabPhone) {
+        await notifyCollabOrder(coupon.collabPhone, {
+          code: order.collabCode,
+          customerName: order.customerName,
+          amount: shekels(order.subtotal),
+          commission: shekels(order.collabCommission ?? 0),
+        });
+      }
+    }
+  } catch (e) {
+    console.error("[Post-payment] creator SMS failed:", order.id, e);
   }
 
   // 4. Create HFD shipment

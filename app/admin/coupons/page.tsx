@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
+import CollabCodeModal, { shekels, type CollabTotals } from "@/components/CollabCodeModal";
 import { freeShippingLabel, type FreeShippingScope } from "@/lib/shippingScope";
 
 type DiscountType = "pct" | "amount" | "shipping";
@@ -28,6 +29,11 @@ interface Coupon {
   usedAt: string | null;
   usedByEmail: string | null;
   createdAt: string;
+  collab: boolean;
+  collabName: string | null;
+  collabPct: number | null;
+  collabPhone: string | null;
+  collabTotals: CollabTotals | null;
 }
 
 function statusLabel(c: Coupon): { label: string; color: string; bg: string } {
@@ -47,6 +53,7 @@ export default function AdminCouponsPage() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [collabId, setCollabId] = useState<string | null>(null);
 
   // Create form
   const emptyForm = { code: "", discountType: "pct" as DiscountType, discountPct: "10", discountAmount: "", freeShipping: "all" as FreeShippingScope, expiresAt: "", singleUse: true };
@@ -94,7 +101,8 @@ export default function AdminCouponsPage() {
   async function handleDelete(id: string) {
     setConfirm({ message: "למחוק קופון זה לצמיתות?", onConfirm: async () => {
       setConfirm(null);
-      await fetch("/api/admin/coupons", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const res = await fetch("/api/admin/coupons", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      if (!res.ok) alert((await res.json().catch(() => ({}))).error || "המחיקה נכשלה");
       load();
     }});
   }
@@ -147,6 +155,8 @@ export default function AdminCouponsPage() {
   const active = coupons.filter((c) => !(c.singleUse && c.usedAt) && (!c.expiresAt || new Date(c.expiresAt) >= new Date())).length;
   const used   = coupons.filter((c) => c.singleUse && c.usedAt).length;
   const expired = coupons.filter((c) => !c.usedAt && c.expiresAt && new Date(c.expiresAt) < new Date()).length;
+  const collabs = coupons.filter((c) => c.collab);
+  const collabCoupon = coupons.find((c) => c.id === collabId);
 
   return (
     <>
@@ -175,6 +185,43 @@ export default function AdminCouponsPage() {
           </div>
         ))}
       </div>
+
+      {/* Creator codes */}
+      {collabs.length > 0 && (
+        <div className="mb-8">
+          <h2 className="font-extrabold text-lg text-right mb-3" style={{ color: "var(--text)" }}>שיתופי פעולה עם יוצרי תוכן</h2>
+          <div className="rounded-2xl border overflow-x-auto" style={{ borderColor: "var(--border)" }}>
+            <table className="w-full text-sm text-right">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream-dark)" }}>
+                  {["קוד", "יוצר", "עמלה", "מכירות", "עמלות שנצברו", "שולם", "יתרה לתשלום", ""].map((h) => (
+                    <th key={h} className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {collabs.map((c) => {
+                  const t = c.collabTotals;
+                  return (
+                    <tr key={c.id} style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
+                      <td className="px-4 py-3 font-mono font-bold">{c.code}</td>
+                      <td className="px-4 py-3">{c.collabName || "—"}</td>
+                      <td className="px-4 py-3">{c.collabPct ?? 0}%</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{shekels(t?.sales ?? 0)} <span className="text-xs" style={{ color: "var(--text-muted)" }}>({t?.orders ?? 0})</span></td>
+                      <td className="px-4 py-3">{shekels(t?.earned ?? 0)}</td>
+                      <td className="px-4 py-3">{shekels(t?.paid ?? 0)}</td>
+                      <td className="px-4 py-3 font-extrabold" style={{ color: (t?.due ?? 0) > 0 ? "#b26a00" : "var(--green)" }}>{shekels(t?.due ?? 0)}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setCollabId(c.id)} className="text-xs px-3 py-1 rounded-lg font-bold whitespace-nowrap" style={{ background: "var(--text)", color: "var(--cream)" }}>ניהול ותשלום</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Create modal */}
       {creating && (
@@ -352,6 +399,11 @@ export default function AdminCouponsPage() {
                         >
                           {c.code}
                         </button>
+                        {c.collab && (
+                          <span className="mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#fff6e5", color: "#b26a00" }}>
+                            שת״פ{c.collabName ? ` · ${c.collabName}` : ""}
+                          </span>
+                        )}
                       </td>
 
                       {/* Discount */}
@@ -439,6 +491,7 @@ export default function AdminCouponsPage() {
                               {c.usedAt && (
                                 <button onClick={() => handleResetUsed(c.id)} className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }} title="אפס שימוש">↩</button>
                               )}
+                              <button onClick={() => setCollabId(c.id)} className="text-xs px-2 py-1 rounded-lg border whitespace-nowrap" style={{ borderColor: c.collab ? "#b26a00" : "var(--border)", color: c.collab ? "#b26a00" : "var(--text)" }} title="קוד שיתוף פעולה ליוצר תוכן">שת״פ</button>
                               <button onClick={() => handleEdit(c)} className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: "var(--border)", color: "var(--text)" }}>עריכה</button>
                               <button onClick={() => handleDelete(c.id)} className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: "#f5e8e8", color: "var(--maroon)" }}>מחק</button>
                             </>
@@ -454,6 +507,9 @@ export default function AdminCouponsPage() {
         )}
       </div>
     </div>
+    {collabCoupon && (
+      <CollabCodeModal coupon={collabCoupon} onClose={() => setCollabId(null)} onSaved={load} />
+    )}
     {confirm && (
       <ConfirmModal
         message={confirm.message}

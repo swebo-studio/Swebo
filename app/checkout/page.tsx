@@ -43,6 +43,8 @@ export default function CheckoutPage() {
   const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
   /** Set when the redeemed code is a free-shipping coupon: which delivery it covers */
   const [couponFreeShipping, setCouponFreeShipping] = useState<FreeShippingScope | null>(null);
+  /** A content creator's code: it is recorded on the order even when a promotion keeps it from discounting */
+  const [couponCollab, setCouponCollab] = useState(false);
   const [couponError, setCouponError] = useState("");
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
@@ -72,12 +74,16 @@ export default function CheckoutPage() {
     });
     const data = await res.json();
     setValidatingCoupon(false);
-    if (data.valid) {
+    if (data.valid && discountAlreadyActive && !data.collab) {
+      setCouponError("בסל כבר יש הנחה פעילה — לא ניתן לשלב איתה קופון");
+    } else if (data.valid) {
+      setCouponCollab(data.collab === true);
       setCouponDiscount(data.discountPct ?? 0);
       setCouponDiscountAmount(data.discountAmount ?? 0);
       setCouponFreeShipping(isFreeShippingScope(data.freeShipping) ? data.freeShipping : null);
     } else {
       setCouponError(data.error || "קוד לא תקין");
+      setCouponCollab(false);
       setCouponDiscount(0);
       setCouponDiscountAmount(0);
       setCouponFreeShipping(null);
@@ -126,17 +132,18 @@ export default function CheckoutPage() {
   const shippingCouponSavings = couponFreesDelivery(deliveryMode) ? baseDelivery : 0;
   const delivery = baseDelivery - shippingCouponSavings;
   const total = finalSubtotal + delivery;
-  const couponApplied = couponSavings > 0 || shippingCoupon !== null;
+  const couponApplied = couponSavings > 0 || shippingCoupon !== null || couponCollab;
 
-  // Drop anything already typed/applied the moment a promotion takes over
+  // Drop anything already typed/applied the moment a promotion takes over —
+  // except a creator's code, which still credits the creator
   useEffect(() => {
-    if (!discountAlreadyActive) return;
+    if (!discountAlreadyActive || couponCollab) return;
     setCouponInput("");
     setCouponDiscount(0);
     setCouponDiscountAmount(0);
     setCouponFreeShipping(null);
     setCouponError("");
-  }, [discountAlreadyActive]);
+  }, [discountAlreadyActive, couponCollab]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -171,7 +178,7 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          couponCode: (!discountAlreadyActive && (couponDiscount > 0 || couponDiscountAmount > 0 || shippingCouponSavings > 0)) ? couponInput.trim().toUpperCase() : undefined,
+          couponCode: couponCollab || (!discountAlreadyActive && (couponDiscount > 0 || couponDiscountAmount > 0 || shippingCouponSavings > 0)) ? couponInput.trim().toUpperCase() : undefined,
           customer: {
             name: form.name,
             email: form.email,
@@ -487,7 +494,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={applyCoupon}
-              disabled={validatingCoupon || couponApplied || discountAlreadyActive}
+              disabled={validatingCoupon || couponApplied}
               className="px-4 py-3 rounded-xl border font-medium text-sm transition-opacity disabled:opacity-50 flex-shrink-0"
               style={{ borderColor: "var(--border)", color: "var(--text)" }}
             >
@@ -497,21 +504,28 @@ export default function CheckoutPage() {
             <input
               id="coupon-code"
               type="text"
-              value={discountAlreadyActive ? "הנחה כבר פעילה" : couponInput}
-              onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponFreeShipping(null); setCouponError(""); }}
+              value={couponInput}
+              onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponCollab(false); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponFreeShipping(null); setCouponError(""); }}
               placeholder="קוד קופון (אופציונלי)"
-              disabled={couponApplied || discountAlreadyActive}
-              readOnly={discountAlreadyActive}
+              disabled={couponApplied}
               aria-describedby={couponError ? "coupon-error" : undefined}
               aria-invalid={couponError ? true : undefined}
               className="flex-1 px-4 py-3 rounded-xl border text-right text-sm disabled:cursor-not-allowed"
               style={{
                 background: "var(--cream-dark)",
-                borderColor: (couponApplied || discountAlreadyActive) ? "var(--green)" : "var(--border)",
-                color: discountAlreadyActive ? "var(--text-muted)" : "var(--text)",
+                borderColor: couponApplied ? "var(--green)" : "var(--border)",
+                color: "var(--text)",
               }}
             />
           </div>
+          {discountAlreadyActive && !couponApplied && !couponError && (
+            <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>בסל כבר יש הנחה פעילה, ולכן קופון הנחה לא יצטרף אליה</p>
+          )}
+          {couponCollab && couponSavings === 0 && !shippingCoupon && (
+            <p role="status" className="text-xs font-bold flex items-center justify-center gap-1 flex-wrap" style={{ color: "var(--green)" }}>
+              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> הקוד {couponInput} נרשם בהזמנה{discountAlreadyActive ? " — ההנחה שכבר בסל נשמרת" : ""}
+            </p>
+          )}
           {couponError && <p id="coupon-error" role="alert" className="text-xs text-center" style={{ color: "var(--maroon)" }}>{couponError}</p>}
           {couponSavings > 0 && (
             <p role="status" className="text-xs font-bold flex items-center justify-center gap-1 flex-wrap" style={{ color: "var(--green)" }}>
