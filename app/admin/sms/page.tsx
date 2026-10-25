@@ -251,7 +251,7 @@ export default function AdminSmsPage() {
               )}
 
               {/* Live preview */}
-              <div className="mt-4 p-3 rounded-xl text-sm text-right" style={{ background: "var(--cream-dark)", color: "var(--text)" }}>
+              <div className="mt-4 p-3 rounded-xl text-sm text-right whitespace-pre-line" style={{ background: "var(--cream-dark)", color: "var(--text)" }}>
                 <p className="text-xs mb-1 font-bold" style={{ color: "var(--text-muted)" }}>תצוגה מקדימה:</p>
                 {preview}
               </div>
