@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import CartClearer from "@/components/CartClearer";
 import { PREORDER_STAGE } from "@/lib/preorder";
+import { orderItemName } from "@/lib/orderItem";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,7 @@ export default async function OrderPage(
                 </span>
                 <div className="text-right">
                   <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-                    {item.product.nameHe} × {item.quantity}
+                    {orderItemName(item)} × {item.quantity}
                   </p>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     מידה {item.size}{item.color ? ` · ${item.color}` : ""}

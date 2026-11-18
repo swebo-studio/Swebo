@@ -8,6 +8,7 @@ import { promotionPricing } from "@/lib/cartPricing";
 import { alertStalePendingOrders } from "@/lib/pendingOrders";
 import { collabCommission, isCreatorsOwnOrder } from "@/lib/collab";
 import { isPreorder, PREORDER_STAGE } from "@/lib/preorder";
+import { snapshotImage } from "@/lib/orderItem";
 
 const MAX_TEXT = 120;
 const text = (v: unknown, max = MAX_TEXT) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -56,15 +57,19 @@ export async function POST(req: NextRequest) {
   // A preorder in the cart holds the whole order — one parcel, no partial
   // shipment — in the preorders column until an admin releases it.
   let hasPreorder = false;
+  // Each line keeps its own copy of the product's name and photo
+  type Snapshot = Parameters<typeof snapshotImage>[0] & { nameHe: string };
+  const productSnapshots = new Map<string, Snapshot>();
 
   // Validate stock before accepting the order
   {
     const productIds = [...new Set(requested.map((i) => i.productId as string))];
     const products = await prisma.product.findMany({
       where: { id: { in: productIds }, active: true },
-      include: { colors: { include: { sizes: true } } },
+      include: { colors: { include: { sizes: true, images: true } } },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
+    products.forEach((p) => productSnapshots.set(p.id, p));
 
     cartItems = requested.map((i) => ({
       productId: i.productId as string,
@@ -78,11 +83,11 @@ export async function POST(req: NextRequest) {
       const product = productMap.get(item.productId);
       if (!product) return Response.json({ error: "מוצר לא נמצא" }, { status: 400 });
 
-      // Preorders sell regardless of stock — the stock is on its way
+      // A preorder's stock is known in advance, so it sells only what is
+      // there, like any product — the order just waits for its release.
       if (isPreorder(product)) {
         item.preorder = true;
         hasPreorder = true;
-        continue;
       }
 
       let available = 0;
@@ -202,6 +207,8 @@ export async function POST(req: NextRequest) {
       items: {
         create: effectiveItems.map((item: CartLine) => ({
           productId: item.productId,
+          productName: productSnapshots.get(item.productId)?.nameHe ?? "",
+          productImage: productSnapshots.has(item.productId) ? snapshotImage(productSnapshots.get(item.productId)!, item.color) : null,
           quantity: item.quantity,
           size: item.size,
           color: item.color ?? null,

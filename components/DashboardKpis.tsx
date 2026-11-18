@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { MonthKey, ShippingMonth } from "@/lib/shippingRevenue";
+import type { EarningsMonth, MonthKey, ShippingMonth } from "@/lib/shippingRevenue";
 
 const MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
@@ -12,6 +12,7 @@ export default function DashboardKpis({
   pendingOrders,
   activeProducts,
   shipping,
+  earnings,
   currentMonth,
 }: {
   allTime: WindowStats;
@@ -19,6 +20,7 @@ export default function DashboardKpis({
   pendingOrders: number;
   activeProducts: number;
   shipping: Record<MonthKey, ShippingMonth>;
+  earnings: Record<MonthKey, EarningsMonth>;
   /** "YYYY-MM" in Israel time, from the server so both renders agree */
   currentMonth: MonthKey;
 }) {
@@ -30,10 +32,14 @@ export default function DashboardKpis({
   const [year, setYear] = useState(curYear);
   const [month, setMonth] = useState(curMonth);
   // Every year with orders, through the current one
-  const firstYear = Math.min(curYear, ...Object.keys(shipping).map((k) => Number(k.slice(0, 4))));
+  const firstYear = Math.min(curYear, ...Object.keys(earnings).map((k) => Number(k.slice(0, 4))));
   const years = Array.from({ length: curYear - firstYear + 1 }, (_, i) => curYear - i);
-  const ship = shipping[`${year}-${String(month).padStart(2, "0")}`] ?? { collected: 0, refunded: 0, paidShippingCount: 0 };
+  const key = `${year}-${String(month).padStart(2, "0")}`;
+  const ship = shipping[key] ?? { collected: 0, refunded: 0, paidShippingCount: 0 };
   const shipNet = ship.collected - ship.refunded;
+  const earn = earnings[key] ?? { collected: 0, refunded: 0, paidCount: 0 };
+  const earnNet = earn.collected - earn.refunded;
+  const blurStyle = { filter: revenueShown ? "none" : "blur(9px)", userSelect: revenueShown ? "auto" : "none" } as const;
   const money = (n: number) => `₪${n.toLocaleString()}`;
   const selectStyle = { background: "var(--cream)", borderColor: "var(--border)", color: "var(--text)" };
 
@@ -103,15 +109,10 @@ export default function DashboardKpis({
         })}
       </div>
 
-      {/* Delivery fees customers paid — not what HFD charges the shop */}
-      <div
-        className="mt-4 p-5 rounded-2xl border text-right"
-        style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            הכנסות מדמי משלוח (שולמו ע״י לקוחות)
-          </p>
+      {/* Month by month: what customers paid, and the delivery fees within it */}
+      <div className="mt-4 p-5 rounded-2xl border text-right" style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <p className="text-sm font-bold" style={{ color: "var(--text)" }}>לפי חודש</p>
           <div className="flex gap-2">
             <select
               aria-label="חודש"
@@ -142,15 +143,28 @@ export default function DashboardKpis({
           onClick={() => setRevenueShown((v) => !v)}
           aria-label={revenueShown ? "הסתר הכנסות" : "הצג הכנסות"}
           title={revenueShown ? "לחצו כדי להסתיר" : "לחצו כדי להציג"}
-          className="block w-full text-right cursor-pointer transition-all"
-          style={{ filter: revenueShown ? "none" : "blur(9px)", userSelect: revenueShown ? "auto" : "none" }}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full text-right cursor-pointer"
         >
-          <span className="block text-2xl font-extrabold" style={{ color: "var(--green)" }}>
-            {money(shipNet)}
+          <span className="block p-4 rounded-xl" style={{ background: "var(--cream)" }}>
+            <span className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>הכנסות (שולמו)</span>
+            <span className="block transition-all" style={blurStyle}>
+              <span className="block text-2xl font-extrabold" style={{ color: "var(--green)" }}>{money(earnNet)}</span>
+              <span className="block text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                {earn.paidCount} הזמנות שולמו
+                {earn.refunded > 0 && ` · נגבו ${money(earn.collected)} · הוחזרו בביטולים ${money(earn.refunded)}`}
+              </span>
+            </span>
           </span>
-          <span className="block text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            {ship.paidShippingCount} הזמנות שילמו על משלוח · נגבו {money(ship.collected)}
-            {ship.refunded > 0 && ` · הוחזרו בביטולים ${money(ship.refunded)}`}
+          {/* Delivery fees customers paid — not what HFD charges the shop */}
+          <span className="block p-4 rounded-xl" style={{ background: "var(--cream)" }}>
+            <span className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>מתוכן דמי משלוח (שולמו ע״י לקוחות)</span>
+            <span className="block transition-all" style={blurStyle}>
+              <span className="block text-2xl font-extrabold" style={{ color: "var(--green)" }}>{money(shipNet)}</span>
+              <span className="block text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                {ship.paidShippingCount} הזמנות שילמו על משלוח · נגבו {money(ship.collected)}
+                {ship.refunded > 0 && ` · הוחזרו בביטולים ${money(ship.refunded)}`}
+              </span>
+            </span>
           </span>
         </button>
       </div>

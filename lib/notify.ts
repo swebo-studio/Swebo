@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { PREORDER_STAGE } from "./preorder";
+import { orderItemName } from "./orderItem";
 import { SMS_TEMPLATES, STAGE_SMS_TEMPLATE, SMS_LOW_BALANCE_THRESHOLD, stageSmsTemplateKey, preorderReleasedTemplateKey, renderSmsTemplate, smsCost } from "./smsTemplates";
 
 export { renderSmsTemplate };
@@ -204,13 +205,13 @@ interface OrderForAdminSms {
   deliveryMode?: string | null;
   pudoPointName?: string | null;
   orderStage?: string | null;
-  items: { quantity: number; size: string; color?: string | null; price: number; product: { nameHe: string } }[];
+  items: { quantity: number; size: string; color?: string | null; price: number; productName?: string | null; product?: { nameHe: string } | null }[];
 }
 
 /** Body of the "new order" SMS the admin gets once an order is paid. */
 export function newOrderAdminMessage(order: OrderForAdminSms): string {
   const itemLines = order.items
-    .map((i) => `• ${i.product.nameHe} × ${i.quantity} (${i.color ?? "ללא צבע"} / מידה ${i.size}) ₪${i.price * i.quantity}`)
+    .map((i) => `• ${orderItemName(i)} × ${i.quantity} (${i.color ?? "ללא צבע"} / מידה ${i.size}) ₪${i.price * i.quantity}`)
     .join("\n");
   const deliveryLine =
     order.deliveryMode === "self" ? "איסוף עצמי" :
@@ -298,7 +299,7 @@ export async function estimateOrderSmsCredits(sample = 50): Promise<OrderSmsEsti
   let customer = 0;
   let admin = 0;
   for (const order of orders) {
-    const items = order.items.map((i) => ({ ...i, nameHe: i.product.nameHe }));
+    const items = order.items.map((i) => ({ ...i, nameHe: orderItemName(i) }));
     customer += credits(renderSmsTemplate(template("sms.orderConfirmation"), orderConfirmationVars({ ...order, items })));
     for (const stage of Object.keys(STAGE_SMS_TEMPLATE)) {
       const key = stageSmsTemplateKey(stage, order.deliveryMode)!;

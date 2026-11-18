@@ -1,7 +1,7 @@
 /**
- * Preorders: a product sold before it is in stock. The customer pays at
- * checkout as usual and the stock goes down (below 0 if need be — that is how
- * many units are owed). The order waits in the "preorder" stage, with no HFD
+ * Preorders: a product sold before it ships, from stock known in advance. The
+ * customer pays at checkout as usual and the stock goes down, never below 0 —
+ * at 0 it is sold out like any product. The order waits in the "preorder" stage, with no HFD
  * shipment, until an admin releases it from the orders page.
  *
  * A product may carry an estimated delivery date, a plain "YYYY-MM-DD" string

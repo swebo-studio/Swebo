@@ -31,7 +31,7 @@ interface Props {
     image: string;
     stock: number;
     colors: ProductColor[];
-    /** Sells as a preorder: every colour and size, whatever the stock says */
+    /** Sells as a preorder: within its stock, shipped when an admin releases it */
     preorder?: boolean;
     /** The preorder's estimated delivery date, "YYYY-MM-DD", when it has one */
     preorderDate?: string | null;
@@ -55,7 +55,6 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
   const searchParams = useSearchParams();
 
   const hasColors = product.colors.length > 0;
-  // A preorder sells every colour and size, whatever the stock says
   const preorder = !!product.preorder;
   const preorderDate = preorder ? product.preorderDate ?? null : null;
 
@@ -123,8 +122,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
     : (selectedColor ? selectedColor.stock : product.stock);
 
   // How many of this exact variant (product + size + color) the user already has in cart
-  // What the customer may buy: unlimited on a preorder
-  const available = preorder ? Infinity : effectiveStock;
+  // What the customer may buy — a preorder too sells only its stock
+  const available = effectiveStock;
 
   const cartQty = items.find(
     (i) => i.productId === product.id && i.size === selectedSize && (i.color ?? "") === (selectedColor?.nameHe ?? "")
@@ -147,7 +146,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
       colorHex: selectedColor?.hex,
       quantity: 1,
       image: mainImg || product.image,
-      maxQty: preorder ? undefined : effectiveStock,
+      maxQty: effectiveStock,
       preorder: preorder || undefined,
       preorderDate: preorderDate ?? undefined,
     });
@@ -215,9 +214,9 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                   <button
                     key={c.id}
                     onClick={() => handleColorSelect(c)}
-                    disabled={c.stock <= 0 && !preorder}
+                    disabled={c.stock <= 0}
                     aria-pressed={selectedColor?.id === c.id}
-                    aria-label={c.stock <= 0 && !preorder ? `צבע ${c.nameHe} — אזל מהמלאי` : `צבע ${c.nameHe}`}
+                    aria-label={c.stock <= 0 ? `צבע ${c.nameHe} — אזל מהמלאי` : `צבע ${c.nameHe}`}
                     title={c.nameHe}
                     className="flex flex-col items-center gap-1.5 transition-opacity disabled:opacity-35"
                   >
@@ -252,19 +251,19 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         )}
 
         {/* Stock badge */}
-        {preorder && (
+        {preorder && effectiveStock > 0 && (
           <div role="status" className="text-sm px-4 py-3 rounded-xl text-right" style={{ background: "#eaf0f7", color: "#1F3A5F", border: "1.5px solid #1F3A5F" }}>
             <p className="font-bold">הזמנה מוקדמת</p>
             <p>התשלום עכשיו, וההזמנה תישלח ברגע שהמלאי יגיע.</p>
             {preorderDate && <p>אספקה משוערת: {formatShipDate(preorderDate)}</p>}
           </div>
         )}
-        {!preorder && effectiveStock <= 0 && (
+        {effectiveStock <= 0 && (
           <p role="status" className="text-sm px-3 py-1.5 rounded-full self-end" style={{ background: "#f5e8e8", color: "var(--maroon)" }}>
             אזל מהמלאי
           </p>
         )}
-        {!preorder && effectiveStock > 0 && effectiveStock <= 3 && (
+        {effectiveStock > 0 && effectiveStock <= 3 && (
           <p role="status" className="text-sm px-4 py-2 rounded-full self-end font-bold" style={{ background: "#fff3e0", color: "var(--warn)", border: "1.5px solid var(--warn)" }}>
             נשארו {effectiveStock} אחרונים בלבד<span aria-hidden="true">❗️</span>
           </p>
@@ -285,8 +284,8 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
             <div role="group" aria-labelledby="size-picker-label" className="flex gap-2 justify-end flex-wrap">
               {sizeOptions.map((s) => {
                 const stock = sizeStock(s);
-                const outOfStock = !preorder && sizeStocks.length > 0 && stock <= 0;
-                const lowStock = !preorder && sizeStocks.length > 0 && stock <= 3 && stock > 0;
+                const outOfStock = sizeStocks.length > 0 && stock <= 0;
+                const lowStock = sizeStocks.length > 0 && stock <= 3 && stock > 0;
                 return (
                   <button
                     key={s}
@@ -315,7 +314,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                 );
               })}
             </div>
-            {!preorder && sizeStocks.length > 0 && sizeStocks.some((s) => s.stock <= 0) && (
+            {sizeStocks.length > 0 && sizeStocks.some((s) => s.stock <= 0) && (
               <p className="text-xs text-right mt-1" style={{ color: "var(--text-muted)" }}>
                 * מידות חסרות במלאי —{" "}
                 <a

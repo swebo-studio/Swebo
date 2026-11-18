@@ -154,7 +154,12 @@ model Order {
 model OrderItem {
   id        String  @id @default(cuid())
   orderId   String
-  productId String
+  /// null once the product is deleted — the order keeps its own copy below
+  productId String?
+  /// What was bought, copied when the order is placed, so the order history
+  /// never depends on the product still existing or keeping its name/photo.
+  productName  String  @default("")
+  productImage String?
   quantity  Int
   size      String
   color     String?
@@ -163,7 +168,7 @@ model OrderItem {
   /// admin releases it.
   preorder  Boolean @default(false)
   order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 }
 
 model Admin {

@@ -87,8 +87,8 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  // Remove order item references first (no cascade on OrderItem → Product)
-  await prisma.orderItem.deleteMany({ where: { productId: id } });
+  // Past orders keep their lines: each holds its own copy of the name and
+  // photo, and the database unlinks them (productId → null) on delete.
   await prisma.product.delete({ where: { id } });
   return Response.json({ success: true });
 }

@@ -49,3 +49,29 @@ export function shippingByMonth(
   }
   return months;
 }
+
+export interface EarningsMonth {
+  /** Everything customers paid for orders placed this month (products,
+   *  shipping, after discounts), cancelled orders included. */
+  collected: number;
+  /** What went back to customers for this month's orders that were cancelled. */
+  refunded: number;
+  /** Paid orders this month, not counting cancelled ones. */
+  paidCount: number;
+}
+
+/** What the shop earned month by month — same rules as shippingByMonth. */
+export function earningsByMonth(
+  orders: { status: string; total: number; createdAt: Date }[],
+): Record<MonthKey, EarningsMonth> {
+  const months: Record<MonthKey, EarningsMonth> = {};
+  for (const o of orders) {
+    if (o.status !== "paid" && o.status !== "cancelled") continue;
+    const paid = o.total > 0 ? o.total : 0;
+    const m = (months[monthKey(o.createdAt)] ??= { collected: 0, refunded: 0, paidCount: 0 });
+    m.collected += paid;
+    if (o.status === "cancelled") m.refunded += paid;
+    else m.paidCount += 1;
+  }
+  return months;
+}

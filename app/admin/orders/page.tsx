@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
 import { PREORDER_STAGE } from "@/lib/preorder";
+import { orderItemName, orderItemImage } from "@/lib/orderItem";
 
 const STAGE_ICONS: Record<string, React.ReactNode> = {
   preorder: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
@@ -63,7 +64,10 @@ interface OrderItem {
   size: string;
   color: string | null;
   price: number;
-  product: { nameHe: string };
+  productName: string;
+  productImage: string | null;
+  /** null once the product was deleted */
+  product: { nameHe: string; image: string } | null;
 }
 
 interface Order {
@@ -381,7 +385,7 @@ export default function AdminOrdersPage() {
                 <div className="flex-1 text-right min-w-0">
                   <p className="font-bold text-sm truncate" style={{ color: "var(--text)" }}>{order.customerName}</p>
                   <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                    {order.items.map((i) => `${i.product.nameHe} ×${i.quantity}`).join(" · ")}
+                    {order.items.map((i) => `${orderItemName(i)} ×${i.quantity}`).join(" · ")}
                   </p>
                   <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
                     <a href={`tel:${order.customerPhone}`} className="underline hover:opacity-70" style={{ color: "var(--text)" }}>
@@ -643,13 +647,22 @@ export default function AdminOrdersPage() {
                                 {order.items.map((item) => (
                                   <div
                                     key={item.id}
-                                    className="flex justify-between px-3 py-2 border-b last:border-0 text-xs"
+                                    className="flex items-center justify-between gap-3 px-3 py-2 border-b last:border-0 text-xs"
                                     style={{ borderColor: "var(--border)" }}
                                   >
-                                    <span style={{ color: "var(--text-muted)" }}>₪{item.price * item.quantity}</span>
-                                    <span style={{ color: "var(--text)" }}>
-                                      {item.product.nameHe} ×{item.quantity}
-                                      {item.color ? ` · ${item.color}` : ""} / מידה {item.size}
+                                    <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>₪{item.price * item.quantity}</span>
+                                    <span className="flex items-center gap-2.5 min-w-0">
+                                      <span className="text-right min-w-0" style={{ color: "var(--text)" }}>
+                                        {orderItemName(item)} ×{item.quantity}
+                                        {item.color ? ` · ${item.color}` : ""}{item.size ? ` / מידה ${item.size}` : ""}
+                                        {!item.product && <span className="block text-[10px]" style={{ color: "var(--text-muted)" }}>המוצר נמחק מהאתר</span>}
+                                      </span>
+                                      {orderItemImage(item) ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={orderItemImage(item)!} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                                      ) : (
+                                        <span className="w-10 h-10 rounded-lg flex-shrink-0" style={{ background: "var(--cream-dark)" }} />
+                                      )}
                                     </span>
                                   </div>
                                 ))}

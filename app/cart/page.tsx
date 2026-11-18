@@ -50,7 +50,6 @@ export default function CartPage() {
   }
 
   function availableFor(item: (typeof items)[0]): number {
-    if (preorderFor(item).preorder) return Infinity;
     // Most specific match wins: exact size → color total → product total
     const keys = item.color
       ? [`${item.productId}|${item.color}|${item.size}`, `${item.productId}|${item.color}|`]

@@ -3,6 +3,7 @@ import { notifyOrderConfirmation, notifyPreorderReleased, notifyAdmin, newOrderA
 import { shekels } from "@/lib/collab";
 import { createHFDShipment } from "@/lib/hfd";
 import { PREORDER_STAGE } from "@/lib/preorder";
+import { orderItemName } from "@/lib/orderItem";
 
 /**
  * Flips an order to "paid" only if it is not paid already, and reports
@@ -38,14 +39,11 @@ export async function fulfillPaidOrder(orderId: string) {
   //    pattern at Read Committed isolation; a separate SELECT then UPDATE
   //    inside a transaction does NOT prevent concurrent oversell.
   const oversoldItems: string[] = [];
-  for (const item of order.items) {
+  for (const line of order.items) {
+    // A product deleted between checkout and payment has no stock to take
+    if (!line.productId) continue;
+    const item = { ...line, productId: line.productId };
     try {
-      // A preorder sells stock that has not arrived yet: take it anyway, below
-      // 0 if need be — the shortfall is how many units are owed. Not an oversell.
-      if (item.preorder) {
-        await takePreorderStock(item);
-        continue;
-      }
       if (item.color) {
         const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
         if (colorRow) {
@@ -60,7 +58,7 @@ export async function fulfillPaidOrder(orderId: string) {
               where: { colorId: colorRow.id, size: item.size, stock: { gt: 0 } },
               data: { stock: 0 },
             });
-            oversoldItems.push(`${item.product.nameHe} (${item.color} / מידה ${item.size})`);
+            oversoldItems.push(`${orderItemName(item)} (${item.color} / מידה ${item.size})`);
           }
           // Mirror on color-level aggregate (informational, not source of truth)
           await prisma.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
@@ -77,7 +75,7 @@ export async function fulfillPaidOrder(orderId: string) {
           where: { id: item.productId, stock: { gt: 0 } },
           data: { stock: 0 },
         });
-        oversoldItems.push(item.product.nameHe);
+        oversoldItems.push(orderItemName(item));
       }
     } catch (e) {
       console.error("[Post-payment] stock decrement failed for item:", item.productId, e);
@@ -114,7 +112,7 @@ export async function fulfillPaidOrder(orderId: string) {
       total: order.total,
       preorder: order.orderStage === PREORDER_STAGE,
       items: order.items.map((it) => ({
-        nameHe: it.product.nameHe,
+        nameHe: orderItemName(it),
         quantity: it.quantity,
         size: it.size,
         color: it.color,
@@ -157,21 +155,6 @@ export async function fulfillPaidOrder(orderId: string) {
 
   // 5. Warn the admins if this order's texts took credits below the line
   await checkSmsBalance().catch((e) => console.error("[Post-payment] SMS balance check failed:", e));
-}
-
-async function takePreorderStock(item: { productId: string; color: string | null; size: string; quantity: number }) {
-  if (item.color) {
-    const colorRow = await prisma.productColor.findFirst({ where: { productId: item.productId, nameHe: item.color } });
-    if (colorRow) {
-      await prisma.productColorSize.updateMany({
-        where: { colorId: colorRow.id, size: item.size },
-        data: { stock: { decrement: item.quantity } },
-      });
-      await prisma.productColor.update({ where: { id: colorRow.id }, data: { stock: { decrement: item.quantity } } });
-      return;
-    }
-  }
-  await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: item.quantity } } });
 }
 
 /** Orders HFD delivers: home and pickup point, not self-pickup. */

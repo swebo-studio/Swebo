@@ -71,6 +71,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [tab, setTab] = useState<"details" | "colors" | "sizeguide" | "care">("details");
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  // The list's category tab: "all", "none" (no category) or a category id
+  const [categoryTab, setCategoryTab] = useState<string>("all");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -543,6 +545,11 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const showForm = creating || editing !== null;
   const isEdit = editing !== null;
 
+  const shownProducts =
+    categoryTab === "all" ? products
+    : categoryTab === "none" ? products.filter((p) => p.categories.length === 0)
+    : products.filter((p) => p.categories.some((c) => c.id === categoryTab));
+
   return (
     <>
     <div>
@@ -722,18 +729,30 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                     </div>
                     {form.preorder && (
                       <>
-                        <label className="flex items-center justify-end gap-3 text-sm" style={{ color: "var(--text-muted)" }}>
+                        <label htmlFor="preorder-date" className="text-sm text-right -mb-1" style={{ color: "var(--text-muted)" }}>אספקה משוערת (לא חובה)</label>
+                        <div className="flex items-center justify-end gap-3 text-sm">
+                          {/* Phone date pickers have no clear button of their own */}
+                          {form.preorderDate && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, preorderDate: "" }))}
+                              className="text-xs underline flex-shrink-0 hover:opacity-70"
+                              style={{ color: "var(--maroon)" }}
+                            >
+                              נקה תאריך
+                            </button>
+                          )}
                           <input
+                            id="preorder-date"
                             type="date"
                             value={form.preorderDate}
                             onChange={(e) => setForm((f) => ({ ...f, preorderDate: e.target.value }))}
                             className="px-3 py-2 rounded-xl border outline-none"
                             style={inputStyle}
                           />
-                          אספקה משוערת (לא חובה)
-                        </label>
+                        </div>
                         <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>
-                          אפשר לקנות גם בלי מלאי — המלאי יורד גם מתחת ל-0, וזה מספר היחידות שחסרות. הלקוח משלם מיד, וההזמנה מחכה בעמודת ״הזמנות מוקדמות״ עד שמשחררים אותה. כיבוי המתג מחזיר את המוצר למכירה רגילה.
+                          מוכרים רק לפי המלאי שהוגדר — כשהמלאי נגמר המוצר אוזל, כמו מוצר רגיל. הלקוח משלם מיד, וההזמנה מחכה בעמודת ״הזמנות מוקדמות״ עד שמשחררים אותה. כיבוי המתג מחזיר את המוצר למכירה רגילה.
                         </p>
                       </>
                     )}
@@ -1159,10 +1178,42 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
         </div>
       )}
 
+      {/* Category tabs */}
+      {products.length > 0 && (() => {
+        const tabs = [
+          { id: "all", label: "הכל", count: products.length },
+          ...categories.map((c) => ({ id: c.id, label: c.nameHe, count: products.filter((p) => p.categories.some((pc) => pc.id === c.id)).length })),
+          { id: "none", label: "ללא קטגוריה", count: products.filter((p) => p.categories.length === 0).length },
+        ].filter((t) => t.id === "all" || t.count > 0 || t.id === categoryTab);
+        return (
+          <div className="flex flex-wrap gap-2 mb-4" role="tablist" aria-label="סינון לפי קטגוריה">
+            {tabs.map((t) => {
+              const on = categoryTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setCategoryTab(t.id)}
+                  className="px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors"
+                  style={on
+                    ? { background: "var(--text)", color: "var(--cream)", borderColor: "var(--text)" }
+                    : { background: "transparent", color: "var(--text)", borderColor: "var(--border)" }}
+                >
+                  {t.label} <span style={{ opacity: 0.6 }}>({t.count})</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Products table */}
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)" }}>
         {products.length === 0 ? (
           <p className="p-10 text-center" style={{ color: "var(--text-muted)" }}>אין מוצרים עדיין</p>
+        ) : shownProducts.length === 0 ? (
+          <p className="p-10 text-center" style={{ color: "var(--text-muted)" }}>אין מוצרים בקטגוריה הזו</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-right">
@@ -1174,7 +1225,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => {
+                {shownProducts.map((p) => {
                   const displayImg = p.colors[0]?.images[0]?.url || p.image;
                   // Aggregate stock per size across all colors, keeping first-seen
                   // order — sizes are free-form now, so there is no list to sort by.

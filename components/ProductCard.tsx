@@ -13,7 +13,7 @@ interface Props {
   discountedPrice?: number;
   /** promotion tags, each in the corner its promotion chose */
   badges?: CardBadge[];
-  /** Sold as a preorder: never shown sold out */
+  /** Sold as a preorder: tagged so, and sold out like any product at 0 */
   preorder?: boolean;
 }
 
@@ -23,7 +23,7 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
     : stock > 0 && stock <= 3
       ? [{ text: "אחרונים במלאי", color: "var(--warn)", size: "sm", position: "top-right" }]
       : [];
-  const soldOut = stock <= 0 && !preorder;
+  const soldOut = stock <= 0;
   return (
     <Link href={`/product/${id}`} className="group block h-full">
       <div
