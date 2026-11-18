@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import Header from "@/components/Header";
+import { isPreorder } from "@/lib/preorder";
 import ProductCard from "@/components/ProductCard";
 import HeroSection from "@/components/HeroSection";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
@@ -138,7 +139,7 @@ export default async function HomePage({ searchParams }: Props) {
                   {group.products.map((p) => {
                     const displayImg = p.colors[0]?.images[0]?.url || p.image;
                     const totalStock = p.colors.length > 0
-                      ? p.colors.reduce((s, c) => s + c.stock, 0)
+                      ? p.colors.reduce((s, c) => s + Math.max(0, c.stock), 0)
                       : p.stock;
                     const { displayPrice, originalPrice } = computeDisplayPrice(p.price, p.comparePrice, cartDiscountPct);
                     return (
@@ -149,6 +150,7 @@ export default async function HomePage({ searchParams }: Props) {
                         price={originalPrice ?? p.price}
                         image={displayImg}
                         stock={totalStock}
+                        preorder={isPreorder(p)}
                         discountedPrice={originalPrice ? displayPrice : undefined}
                         badges={[...productOwnBadge(p), ...badgesFor(p.id)]}
                       />

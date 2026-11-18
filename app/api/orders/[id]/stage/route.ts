@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { notifyOrderStage } from "@/lib/notify";
+import { PREORDER_STAGE } from "@/lib/preorder";
 
 const VALID_STAGES = ["received", "packed", "shipped", "done"];
 
@@ -21,6 +22,11 @@ export async function PATCH(
 
   const existing = await prisma.order.findUnique({ where: { id } });
   if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
+  // A preorder leaves its column only through its release, which opens the
+  // HFD shipment first
+  if (existing.orderStage === PREORDER_STAGE) {
+    return Response.json({ error: "יש לשחרר את ההזמנה המוקדמת" }, { status: 409 });
+  }
 
   const order = await prisma.order.update({
     where: { id },

@@ -4,8 +4,10 @@ import Image from "next/image";
 import { useCart } from "./CartProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import SizeChartModal from "./SizeChartModal";
+import CareGuideModal from "./CareGuideModal";
 import { buildWhatsAppHref } from "@/lib/whatsapp";
 import { LEGACY_FALLBACK_SIZES } from "@/lib/sizes";
+import { formatShipDate } from "@/lib/preorder";
 
 interface ColorImage { id: string; url: string }
 interface SizeStock { size: string; stock: number }
@@ -29,11 +31,17 @@ interface Props {
     image: string;
     stock: number;
     colors: ProductColor[];
+    /** Sells as a preorder: every colour and size, whatever the stock says */
+    preorder?: boolean;
+    /** The preorder's estimated delivery date, "YYYY-MM-DD", when it has one */
+    preorderDate?: string | null;
   };
   sizeChart: SizeRow[];
   showSizeChart?: boolean;
   sizeGuideImage?: string;
   sizeGuideImages?: string[];
+  /** The product's care-instructions image, or the store-wide one */
+  careImage?: string | null;
   detailsHe?: string;
   shippingInfoText?: string;
   whatsappLink?: string;
@@ -41,12 +49,15 @@ interface Props {
 
 const DEFAULT_SHIPPING_INFO = "משלוח עד הבית - ₪40\nמשלוח לנקודת איסוף - ₪25\n\nתשלום מאובטח דרך HYP";
 
-export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, detailsHe, shippingInfoText = DEFAULT_SHIPPING_INFO, whatsappLink = "" }: Props) {
+export default function ProductDetail({ product, sizeChart, showSizeChart = true, sizeGuideImage, sizeGuideImages, careImage, detailsHe, shippingInfoText = DEFAULT_SHIPPING_INFO, whatsappLink = "" }: Props) {
   const { addItem, items } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const hasColors = product.colors.length > 0;
+  // A preorder sells every colour and size, whatever the stock says
+  const preorder = !!product.preorder;
+  const preorderDate = preorder ? product.preorderDate ?? null : null;
 
   // Init selected color from URL param
   const initialColorId = searchParams.get("color");
@@ -112,11 +123,14 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
     : (selectedColor ? selectedColor.stock : product.stock);
 
   // How many of this exact variant (product + size + color) the user already has in cart
+  // What the customer may buy: unlimited on a preorder
+  const available = preorder ? Infinity : effectiveStock;
+
   const cartQty = items.find(
     (i) => i.productId === product.id && i.size === selectedSize && (i.color ?? "") === (selectedColor?.nameHe ?? "")
   )?.quantity ?? 0;
 
-  const canAdd = selectedSize && effectiveStock > 0 && cartQty < effectiveStock && (!hasColors || selectedColor !== null);
+  const canAdd = selectedSize && available > 0 && cartQty < available && (!hasColors || selectedColor !== null);
 
   // WhatsApp reserve message for out-of-stock
   const reserveMsg = `היי, אני רוצה להזמין: ${product.nameHe}${selectedColor ? ` – ${selectedColor.nameHe}` : ""}${selectedSize ? ` / מידה ${selectedSize}` : ""}`;
@@ -133,7 +147,9 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
       colorHex: selectedColor?.hex,
       quantity: 1,
       image: mainImg || product.image,
-      maxQty: effectiveStock,
+      maxQty: preorder ? undefined : effectiveStock,
+      preorder: preorder || undefined,
+      preorderDate: preorderDate ?? undefined,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -199,9 +215,9 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                   <button
                     key={c.id}
                     onClick={() => handleColorSelect(c)}
-                    disabled={c.stock === 0}
+                    disabled={c.stock <= 0 && !preorder}
                     aria-pressed={selectedColor?.id === c.id}
-                    aria-label={c.stock === 0 ? `צבע ${c.nameHe} — אזל מהמלאי` : `צבע ${c.nameHe}`}
+                    aria-label={c.stock <= 0 && !preorder ? `צבע ${c.nameHe} — אזל מהמלאי` : `צבע ${c.nameHe}`}
                     title={c.nameHe}
                     className="flex flex-col items-center gap-1.5 transition-opacity disabled:opacity-35"
                   >
@@ -236,12 +252,19 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         )}
 
         {/* Stock badge */}
-        {effectiveStock === 0 && (
+        {preorder && (
+          <div role="status" className="text-sm px-4 py-3 rounded-xl text-right" style={{ background: "#eaf0f7", color: "#1F3A5F", border: "1.5px solid #1F3A5F" }}>
+            <p className="font-bold">הזמנה מוקדמת</p>
+            <p>התשלום עכשיו, וההזמנה תישלח ברגע שהמלאי יגיע.</p>
+            {preorderDate && <p>אספקה משוערת: {formatShipDate(preorderDate)}</p>}
+          </div>
+        )}
+        {!preorder && effectiveStock <= 0 && (
           <p role="status" className="text-sm px-3 py-1.5 rounded-full self-end" style={{ background: "#f5e8e8", color: "var(--maroon)" }}>
             אזל מהמלאי
           </p>
         )}
-        {effectiveStock > 0 && effectiveStock <= 3 && (
+        {!preorder && effectiveStock > 0 && effectiveStock <= 3 && (
           <p role="status" className="text-sm px-4 py-2 rounded-full self-end font-bold" style={{ background: "#fff3e0", color: "var(--warn)", border: "1.5px solid var(--warn)" }}>
             נשארו {effectiveStock} אחרונים בלבד<span aria-hidden="true">❗️</span>
           </p>
@@ -251,15 +274,19 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         {(selectedColor || !hasColors) && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              {(showSizeChart || (sizeGuideImages && sizeGuideImages.length > 0) || sizeGuideImage) && (
-                <SizeChartModal rows={showSizeChart ? sizeChart : []} imagePaths={sizeGuideImages} imagePath={sizeGuideImage} />
-              )}
+              <div className="flex items-center gap-4">
+                {(showSizeChart || (sizeGuideImages && sizeGuideImages.length > 0) || sizeGuideImage) && (
+                  <SizeChartModal rows={showSizeChart ? sizeChart : []} imagePaths={sizeGuideImages} imagePath={sizeGuideImage} />
+                )}
+                {careImage && <CareGuideModal image={careImage} />}
+              </div>
               <p id="size-picker-label" className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>בחר מידה:</p>
             </div>
             <div role="group" aria-labelledby="size-picker-label" className="flex gap-2 justify-end flex-wrap">
               {sizeOptions.map((s) => {
                 const stock = sizeStock(s);
-                const outOfStock = sizeStocks.length > 0 && stock === 0;
+                const outOfStock = !preorder && sizeStocks.length > 0 && stock <= 0;
+                const lowStock = !preorder && sizeStocks.length > 0 && stock <= 3 && stock > 0;
                 return (
                   <button
                     key={s}
@@ -269,7 +296,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                     aria-label={
                       outOfStock
                         ? `מידה ${s} — אזלה מהמלאי`
-                        : sizeStocks.length > 0 && stock <= 3
+                        : lowStock
                           ? `מידה ${s} — נותרו ${stock} במלאי`
                           : `מידה ${s}`
                     }
@@ -281,14 +308,14 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
                     }}
                   >
                     {s}
-                    {sizeStocks.length > 0 && stock <= 3 && stock > 0 && (
+                    {lowStock && (
                       <span aria-hidden="true" className="absolute -top-1.5 -left-1.5 text-[9px] text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold" style={{ background: "var(--warn)" }}>!</span>
                     )}
                   </button>
                 );
               })}
             </div>
-            {sizeStocks.length > 0 && sizeStocks.some((s) => s.stock === 0) && (
+            {!preorder && sizeStocks.length > 0 && sizeStocks.some((s) => s.stock <= 0) && (
               <p className="text-xs text-right mt-1" style={{ color: "var(--text-muted)" }}>
                 * מידות חסרות במלאי —{" "}
                 <a
@@ -309,7 +336,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
         <p aria-live="polite" className="sr-only">{added ? `${product.nameHe} נוסף לסל` : ""}</p>
 
         {/* CTA buttons */}
-        {effectiveStock > 0 ? (
+        {available > 0 ? (
           <>
             <button
               onClick={handleAdd}
@@ -317,7 +344,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               className="w-full py-4 rounded-2xl font-bold text-lg transition-all disabled:opacity-40"
               style={{ background: added ? "var(--green)" : "var(--text)", color: "var(--cream)" }}
             >
-              {added ? "נוסף לסל!" : "הוסף לסל"}
+              {added ? "נוסף לסל!" : preorder ? "הזמנה מוקדמת — הוסף לסל" : "הוסף לסל"}
             </button>
             <button
               onClick={() => { if (!canAdd) return; handleAdd(); router.push("/cart"); }}
@@ -325,7 +352,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
               className="w-full py-3 rounded-2xl font-bold text-base border-2 transition-all disabled:opacity-40"
               style={{ borderColor: "var(--text)", color: "var(--text)", background: "transparent" }}
             >
-              קנה עכשיו
+              {preorder ? "הזמן עכשיו" : "קנה עכשיו"}
             </button>
           </>
         ) : (

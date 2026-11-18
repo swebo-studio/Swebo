@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDialogA11y } from "@/lib/useDialogA11y";
+import { sitePopupsSettled } from "@/lib/sitePopupGate";
 
 const STORAGE_KEY = "swebo_newsletter_popup_dismissed";
 const SHOW_DELAY_MS = 1200;
@@ -25,8 +26,13 @@ export default function NewsletterPopup() {
     } catch {
       // ignore (e.g. localStorage unavailable)
     }
-    const timer = setTimeout(() => setOpen(true), SHOW_DELAY_MS);
-    return () => clearTimeout(timer);
+    // Not on top of an admin message the visitor has to acknowledge first
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    sitePopupsSettled.then(() => {
+      if (!cancelled) timer = setTimeout(() => setOpen(true), SHOW_DELAY_MS);
+    });
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   const close = useCallback(() => {

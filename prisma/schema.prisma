@@ -41,6 +41,9 @@ model Product {
   /// null = follow the store-wide setting. The cm table only fits garments,
   /// so shoe products turn it off without hiding it everywhere.
   showSizeChart Boolean?
+  /// This product's own care-instructions image. null = the store-wide one
+  /// (SiteConfig "careGuide.imagePath").
+  careImage     String?
   /// The product's own tag on its card, apart from any promotion's tag.
   /// badgeText null = no tag.
   badgeText     String?
@@ -49,6 +52,11 @@ model Product {
   badgeSize     String         @default("md")
   /// "top-right" | "top-left" | "bottom-right" | "bottom-left"
   badgePosition String         @default("top-left")
+  /// Sold as a preorder: buyable at any stock (stock may go below 0, showing
+  /// how many units are owed), and its orders wait for a manual release.
+  preorder      Boolean        @default(false)
+  /// Optional "YYYY-MM-DD" estimated delivery date shown to customers.
+  preorderDate  String?
   categories    Category[]     @relation("ProductCategories")
   categoryOrders CategoryProductOrder[]
   createdAt     DateTime       @default(now())
@@ -133,6 +141,10 @@ model Order {
   pendingAlertAt      DateTime?
   /// Flagged by an admin in the orders list, e.g. to come back to it.
   starred             Boolean   @default(false)
+  /// Set while an HFD shipment is being created for this order, so the
+  /// payment redirect, a preorder release and the admin's button never ship
+  /// it twice. Cleared again when HFD refuses, so it can be retried.
+  hfdSentAt           DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -147,6 +159,9 @@ model OrderItem {
   size      String
   color     String?
   price     Float
+  /// Bought as a preorder. Its order waits in the "preorder" stage until an
+  /// admin releases it.
+  preorder  Boolean @default(false)
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
 }
@@ -301,4 +316,29 @@ model CollabPayout {
   createdAt DateTime @default(now())
 
   @@index([couponId])
+}
+
+/// A message shown over the storefront that the visitor has to acknowledge
+/// ("קראתי ואני מאשר") before browsing on. Managed at /admin/popups.
+model SitePopup {
+  id        String    @id @default(cuid())
+  /// Large heading, e.g. "הוראות כביסה"
+  title     String    @default("")
+  /// Line under the heading, e.g. "נא לקרוא את הוראות הכביסה לפני המשך הקנייה"
+  subtitle  String    @default("")
+  /// Plain text; line breaks are kept. Empty for an image-only popup.
+  text      String    @default("")
+  /// Uploaded image URL. null for a text-only popup.
+  image     String?
+  active    Boolean   @default(true)
+  /// "visit" = once per visit (browser session) · "once" = once per browser,
+  /// for good, after it was acknowledged
+  frequency String    @default("visit")
+  /// Shown from / until this moment; null = no limit on that side
+  startsAt  DateTime?
+  endsAt    DateTime?
+  /// Bumped to show the popup again to visitors who already acknowledged it
+  version   Int       @default(1)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }

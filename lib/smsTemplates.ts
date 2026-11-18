@@ -17,6 +17,7 @@ export const SMS_GROUP_GENERAL = "הודעות כלליות";
 export const SMS_GROUP_STAGE_DELIVERY = "עדכוני סטטוס — משלוח עד הבית";
 export const SMS_GROUP_STAGE_EPOST = "עדכוני סטטוס — משלוח לנקודת איסוף";
 export const SMS_GROUP_STAGE_PICKUP = "עדכוני סטטוס — איסוף עצמי";
+export const SMS_GROUP_PREORDER = "הזמנות מוקדמות";
 
 export const SMS_TEMPLATES: Record<string, SmsTemplateDef> = {
   "sms.couponSignup": {
@@ -60,6 +61,53 @@ export const SMS_TEMPLATES: Record<string, SmsTemplateDef> = {
       { tag: "{commission}", desc: "העמלה של יוצר התוכן מההזמנה" },
     ],
     group: SMS_GROUP_GENERAL,
+  },
+
+  // ── Preorders ─────────────────────────────────────────────────────────
+  "sms.preorderConfirmation": {
+    label: "אישור הזמנה מוקדמת",
+    description: "נשלח במקום אישור ההזמנה הרגיל, מיד לאחר תשלום על הזמנה שיש בה מוצר במכירה מוקדמת",
+    default: "היי! ❤️ תודה שהזמנת מ-SWEBO!\n\nהזמנה מספר {orderId} התקבלה בהצלחה ✅\n\n🚨❗️ שימו לב – זוהי הזמנה מוקדמת!\n\nנא לשים לב לפרטי המכירה המוקדמת ולמועדי האספקה המשוערים המצוינים בעמוד המוצר באתר.\n\nברגע שההזמנה תהיה מוכנה ותועבר לחברת המשלוחים, תקבלו עדכון נוסף 📦\n\nתודה שבחרתם ב-SWEBO ❤️",
+    placeholders: [
+      { tag: "{name}", desc: "שם הלקוח" },
+      { tag: "{orderId}", desc: "מספר הזמנה (6 ספרות אחרונות)" },
+      { tag: "{items}", desc: "רשימת פריטים בהזמנה" },
+      { tag: "{total}", desc: "סכום לתשלום" },
+    ],
+    group: SMS_GROUP_PREORDER,
+  },
+  "sms.preorderReleased": {
+    label: "הזמנה מוקדמת שוחררה — משלוח עד הבית",
+    description: "נשלח כשמשחררים הזמנה מוקדמת של משלוח עד הבית (אחרי שנפתח לה משלוח ב-HFD)",
+    default: "היי! ❤️\n\nההזמנה המוקדמת שלך מ-SWEBO נארזה והועברה לחברת המשלוחים! 📦\n\nבקרוב תקבל עדכון בנוגע למסירת המשלוח.",
+    placeholders: [
+      { tag: "{name}", desc: "שם הלקוח" },
+      { tag: "{orderId}", desc: "מספר הזמנה (6 ספרות אחרונות)" },
+      { tag: "{shipment}", desc: "מספר משלוח HFD" },
+    ],
+    group: SMS_GROUP_PREORDER,
+  },
+  "sms.preorderReleasedEpost": {
+    label: "הזמנה מוקדמת שוחררה — נקודת איסוף",
+    description: "נשלח כשמשחררים הזמנה מוקדמת למשלוח לנקודת איסוף (אחרי שנפתח לה משלוח ב-HFD)",
+    default: "היי! ❤️\n\nההזמנה המוקדמת שלך מ-SWEBO נארזה והועברה למשלוח לנקודת האיסוף שבחרת! 📦\n\nתקבל הודעה ברגע שהחבילה תהיה מוכנה לאיסוף.",
+    placeholders: [
+      { tag: "{name}", desc: "שם הלקוח" },
+      { tag: "{orderId}", desc: "מספר הזמנה (6 ספרות אחרונות)" },
+      { tag: "{pudo}", desc: "שם נקודת האיסוף" },
+      { tag: "{shipment}", desc: "מספר משלוח HFD" },
+    ],
+    group: SMS_GROUP_PREORDER,
+  },
+  "sms.preorderReleasedPickup": {
+    label: "הזמנה מוקדמת שוחררה — איסוף עצמי",
+    description: "נשלח כשמשחררים הזמנה מוקדמת באיסוף עצמי (אין משלוח ב-HFD). השאירו ריק כדי לא לשלוח",
+    default: "היי! ❤️\n\nההזמנה המוקדמת שלך מ-SWEBO נארזה! 📦\n\nנעדכן ברגע שתהיה מוכנה לאיסוף.",
+    placeholders: [
+      { tag: "{name}", desc: "שם הלקוח" },
+      { tag: "{orderId}", desc: "מספר הזמנה (6 ספרות אחרונות)" },
+    ],
+    group: SMS_GROUP_PREORDER,
   },
 
   // ── Stage updates: home delivery (also the fallback for legacy orders
@@ -193,6 +241,13 @@ export function stageSmsTemplateKey(
   if (deliveryMode === "self") return entry.pickup;
   if (deliveryMode === "epost") return entry.epost;
   return entry.home;
+}
+
+/** The text a released preorder's buyer gets, by how it is delivered. */
+export function preorderReleasedTemplateKey(deliveryMode: string | null | undefined): string {
+  if (deliveryMode === "self") return "sms.preorderReleasedPickup";
+  if (deliveryMode === "epost") return "sms.preorderReleasedEpost";
+  return "sms.preorderReleased";
 }
 
 /** At or below this many credits every admin gets one "time to refill" SMS. */

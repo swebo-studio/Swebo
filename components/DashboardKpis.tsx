@@ -1,5 +1,8 @@
 "use client";
 import { useState } from "react";
+import type { MonthKey, ShippingMonth } from "@/lib/shippingRevenue";
+
+const MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
 interface WindowStats { revenue: number; paidCount: number }
 
@@ -8,15 +11,31 @@ export default function DashboardKpis({
   last30,
   pendingOrders,
   activeProducts,
+  shipping,
+  currentMonth,
 }: {
   allTime: WindowStats;
   last30: WindowStats;
   pendingOrders: number;
   activeProducts: number;
+  shipping: Record<MonthKey, ShippingMonth>;
+  /** "YYYY-MM" in Israel time, from the server so both renders agree */
+  currentMonth: MonthKey;
 }) {
   const [range, setRange] = useState<"all" | "30d">("all");
   const [revenueShown, setRevenueShown] = useState(false);
   const stats = range === "all" ? allTime : last30;
+
+  const [curYear, curMonth] = currentMonth.split("-").map(Number);
+  const [year, setYear] = useState(curYear);
+  const [month, setMonth] = useState(curMonth);
+  // Every year with orders, through the current one
+  const firstYear = Math.min(curYear, ...Object.keys(shipping).map((k) => Number(k.slice(0, 4))));
+  const years = Array.from({ length: curYear - firstYear + 1 }, (_, i) => curYear - i);
+  const ship = shipping[`${year}-${String(month).padStart(2, "0")}`] ?? { collected: 0, refunded: 0, paidShippingCount: 0 };
+  const shipNet = ship.collected - ship.refunded;
+  const money = (n: number) => `₪${n.toLocaleString()}`;
+  const selectStyle = { background: "var(--cream)", borderColor: "var(--border)", color: "var(--text)" };
 
   const ranges = [
     { key: "30d" as const, label: "30 ימים אחרונים" },
@@ -82,6 +101,58 @@ export default function DashboardKpis({
             </div>
           );
         })}
+      </div>
+
+      {/* Delivery fees customers paid — not what HFD charges the shop */}
+      <div
+        className="mt-4 p-5 rounded-2xl border text-right"
+        style={{ background: "var(--cream-dark)", borderColor: "var(--border)" }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            הכנסות מדמי משלוח (שולמו ע״י לקוחות)
+          </p>
+          <div className="flex gap-2">
+            <select
+              aria-label="חודש"
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              className="px-3 py-1.5 rounded-full text-sm font-bold border"
+              style={selectStyle}
+            >
+              {MONTHS.map((name, i) => (
+                <option key={name} value={i + 1}>{name}</option>
+              ))}
+            </select>
+            <select
+              aria-label="שנה"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="px-3 py-1.5 rounded-full text-sm font-bold border"
+              style={selectStyle}
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setRevenueShown((v) => !v)}
+          aria-label={revenueShown ? "הסתר הכנסות" : "הצג הכנסות"}
+          title={revenueShown ? "לחצו כדי להסתיר" : "לחצו כדי להציג"}
+          className="block w-full text-right cursor-pointer transition-all"
+          style={{ filter: revenueShown ? "none" : "blur(9px)", userSelect: revenueShown ? "auto" : "none" }}
+        >
+          <span className="block text-2xl font-extrabold" style={{ color: "var(--green)" }}>
+            {money(shipNet)}
+          </span>
+          <span className="block text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            {ship.paidShippingCount} הזמנות שילמו על משלוח · נגבו {money(ship.collected)}
+            {ship.refunded > 0 && ` · הוחזרו בביטולים ${money(ship.refunded)}`}
+          </span>
+        </button>
       </div>
     </div>
   );

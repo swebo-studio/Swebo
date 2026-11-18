@@ -132,6 +132,8 @@ export default function CheckoutPage() {
   const shippingCouponSavings = couponFreesDelivery(deliveryMode) ? baseDelivery : 0;
   const delivery = baseDelivery - shippingCouponSavings;
   const total = finalSubtotal + delivery;
+  // A preorder holds the whole order until it is released
+  const hasPreorder = items.some((i) => i.preorder);
   const couponApplied = couponSavings > 0 || shippingCoupon !== null || couponCollab;
 
   // Drop anything already typed/applied the moment a promotion takes over —
@@ -596,6 +598,11 @@ export default function CheckoutPage() {
                 </div>
               );
             })}
+            {hasPreorder && (
+              <p className="text-xs mt-2 mb-1 px-3 py-2 rounded-xl font-medium" style={{ background: "#eaf0f7", color: "#1F3A5F" }}>
+                ההזמנה כוללת פריט בהזמנה מוקדמת — התשלום עכשיו, וכל ההזמנה תישלח יחד ברגע שהמלאי יגיע. נעדכן ב-SMS.
+              </p>
+            )}
             {cartLevelDiscount > 0 && (
               <div className="flex justify-between text-sm mt-2 font-bold" style={{ color: "var(--green)" }}>
                 <span>−₪{cartLevelDiscount}</span>

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import ProductDetail from "@/components/ProductDetail";
+import { isPreorder, preorderEstimate } from "@/lib/preorder";
 import ProductCard from "@/components/ProductCard";
 import WhatsAppBubble from "@/components/WhatsAppBubble";
 import { Suspense } from "react";
@@ -147,11 +148,14 @@ export default async function ProductPage(
               image: product.image,
               stock: product.stock,
               colors: product.colors,
+              preorder: isPreorder(product),
+              preorderDate: preorderEstimate(product),
             }}
             sizeChart={sizeChart}
             showSizeChart={showSizeChart}
             sizeGuideImages={sizeGuideImages.length > 0 ? sizeGuideImages : undefined}
             sizeGuideImage={sizeGuideImages[0] || undefined}
+            careImage={product.careImage || cfg["careGuide.imagePath"] || null}
             detailsHe={product.detailsHe}
             shippingInfoText={cfg["shippingInfo.text"] || undefined}
             whatsappLink={cfg["contact.whatsapp"] || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ""}
@@ -167,7 +171,7 @@ export default async function ProductPage(
               {relatedProducts.map((p) => {
                 const displayImg = p.colors[0]?.images[0]?.url || p.image;
                 const totalStock = p.colors.length > 0
-                  ? p.colors.reduce((s, c) => s + c.stock, 0)
+                  ? p.colors.reduce((s, c) => s + Math.max(0, c.stock), 0)
                   : p.stock;
                 const related = computeDisplayPrice(p.price, p.comparePrice, cartDiscountPct);
                 return (
@@ -178,6 +182,7 @@ export default async function ProductPage(
                     price={related.originalPrice ?? p.price}
                     image={displayImg}
                     stock={totalStock}
+                    preorder={isPreorder(p)}
                     discountedPrice={related.originalPrice ? related.displayPrice : undefined}
                     badges={[...productOwnBadge(p), ...badgesFor(p.id)]}
                   />

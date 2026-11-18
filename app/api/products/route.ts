@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { productBadgeInput } from "@/lib/promotionBadges";
+import { preorderInput } from "@/lib/preorder";
 
 export async function GET() {
   const products = await prisma.product.findMany({
@@ -17,9 +18,12 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const categoryIds: string[] = body.categoryIds ?? (body.categoryId ? [body.categoryId] : []);
+  const preorder = preorderInput(body);
+  if (!preorder.ok) return Response.json({ error: preorder.error }, { status: 400 });
   const product = await prisma.product.create({
     data: {
       nameHe: body.nameHe,
+      ...preorder.data,
       descriptionHe: body.descriptionHe ?? "",
       detailsHe: body.detailsHe ?? "",
       price: body.price ?? 150,

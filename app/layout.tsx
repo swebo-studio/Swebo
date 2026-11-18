@@ -7,6 +7,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
 import NewsletterPopup from "@/components/NewsletterPopup";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
+import SitePopups from "@/components/SitePopups";
 
 const heebo = Heebo({
   subsets: ["hebrew", "latin"],
@@ -72,6 +73,7 @@ export default function RootLayout({
           {children}
           <NewsletterPopup />
           <AccessibilityWidget />
+          <SitePopups />
         </CartProvider>
       </body>
     </html>

@@ -1,12 +1,15 @@
 import { prisma } from "./db";
-import { SMS_TEMPLATES, STAGE_SMS_TEMPLATE, SMS_LOW_BALANCE_THRESHOLD, stageSmsTemplateKey, renderSmsTemplate, smsCost } from "./smsTemplates";
+import { PREORDER_STAGE } from "./preorder";
+import { SMS_TEMPLATES, STAGE_SMS_TEMPLATE, SMS_LOW_BALANCE_THRESHOLD, stageSmsTemplateKey, preorderReleasedTemplateKey, renderSmsTemplate, smsCost } from "./smsTemplates";
 
 export { renderSmsTemplate };
 
-/** Fetch a (possibly admin-customized) SMS template, falling back to its default. */
+/** Fetch a (possibly admin-customized) SMS template, falling back to its
+ *  default only when the admin never saved one. A template saved empty means
+ *  "don't send" — sendSMS skips empty messages. */
 export async function getSmsTemplate(key: keyof typeof SMS_TEMPLATES): Promise<string> {
   const row = await prisma.siteConfig.findUnique({ where: { key } });
-  return row?.value || SMS_TEMPLATES[key].default;
+  return row ? row.value : SMS_TEMPLATES[key].default;
 }
 
 const AT_BASE = "https://webapi.mymarketing.co.il/api";
@@ -21,6 +24,8 @@ function atHeaders() {
 
 // ── SMS ───────────────────────────────────────────────────────────────────
 export async function sendSMS(phone: string, message: string): Promise<boolean> {
+  // An admin who cleared a template turned that message off
+  if (!message.trim()) return false;
   const apiKey = process.env.ACTIVETRAIL_API_KEY;
   // Returning quietly here once cost hours of looking in the wrong place: the
   // request succeeded, the code reached the database, and nothing anywhere
@@ -198,6 +203,7 @@ interface OrderForAdminSms {
   city: string;
   deliveryMode?: string | null;
   pudoPointName?: string | null;
+  orderStage?: string | null;
   items: { quantity: number; size: string; color?: string | null; price: number; product: { nameHe: string } }[];
 }
 
@@ -210,7 +216,8 @@ export function newOrderAdminMessage(order: OrderForAdminSms): string {
     order.deliveryMode === "self" ? "איסוף עצמי" :
     order.deliveryMode === "epost" ? `נקודת איסוף: ${order.pudoPointName ?? ""} (${order.city})` :
     `משלוח לכתובת: ${order.address}${order.floor ? `, קומה ${order.floor}` : ""}${order.apartment ? `, דירה ${order.apartment}` : ""}, ${order.city}`;
-  return `הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n${deliveryLine}\n\n${itemLines}`;
+  const preorderLine = order.orderStage === PREORDER_STAGE ? "הזמנה מוקדמת — ממתינה לשחרור\n" : "";
+  return `${preorderLine}הזמנה #${order.id.slice(-6).toUpperCase()}\nלקוח: ${order.customerName}\nטל: ${order.customerPhone}\nסה"כ: ₪${order.total}\n${deliveryLine}\n\n${itemLines}`;
 }
 
 // ── notifyOrderConfirmation: "thank you for your order" SMS ──────────────
@@ -232,12 +239,29 @@ function orderConfirmationVars(order: OrderForConfirmationSms): Record<string, s
 
 export async function notifyOrderConfirmation(order: OrderForConfirmationSms & {
   customerPhone: string;
+  /** A preorder gets its own confirmation, saying shipping waits for the goods */
+  preorder?: boolean;
   items: { nameHe: string; quantity: number; size: string; color?: string | null; price: number }[];
 }): Promise<void> {
   if (!order.customerPhone) return;
 
-  const template = await getSmsTemplate("sms.orderConfirmation");
+  const template = await getSmsTemplate(order.preorder ? "sms.preorderConfirmation" : "sms.orderConfirmation");
   await sendSMS(order.customerPhone, renderSmsTemplate(template, orderConfirmationVars(order)));
+}
+
+/** Tell the buyer their preorder was released: packed and handed to shipping. */
+export async function notifyPreorderReleased(order: {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  deliveryMode?: string | null;
+  shipmentNumber?: string | null;
+  pudoPointName?: string | null;
+}): Promise<void> {
+  if (!order.customerPhone) return;
+  const template = (await getSmsTemplate(preorderReleasedTemplateKey(order.deliveryMode))).trim();
+  if (!template) return;
+  await sendSMS(order.customerPhone, renderSmsTemplate(template, stageSmsVars(order)));
 }
 
 // ── What one order costs in SMS credits ──────────────────────────────────

@@ -24,6 +24,7 @@ export default function AdminConfigPage() {
   const [announcementItems, setAnnouncementItems] = useState<{ text: string; url: string }[]>([]);
   const [sizeGuideImages, setSizeGuideImages] = useState<string[]>([]);
   const [showSizeChart, setShowSizeChart] = useState(true);
+  const [careImage, setCareImage] = useState("");
   const [phones, setPhones] = useState<AdminPhone[]>([]);
   const [newPhone, setNewPhone] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -42,12 +43,13 @@ export default function AdminConfigPage() {
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState<"image" | "video" | "imageMobile" | "videoMobile" | "sizeGuide" | null>(null);
+  const [uploading, setUploading] = useState<"image" | "video" | "imageMobile" | "videoMobile" | "sizeGuide" | "careGuide" | null>(null);
   const heroImageRef = useRef<HTMLInputElement>(null);
   const heroVideoRef = useRef<HTMLInputElement>(null);
   const heroImageMobileRef = useRef<HTMLInputElement>(null);
   const heroVideoMobileRef = useRef<HTMLInputElement>(null);
   const sizeGuideRef = useRef<HTMLInputElement>(null);
+  const careGuideRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/admin/config").then((r) => r.json()).then((cfg) => {
@@ -85,6 +87,7 @@ export default function AdminConfigPage() {
         }
       } catch { if (cfg["sizeGuide.imagePath"]) setSizeGuideImages([cfg["sizeGuide.imagePath"]]); }
       setShowSizeChart(cfg["sizeChart.showTable"] !== "false");
+      setCareImage(cfg["careGuide.imagePath"] || "");
       setLegal({ privacy: cfg["legal.privacy"] || "", terms: cfg["legal.terms"] || "" });
       setSeo({ title: cfg[SEO_KEYS.title] || "", description: cfg[SEO_KEYS.description] || "" });
       if (cfg["shippingInfo.text"]) setShippingInfoText(cfg["shippingInfo.text"]);
@@ -140,7 +143,7 @@ export default function AdminConfigPage() {
     }});
   }
 
-  async function uploadFile(file: File, type: "image" | "video" | "imageMobile" | "videoMobile" | "sizeGuide") {
+  async function uploadFile(file: File, type: "image" | "video" | "imageMobile" | "videoMobile" | "sizeGuide" | "careGuide") {
     setUploading(type);
     const fd = new FormData();
     fd.append("file", file);
@@ -150,6 +153,7 @@ export default function AdminConfigPage() {
     else if (type === "video") setHero((h) => ({ ...h, videoPath: data.url, imagePath: "" }));
     else if (type === "imageMobile") setHero((h) => ({ ...h, imagePathMobile: data.url, videoPathMobile: "" }));
     else if (type === "videoMobile") setHero((h) => ({ ...h, videoPathMobile: data.url, imagePathMobile: "" }));
+    else if (type === "careGuide") setCareImage(data.url);
     else setSizeGuideImages((prev) => [...prev, data.url]);
     setUploading(null);
   }
@@ -175,6 +179,7 @@ export default function AdminConfigPage() {
         "sizeChart.showTable": showSizeChart ? "true" : "false",
         "sizeGuide.imagePaths": JSON.stringify(sizeGuideImages),
         "sizeGuide.imagePath": sizeGuideImages[0] ?? "",
+        "careGuide.imagePath": careImage,
         "contact.whatsapp": contact.whatsapp,
         "contact.instagram": contact.instagram,
         "contact.tiktok": contact.tiktok,
@@ -464,6 +469,40 @@ export default function AdminConfigPage() {
             style={{ borderColor: "var(--border)", color: "var(--text)" }}
           >
             {uploading === "sizeGuide" ? "מעלה..." : "+ הוסף תמונה"}
+          </button>
+        </div>
+      </section>
+
+      {/* ── Care instructions ── */}
+      <section className="rounded-2xl border p-6 mb-6" style={{ borderColor: "var(--border)" }}>
+        <h2 className="font-bold text-lg mb-1 text-right" style={{ color: "var(--text)" }}>תמונת הוראות כביסה (ברירת מחדל)</h2>
+        <p className="text-xs text-right mb-4" style={{ color: "var(--text-muted)" }}>
+          מוצגת בכפתור ״הוראות כביסה״ בכל מוצר שלא הועלתה לו תמונה משלו. תמונה למוצר מסוים מעלים בעריכת המוצר, בלשונית ״הוראות כביסה״.
+          כשאין תמונה כאן ולמוצר אין תמונה משלו, הכפתור לא מוצג.
+        </p>
+        {careImage && (
+          <div className="w-48 mr-0 ml-auto mb-4 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)", background: "#fff" }}>
+            <Image src={careImage} alt="הוראות כביסה" width={400} height={400} className="w-full h-auto" />
+          </div>
+        )}
+        <input type="file" accept="image/*" ref={careGuideRef} className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadFile(e.target.files[0], "careGuide"); e.target.value = ""; }} />
+        <div className="flex gap-2 justify-end">
+          {careImage && (
+            <button
+              onClick={() => setCareImage("")}
+              className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70"
+              style={{ borderColor: "var(--maroon)", color: "var(--maroon)" }}
+            >
+              הסר תמונה
+            </button>
+          )}
+          <button
+            onClick={() => careGuideRef.current?.click()}
+            disabled={uploading !== null}
+            className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+            style={{ borderColor: "var(--border)", color: "var(--text)" }}
+          >
+            {uploading === "careGuide" ? "מעלה..." : careImage ? "החלף תמונה" : "+ העלה תמונה"}
           </button>
         </div>
       </section>

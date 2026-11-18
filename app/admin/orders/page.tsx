@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
+import { PREORDER_STAGE } from "@/lib/preorder";
 
 const STAGE_ICONS: Record<string, React.ReactNode> = {
+  preorder: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   received: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0018 9h-1.26A8 8 0 103 16.29"/></svg>,
   packed:   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
   shipped:  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
@@ -10,6 +12,7 @@ const STAGE_ICONS: Record<string, React.ReactNode> = {
 };
 
 const STAGES = [
+  { key: PREORDER_STAGE, label: "הזמנות מוקדמות" },
   { key: "received", label: "התקבל" },
   { key: "packed",   label: "ארוז" },
   { key: "shipped",  label: "במשלוח" },
@@ -17,7 +20,9 @@ const STAGES = [
 ] as const;
 type Stage = typeof STAGES[number]["key"];
 
+// A preorder leaves its column through its release button, not "mark as"
 const NEXT_STAGE: Record<Stage, Stage | null> = {
+  preorder: null,
   received: "packed",
   packed:   "shipped",
   shipped:  "done",
@@ -96,6 +101,16 @@ export default function AdminOrdersPage() {
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Order | null>(null);
   const [pendingPaid, setPendingPaid] = useState<Order | null>(null);
+  const [pendingShip, setPendingShip] = useState<Order | null>(null);
+  const [shipping, setShipping] = useState<string | null>(null);
+  const [shipError, setShipError] = useState<{ id: string; message: string } | null>(null);
+  // Preorders column: ticked orders, the release waiting for confirmation,
+  // orders being released right now, and why the last release failed per order
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pendingRelease, setPendingRelease] = useState<Order[] | null>(null);
+  const [releasing, setReleasing] = useState<Set<string>>(new Set());
+  const [releaseErrors, setReleaseErrors] = useState<Record<string, string>>({});
+  const [releaseSummary, setReleaseSummary] = useState<{ released: number; failed: number } | null>(null);
 
   const loadOrders = useCallback(() => {
     fetch("/api/orders")
@@ -153,6 +168,65 @@ export default function AdminOrdersPage() {
     setMarkingPaid(null);
   }
 
+  // Releases preorders: each opens its HFD shipment, moves to "received" and
+  // texts the buyer. Ones that fail stay in the column with their error.
+  async function releaseOrders(list: Order[]) {
+    setPendingRelease(null);
+    setReleaseSummary(null);
+    const ids = list.map((o) => o.id);
+    setReleasing((prev) => new Set([...prev, ...ids]));
+    setReleaseErrors((prev) => {
+      const next = { ...prev };
+      for (const id of ids) delete next[id];
+      return next;
+    });
+    const res = await fetch("/api/orders/release", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    const results: Record<string, { ok: boolean; error?: string; shipmentNumber?: string | null }> =
+      data?.results ?? Object.fromEntries(ids.map((id) => [id, { ok: false, error: data?.error ?? "השחרור נכשל — נסו שוב" }]));
+
+    const released = ids.filter((id) => results[id]?.ok);
+    setOrders((prev) => prev.map((o) => {
+      const r = results[o.id];
+      return r?.ok ? { ...o, orderStage: "received", shipmentNumber: r.shipmentNumber ?? o.shipmentNumber } : o;
+    }));
+    setReleaseErrors((prev) => {
+      const next = { ...prev };
+      for (const id of ids) if (!results[id]?.ok) next[id] = results[id]?.error ?? "השחרור נכשל";
+      return next;
+    });
+    setSelected((prev) => new Set([...prev].filter((id) => !released.includes(id))));
+    setReleasing((prev) => new Set([...prev].filter((id) => !ids.includes(id))));
+    setReleaseSummary({ released: released.length, failed: ids.length - released.length });
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  // Retries the HFD shipment of a paid order HFD refused the first time.
+  async function sendToHFD(order: Order) {
+    setPendingShip(null);
+    setShipError(null);
+    setShipping(order.id);
+    const res = await fetch(`/api/orders/${order.id}/hfd`, { method: "POST" }).catch(() => null);
+    const data = await res?.json().catch(() => ({})) ?? {};
+    if (res?.ok) {
+      setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, shipmentNumber: data.shipmentNumber, shipmentRandId: data.shipmentRandId } : o));
+    } else {
+      setShipError({ id: order.id, message: data.error ?? "השליחה ל-HFD נכשלה" });
+    }
+    setShipping(null);
+  }
+
   async function deleteOrder(order: Order) {
     await fetch(`/api/orders/${order.id}`, { method: "DELETE" });
     setOrders((prev) => prev.filter((o) => o.id !== order.id));
@@ -168,6 +242,11 @@ export default function AdminOrdersPage() {
 
   const stageCount = (stage: Stage) => byStage(stage).length;
   const visible = byStage(activeStage);
+  const preorderTab = activeStage === PREORDER_STAGE;
+  // Only what is on screen can be released — a search hides the rest
+  const selectedVisible = preorderTab ? visible.filter((o) => selected.has(o.id)) : [];
+  const allVisibleSelected = preorderTab && visible.length > 0 && selectedVisible.length === visible.length;
+  const columnCount = preorderTab ? 10 : 9;
 
   // A search hits across every stage, so an empty active tab is not an empty
   // search — point at the tabs that did match instead.
@@ -183,11 +262,33 @@ export default function AdminOrdersPage() {
     <>
     {pendingPaid && (
       <ConfirmModal
-        message={`לאשר שהתשלום של ${pendingPaid.customerName} (₪${pendingPaid.total}) התקבל ב-Hyp? יישלח SMS ללקוח, המלאי יעודכן ויפתח משלוח ב-HFD.`}
+        message={pendingPaid.orderStage === PREORDER_STAGE
+          ? `לאשר שהתשלום של ${pendingPaid.customerName} (₪${pendingPaid.total}) התקבל ב-Hyp? זו הזמנה מוקדמת: יישלח SMS ללקוח, המלאי יעודכן וההזמנה תעבור להזמנות המוקדמות, בלי משלוח ב-HFD עד השחרור.`
+          : `לאשר שהתשלום של ${pendingPaid.customerName} (₪${pendingPaid.total}) התקבל ב-Hyp? יישלח SMS ללקוח, המלאי יעודכן ויפתח משלוח ב-HFD.`}
         confirmLabel="אשר תשלום"
         danger={false}
         onConfirm={() => markAsPaid(pendingPaid)}
         onCancel={() => setPendingPaid(null)}
+      />
+    )}
+    {pendingShip && (
+      <ConfirmModal
+        message={`לשלוח את ההזמנה של ${pendingShip.customerName} ל-HFD?`}
+        confirmLabel="שלח ל-HFD"
+        danger={false}
+        onConfirm={() => sendToHFD(pendingShip)}
+        onCancel={() => setPendingShip(null)}
+      />
+    )}
+    {pendingRelease && (
+      <ConfirmModal
+        message={pendingRelease.length === 1
+          ? `לשחרר את ההזמנה המוקדמת של ${pendingRelease[0].customerName}? ${pendingRelease[0].deliveryMode === "self" ? "ההזמנה תעבור ל״התקבל״ ותישלח ללקוח הודעת SMS." : "ייפתח משלוח ב-HFD, ההזמנה תעבור ל״התקבל״ ותישלח ללקוח הודעת SMS."}`
+          : `לשחרר ${pendingRelease.length} הזמנות מוקדמות? לכל הזמנה ייפתח משלוח ב-HFD (חוץ מאיסוף עצמי), היא תעבור ל״התקבל״ ותישלח ללקוח הודעת SMS.`}
+        confirmLabel={pendingRelease.length === 1 ? "שחרר הזמנה" : `שחרר ${pendingRelease.length} הזמנות`}
+        danger={false}
+        onConfirm={() => releaseOrders(pendingRelease)}
+        onCancel={() => setPendingRelease(null)}
       />
     )}
     {pendingDelete && (
@@ -318,7 +419,7 @@ export default function AdminOrdersPage() {
           return (
             <button
               key={key}
-              onClick={() => { setActiveStage(key); setExpandedId(null); }}
+              onClick={() => { setActiveStage(key); setExpandedId(null); setReleaseSummary(null); }}
               className="flex-1 flex flex-col items-center gap-0.5 py-3 transition-all relative"
               style={{
                 background: active ? "var(--text)" : "transparent",
@@ -357,13 +458,35 @@ export default function AdminOrdersPage() {
           {otherStageMatches.map(({ key, label, count }) => (
             <button
               key={key}
-              onClick={() => { setActiveStage(key); setExpandedId(null); }}
+              onClick={() => { setActiveStage(key); setExpandedId(null); setReleaseSummary(null); }}
               className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-opacity hover:opacity-70"
               style={{ borderColor: "var(--border)", color: "var(--text)" }}
             >
               {count} ב{label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Preorders: bulk release and the outcome of the last release */}
+      {preorderTab && (releaseSummary || selectedVisible.length > 0) && (
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4 px-4 py-3 rounded-2xl border" style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}>
+          {selectedVisible.length > 0 ? (
+            <button
+              onClick={() => setPendingRelease(selectedVisible)}
+              disabled={selectedVisible.some((o) => releasing.has(o.id))}
+              className="px-4 py-2 rounded-xl text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+              style={{ background: "var(--text)", color: "var(--cream)" }}
+            >
+              שחרור הזמנות נבחרות ({selectedVisible.length})
+            </button>
+          ) : <span />}
+          {releaseSummary && (
+            <p role="status" className="text-sm font-medium" style={{ color: releaseSummary.failed > 0 ? "var(--maroon)" : "var(--green)" }}>
+              {releaseSummary.released > 0 && `שוחררו ${releaseSummary.released} ${releaseSummary.released === 1 ? "הזמנה" : "הזמנות"} ועברו ל״התקבל״. `}
+              {releaseSummary.failed > 0 && `${releaseSummary.failed} לא שוחררו — השגיאה מופיעה בשורת ההזמנה.`}
+            </p>
+          )}
         </div>
       )}
 
@@ -383,6 +506,17 @@ export default function AdminOrdersPage() {
             <table className="w-full text-sm text-right">
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream-dark)" }}>
+                  {preorderTab && (
+                    <th className="pr-4 pl-1 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={() => setSelected(allVisibleSelected ? new Set() : new Set(visible.map((o) => o.id)))}
+                        aria-label="סמן את כל ההזמנות המוקדמות"
+                        className="w-4 h-4 cursor-pointer align-middle"
+                      />
+                    </th>
+                  )}
                   {["#", "", "לקוח", "טלפון", "אימייל", "משלוח", "סכום", "תאריך", ""].map((h, i) => (
                     <th key={i} className="px-4 py-3 font-medium whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{h}</th>
                   ))}
@@ -400,6 +534,17 @@ export default function AdminOrdersPage() {
                         style={{ borderBottom: "1px solid var(--border)" }}
                         onClick={() => setExpandedId(isExpanded ? null : order.id)}
                       >
+                        {preorderTab && (
+                          <td className="pr-4 pl-1 py-3" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selected.has(order.id)}
+                              onChange={() => toggleSelected(order.id)}
+                              aria-label={`סמן את ההזמנה של ${order.customerName}`}
+                              className="w-4 h-4 cursor-pointer align-middle"
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--text-muted)" }}>
                           {order.id.slice(-6).toUpperCase()}
                         </td>
@@ -426,12 +571,29 @@ export default function AdminOrdersPage() {
                             {order.customerEmail}
                           </a>
                         </td>
-                        <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{deliveryModeLabel(order)}</td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                          {deliveryModeLabel(order)}
+                        </td>
                         <td className="px-4 py-3 font-bold whitespace-nowrap" style={{ color: "var(--text)" }}>₪{order.total}</td>
                         <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
                           {new Date(order.createdAt).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
                         </td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          {order.orderStage === PREORDER_STAGE && (
+                            <div className="flex flex-col items-start gap-1">
+                              <button
+                                onClick={() => setPendingRelease([order])}
+                                disabled={releasing.has(order.id)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-opacity disabled:opacity-50 whitespace-nowrap"
+                                style={{ background: "var(--text)", color: "var(--cream)" }}
+                              >
+                                {releasing.has(order.id) ? "משחרר..." : "שחרור הזמנה"}
+                              </button>
+                              {releaseErrors[order.id] && (
+                                <p role="alert" className="text-xs max-w-[220px] whitespace-normal" style={{ color: "var(--maroon)" }}>{releaseErrors[order.id]}</p>
+                              )}
+                            </div>
+                          )}
                           {next && (
                             <button
                               onClick={() => advanceStage(order)}
@@ -447,7 +609,7 @@ export default function AdminOrdersPage() {
 
                       {isExpanded && (
                         <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--cream)" }}>
-                          <td colSpan={9} className="px-4 py-4 text-right">
+                          <td colSpan={columnCount} className="px-4 py-4 text-right">
                             <div className="flex flex-col gap-3 max-w-xl mr-0 ml-auto">
                               {/* Coupon */}
                               {order.couponCode && (
@@ -509,6 +671,23 @@ export default function AdminOrdersPage() {
                                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                                   הדפס תווית HFD
                                 </a>
+                              )}
+
+                              {/* Retry HFD: a shipment HFD refused (preorders ship on release) */}
+                              {order.deliveryMode !== "self" && !order.shipmentNumber && order.orderStage !== PREORDER_STAGE && (
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => setPendingShip(order)}
+                                    disabled={shipping === order.id}
+                                    className="w-full py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+                                    style={{ background: "var(--text)", color: "var(--cream)" }}
+                                  >
+                                    {shipping === order.id ? "שולח..." : "שלח ל-HFD"}
+                                  </button>
+                                  {shipError?.id === order.id && (
+                                    <p role="alert" className="text-xs" style={{ color: "var(--maroon)" }}>{shipError.message}</p>
+                                  )}
+                                </div>
                               )}
 
                               {/* Delete */}

@@ -7,6 +7,7 @@ import { evaluatePromotions } from "@/lib/promotions";
 import { promotionPricing } from "@/lib/cartPricing";
 import { alertStalePendingOrders } from "@/lib/pendingOrders";
 import { collabCommission, isCreatorsOwnOrder } from "@/lib/collab";
+import { isPreorder, PREORDER_STAGE } from "@/lib/preorder";
 
 const MAX_TEXT = 120;
 const text = (v: unknown, max = MAX_TEXT) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -50,8 +51,11 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "כמות לא תקינה" }, { status: 400 });
   }
 
-  type CartLine = { productId: string; price: number; quantity: number; size: string; color?: string };
+  type CartLine = { productId: string; price: number; quantity: number; size: string; color?: string; preorder?: boolean };
   let cartItems: CartLine[];
+  // A preorder in the cart holds the whole order — one parcel, no partial
+  // shipment — in the preorders column until an admin releases it.
+  let hasPreorder = false;
 
   // Validate stock before accepting the order
   {
@@ -73,6 +77,13 @@ export async function POST(req: NextRequest) {
     for (const item of cartItems) {
       const product = productMap.get(item.productId);
       if (!product) return Response.json({ error: "מוצר לא נמצא" }, { status: 400 });
+
+      // Preorders sell regardless of stock — the stock is on its way
+      if (isPreorder(product)) {
+        item.preorder = true;
+        hasPreorder = true;
+        continue;
+      }
 
       let available = 0;
       if (item.color) {
@@ -187,13 +198,15 @@ export async function POST(req: NextRequest) {
       couponCode: appliedCouponCode,
       collabCode: collab?.code ?? null,
       collabCommission: collab ? collabCommission(subtotal, collab.pct) : null,
+      ...(hasPreorder ? { orderStage: PREORDER_STAGE } : {}),
       items: {
-        create: effectiveItems.map((item: { productId: string; quantity: number; size: string; color?: string; price: number }) => ({
+        create: effectiveItems.map((item: CartLine) => ({
           productId: item.productId,
           quantity: item.quantity,
           size: item.size,
           color: item.color ?? null,
           price: item.price,
+          preorder: item.preorder ?? false,
         })),
       },
     },

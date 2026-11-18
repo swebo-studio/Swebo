@@ -12,6 +12,10 @@ export interface CartItem {
   quantity: number;
   image: string;
   maxQty?: number; // stock at time of adding — used to cap +/- in cart
+  /** Bought as a preorder: no stock limit, the order waits for the goods */
+  preorder?: boolean;
+  /** The preorder's estimated delivery date, "YYYY-MM-DD", when it has one */
+  preorderDate?: string;
 }
 
 interface CartContextType {

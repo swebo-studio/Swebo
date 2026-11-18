@@ -10,10 +10,12 @@ type Ctx = { params: Promise<{ id: string; colorId: string }> };
 const MAX_SIZES_PER_COLOR = 100;
 const MAX_STOCK = 1_000_000;
 
+/** Negative is allowed: a preorder size sold past its stock shows the units
+ *  still owed, and saving the size list must not wipe that count. */
 function clampStock(value: unknown): number {
   const n = Math.round(Number(value));
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.min(n, MAX_STOCK);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-MAX_STOCK, Math.min(n, MAX_STOCK));
 }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {

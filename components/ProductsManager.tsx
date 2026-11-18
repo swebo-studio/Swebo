@@ -8,6 +8,7 @@ import { parseSizePresets, sizeRowsAreValid, type SizePreset } from "@/lib/sizes
 import BadgeFields from "@/components/promotions/BadgeFields";
 import { Switch } from "@/components/promotions/controls";
 import { DEFAULT_PRODUCT_BADGE_COLOR, isBadgePosition, isBadgeSize, type BadgePosition, type BadgeSize } from "@/lib/promotionBadges";
+import { formatShipDate } from "@/lib/preorder";
 
 interface Category { id: string; nameHe: string }
 
@@ -36,16 +37,19 @@ interface Product {
   active: boolean;
   sizeGuideImages: string | null;
   showSizeChart: boolean | null;
+  careImage: string | null;
   badgeText: string | null;
   badgeColor: string;
   badgeSize: string;
   badgePosition: string;
+  preorder: boolean;
+  preorderDate: string | null;
   categories: { id: string; nameHe: string }[];
   colors: ProductColor[];
 }
 
 const EMPTY_BADGE = { badgeOn: false, badgeText: "", badgeColor: DEFAULT_PRODUCT_BADGE_COLOR, badgeSize: "md" as BadgeSize, badgePosition: "top-left" as BadgePosition };
-const EMPTY_FORM = { nameHe: "", descriptionHe: "", detailsHe: "", price: 150, comparePrice: "" as number | "", stock: 0, active: true, ...EMPTY_BADGE };
+const EMPTY_FORM = { nameHe: "", descriptionHe: "", detailsHe: "", price: 150, comparePrice: "" as number | "", stock: 0, active: true, preorder: false, preorderDate: "", ...EMPTY_BADGE };
 
 /** The product's own card tag as the form edits it. */
 function badgeForm(p: Product) {
@@ -64,11 +68,12 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [tab, setTab] = useState<"details" | "colors" | "sizeguide">("details");
+  const [tab, setTab] = useState<"details" | "colors" | "sizeguide" | "care">("details");
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -81,7 +86,10 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     // /api/config only exposes storefront keys, and presets are admin-only
     fetch("/api/admin/config")
       .then((r) => r.json())
-      .then((cfg: Record<string, string>) => setSizePresets(parseSizePresets(cfg["sizes.presets"])))
+      .then((cfg: Record<string, string>) => {
+        setSizePresets(parseSizePresets(cfg["sizes.presets"]));
+        setDefaultCareImage(cfg["careGuide.imagePath"] || "");
+      })
       .catch(() => {});
   }, []);
 
@@ -122,6 +130,14 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   const [uploadingSizeGuide, setUploadingSizeGuide] = useState(false);
   const productSizeGuideRef = useRef<HTMLInputElement>(null);
 
+  // Per-product care image; empty = the store-wide one from the settings
+  const [productCareImage, setProductCareImage] = useState("");
+  const [defaultCareImage, setDefaultCareImage] = useState("");
+  const [savingCare, setSavingCare] = useState(false);
+  const [uploadingCare, setUploadingCare] = useState(false);
+  const [careSaved, setCareSaved] = useState(false);
+  const productCareRef = useRef<HTMLInputElement>(null);
+
   const inputStyle = { background: "var(--cream-dark)", borderColor: "var(--border)", color: "var(--text)" };
 
   function loadSizeGuideOverride(p: Product) {
@@ -146,7 +162,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   }
 
   function openEdit(p: Product) {
-    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, detailsHe: p.detailsHe, price: p.price, comparePrice: p.comparePrice ?? "", stock: p.stock, active: p.active, ...badgeForm(p) });
+    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, detailsHe: p.detailsHe, price: p.price, comparePrice: p.comparePrice ?? "", stock: p.stock, active: p.active, preorder: p.preorder, preorderDate: p.preorderDate ?? "", ...badgeForm(p) });
     setSelectedCategoryIds(p.categories.map((c) => c.id));
     setEditing(p);
     setCreating(false);
@@ -160,6 +176,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setUnsavedSizeColors({});
     setProductShowSizeChart(p.showSizeChart);
     loadSizeGuideOverride(p);
+    setProductCareImage(p.careImage ?? "");
+    setCareSaved(false);
   }
 
   function discardAndClose() {
@@ -228,6 +246,36 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     setProductSizeGuideImages([]);
     setProductSizeGuideIsCustom(false);
     setSavingSizeGuide(false);
+  }
+
+  async function uploadCareImage(file: File) {
+    setUploadingCare(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok && data.url) { setProductCareImage(data.url); setCareSaved(false); }
+    } finally {
+      setUploadingCare(false);
+    }
+  }
+
+  /** Saves the product's own care image; "" goes back to the store-wide one */
+  async function saveCareImage(value: string) {
+    if (!editing) return;
+    setSavingCare(true);
+    await fetch(`/api/products/${editing.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ careImage: value || null }),
+    });
+    const updatedProduct = { ...editing, careImage: value || null };
+    setEditing(updatedProduct);
+    setProducts((list) => list.map((p) => p.id === editing.id ? updatedProduct : p));
+    setProductCareImage(value);
+    setSavingCare(false);
+    setCareSaved(true);
   }
 
   async function loadSizeStocks(colorId: string) {
@@ -360,10 +408,12 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   }
 
   async function handleSave() {
+    setSaveError("");
     setSaving(true);
     const { badgeOn, ...fields } = form;
     const payload = {
       ...fields,
+      preorderDate: form.preorderDate || null,
       comparePrice: form.comparePrice === "" ? null : Number(form.comparePrice),
       // Switched off, or switched on with no text, means no tag
       badgeText: badgeOn && form.badgeText.trim() ? form.badgeText.trim() : null,
@@ -375,6 +425,11 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
         body: JSON.stringify({ ...payload, image: editing.image, categoryIds: selectedCategoryIds }),
       });
       const updated = await res.json();
+      if (!res.ok) {
+        setSaveError(updated.error ?? "השמירה נכשלה");
+        setSaving(false);
+        return;
+      }
       const updatedProduct = { ...editing, ...updated };
       setProducts((p) => p.map((x) => x.id === editing.id ? updatedProduct : x));
       setEditing(updatedProduct);
@@ -385,6 +440,11 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
         body: JSON.stringify({ ...payload, categoryIds: selectedCategoryIds }),
       });
       const created = await res.json();
+      if (!res.ok) {
+        setSaveError(created.error ?? "השמירה נכשלה");
+        setSaving(false);
+        return;
+      }
       const full: Product = { ...created, colors: [], categories: created.categories ?? [] };
       setProducts((p) => [full, ...p]);
       setEditing(full);
@@ -518,8 +578,8 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
           <div className="w-full max-w-lg rounded-3xl overflow-hidden" style={{ background: "var(--cream)" }}>
             {/* Tab bar */}
             <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
-              {(["details", "colors", "sizeguide"] as const).map((t) => {
-                const labels = { details: "פרטים", colors: "צבעים", sizeguide: "מדריך מידות" };
+              {(["details", "colors", "sizeguide", "care"] as const).map((t) => {
+                const labels = { details: "פרטים", colors: "צבעים", sizeguide: "מדריך מידות", care: "הוראות כביסה" };
                 const disabled = !isEdit && t !== "details";
                 return (
                   <button
@@ -653,6 +713,35 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                       />
                     </div>
                   </label>
+
+                  {/* Preorder */}
+                  <div className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: form.preorder ? "var(--text)" : "var(--border)" }}>
+                    <div className="flex items-center justify-end gap-3">
+                      <span className="text-sm" style={{ color: "var(--text-muted)" }}>הזמנה מוקדמת</span>
+                      <Switch on={form.preorder} onToggle={() => setForm((f) => ({ ...f, preorder: !f.preorder }))} label="הזמנה מוקדמת" />
+                    </div>
+                    {form.preorder && (
+                      <>
+                        <label className="flex items-center justify-end gap-3 text-sm" style={{ color: "var(--text-muted)" }}>
+                          <input
+                            type="date"
+                            value={form.preorderDate}
+                            onChange={(e) => setForm((f) => ({ ...f, preorderDate: e.target.value }))}
+                            className="px-3 py-2 rounded-xl border outline-none"
+                            style={inputStyle}
+                          />
+                          אספקה משוערת (לא חובה)
+                        </label>
+                        <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>
+                          אפשר לקנות גם בלי מלאי — המלאי יורד גם מתחת ל-0, וזה מספר היחידות שחסרות. הלקוח משלם מיד, וההזמנה מחכה בעמודת ״הזמנות מוקדמות״ עד שמשחררים אותה. כיבוי המתג מחזיר את המוצר למכירה רגילה.
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {saveError && (
+                    <p role="alert" className="text-sm text-right" style={{ color: "var(--maroon)" }}>{saveError}</p>
+                  )}
 
                   <div className="flex gap-3 mt-2">
                     <button onClick={closeForm} className="flex-1 py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>ביטול</button>
@@ -986,6 +1075,85 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                   <button onClick={closeForm} className="w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>סגור</button>
                 </div>
               )}
+
+              {/* ── CARE INSTRUCTIONS TAB ── */}
+              {tab === "care" && editing && (() => {
+                const isCustom = !!editing.careImage;
+                const shown = productCareImage || defaultCareImage;
+                const dirty = productCareImage !== (editing.careImage ?? "");
+                return (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className="text-xs font-bold px-2.5 py-1 rounded-full"
+                        style={{ background: isCustom ? "#e8f5e9" : "var(--cream-dark)", color: isCustom ? "var(--green)" : "var(--text-muted)" }}
+                      >
+                        {isCustom ? "תמונה מותאמת למוצר זה" : "מציג את תמונת ברירת המחדל"}
+                      </span>
+                      <p className="text-sm font-bold text-right" style={{ color: "var(--text)" }}>הוראות כביסה למוצר</p>
+                    </div>
+                    <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>
+                      ניתן להעלות תמונת הוראות כביסה למוצר זה בלבד. בלי תמונה משלו, המוצר מציג את תמונת ברירת המחדל מעמוד ההגדרות — וכל החלפה שלה שם מתעדכנת כאן אוטומטית.
+                    </p>
+
+                    {shown ? (
+                      <div className="w-48 mr-0 ml-auto rounded-xl overflow-hidden border relative" style={{ borderColor: "var(--border)", background: "#fff" }}>
+                        <Image src={shown} alt="הוראות כביסה" width={400} height={400} className="w-full h-auto" />
+                        {!productCareImage && (
+                          <span className="absolute bottom-1 left-1 right-1 text-center text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.55)", color: "#fff" }}>ברירת מחדל</span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-right rounded-xl border p-3" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
+                        אין תמונת ברירת מחדל בהגדרות, ולמוצר אין תמונה משלו — הכפתור לא יוצג בעמוד המוצר.
+                      </p>
+                    )}
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={productCareRef}
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadCareImage(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      {productCareImage && (
+                        <button
+                          onClick={() => saveCareImage("")}
+                          disabled={savingCare}
+                          className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+                          style={{ borderColor: "var(--maroon)", color: "var(--maroon)" }}
+                        >
+                          חזור לברירת המחדל
+                        </button>
+                      )}
+                      <button
+                        onClick={() => productCareRef.current?.click()}
+                        disabled={uploadingCare}
+                        className="px-4 py-2 rounded-xl border text-sm transition-opacity hover:opacity-70 disabled:opacity-40"
+                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                      >
+                        {uploadingCare ? "מעלה..." : productCareImage ? "החלף תמונה" : "+ העלה תמונה למוצר"}
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => saveCareImage(productCareImage)}
+                      disabled={savingCare || !dirty}
+                      className="w-full py-3 rounded-xl font-bold text-sm transition-opacity disabled:opacity-50"
+                      style={{ background: "var(--text)", color: "var(--cream)" }}
+                    >
+                      {savingCare ? "שומר..." : careSaved && !dirty ? "נשמר ✓" : "שמור הוראות כביסה"}
+                    </button>
+
+                    <button onClick={closeForm} className="w-full py-3 rounded-xl border font-medium transition-opacity hover:opacity-70" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>סגור</button>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1035,7 +1203,14 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>{p.nameHe}</td>
+                      <td className="px-4 py-3 font-medium" style={{ color: "var(--text)" }}>
+                        {p.nameHe}
+                        {p.preorder && (
+                          <span className="block text-xs font-bold mt-0.5" style={{ color: "var(--warn)" }}>
+                            הזמנה מוקדמת{p.preorderDate ? ` · ${formatShipDate(p.preorderDate)}` : ""}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs" style={{ color: "var(--text-muted)" }}>
                         {p.categories.length > 0 ? p.categories.map((c) => c.nameHe).join(", ") : "—"}
                       </td>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import RecentOrdersTable from "@/components/RecentOrdersTable";
 import LowStockPanel from "@/components/LowStockPanel";
 import DashboardKpis from "@/components/DashboardKpis";
+import { monthKey, shippingByMonth } from "@/lib/shippingRevenue";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +27,15 @@ export default async function AdminDashboard() {
     paidCount: paidLast30.length,
   };
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
+  const shipping = shippingByMonth(orders);
+  const currentMonth = monthKey(new Date());
 
   // Build per-size low-stock report for active products only.
   // Sizes arrive in the order the shop set them, so keep that order.
   type LowStockEntry = { id: string; nameHe: string; lines: string[] };
   const lowStock: LowStockEntry[] = [];
   for (const p of products) {
-    if (!p.active) continue;
+    if (!p.active || p.preorder) continue; // a preorder sells without stock
     const lines: string[] = [];
     if (p.colors.length > 0) {
       for (const color of p.colors) {
@@ -88,6 +91,8 @@ export default async function AdminDashboard() {
         last30={last30}
         pendingOrders={pendingOrders}
         activeProducts={products.filter((p) => p.active).length}
+        shipping={shipping}
+        currentMonth={currentMonth}
       />
 
       {/* Low stock warning */}

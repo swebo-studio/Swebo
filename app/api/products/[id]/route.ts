@@ -2,6 +2,13 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { productBadgeInput } from "@/lib/promotionBadges";
+import { preorderInput } from "@/lib/preorder";
+
+/** A product's own care image: a URL, or null for the store-wide one. Undefined leaves it. */
+function careImageInput(v: unknown): string | null | undefined {
+  if (v === undefined) return undefined;
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,10 +39,13 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const body = await req.json();
   const categoryIds: string[] = body.categoryIds ?? (body.categoryId ? [body.categoryId] : []);
+  const preorder = preorderInput(body);
+  if (!preorder.ok) return Response.json({ error: preorder.error }, { status: 400 });
   const product = await prisma.product.update({
     where: { id },
     data: {
       nameHe: body.nameHe,
+      ...preorder.data,
       descriptionHe: body.descriptionHe,
       detailsHe: body.detailsHe,
       price: body.price,
@@ -45,6 +55,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       active: body.active,
       sizeGuideImages: body.sizeGuideImages !== undefined ? body.sizeGuideImages : undefined,
       showSizeChart: body.showSizeChart !== undefined ? body.showSizeChart : undefined,
+      careImage: careImageInput(body.careImage),
       ...productBadgeInput(body),
       categories: { set: categoryIds.map((cid) => ({ id: cid })) },
     },
@@ -65,6 +76,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       ...(body.active !== undefined && { active: body.active }),
       ...(body.sizeGuideImages !== undefined && { sizeGuideImages: body.sizeGuideImages }),
       ...(body.showSizeChart !== undefined && { showSizeChart: body.showSizeChart }),
+      ...(body.careImage !== undefined && { careImage: careImageInput(body.careImage) }),
     },
   });
   return Response.json(product);

@@ -159,7 +159,7 @@ export default function AdminSmsPage() {
     fetch("/api/admin/config").then((r) => r.json()).then((cfg: Record<string, string>) => {
       const initial: Record<string, string> = {};
       for (const key of Object.keys(SMS_TEMPLATES)) {
-        initial[key] = cfg[key] || SMS_TEMPLATES[key].default;
+        initial[key] = cfg[key] ?? SMS_TEMPLATES[key].default;
       }
       setValues(initial);
     });

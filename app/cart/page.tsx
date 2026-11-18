@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { promotionPricing } from "@/lib/cartPricing";
+import { formatShipDate, isPreorder, preorderEstimate } from "@/lib/preorder";
 
 export default function CartPage() {
   const { items, removeItem, updateQty, clearCart, promotions } = useCart();
@@ -15,6 +16,8 @@ export default function CartPage() {
   // is always capped at the real available quantity — even for items
   // that were added before maxQty was introduced.
   const [liveStock, setLiveStock] = useState<Record<string, number>>({});
+  // productId → whether it sells as a preorder right now, with its estimate
+  const [livePreorder, setLivePreorder] = useState<Record<string, { preorder: boolean; date: string | null }>>({});
 
   useEffect(() => {
     if (items.length === 0) return;
@@ -22,8 +25,10 @@ export default function CartPage() {
     Promise.all(ids.map((id) => fetch(`/api/products/${id}`).then((r) => r.json())))
       .then((products) => {
         const map: Record<string, number> = {};
+        const preorders: Record<string, { preorder: boolean; date: string | null }> = {};
         for (const p of products) {
           if (!p?.id) continue;
+          preorders[p.id] = { preorder: isPreorder(p), date: preorderEstimate(p) };
           map[`${p.id}||`] = p.stock ?? 0;
           for (const color of p.colors ?? []) {
             const sizes = color.sizes ?? [];
@@ -34,11 +39,18 @@ export default function CartPage() {
           }
         }
         setLiveStock(map);
+        setLivePreorder(preorders);
       })
       .catch(() => {});
   }, [items.length]); // re-fetch only when item count changes, not on every qty tweak
 
+  /** Whether the item is a preorder, and its estimate — the live product's once loaded */
+  function preorderFor(item: (typeof items)[0]): { preorder: boolean; date: string | null } {
+    return livePreorder[item.productId] ?? { preorder: !!item.preorder, date: item.preorderDate ?? null };
+  }
+
   function availableFor(item: (typeof items)[0]): number {
+    if (preorderFor(item).preorder) return Infinity;
     // Most specific match wins: exact size → color total → product total
     const keys = item.color
       ? [`${item.productId}|${item.color}|${item.size}`, `${item.productId}|${item.color}|`]
@@ -149,6 +161,11 @@ export default function CartPage() {
                     ) : (
                       <p className="font-extrabold mt-1" style={{ color: "var(--text)" }}>
                         ₪{line.rawTotal}
+                      </p>
+                    )}
+                    {preorderFor(item).preorder && (
+                      <p className="text-xs mt-1 font-bold" style={{ color: "#1F3A5F" }}>
+                        הזמנה מוקדמת{preorderFor(item).date ? ` · אספקה משוערת ${formatShipDate(preorderFor(item).date!)}` : ""}
                       </p>
                     )}
                     {overStock && (

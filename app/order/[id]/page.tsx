@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Link from "next/link";
 import CartClearer from "@/components/CartClearer";
+import { PREORDER_STAGE } from "@/lib/preorder";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default async function OrderPage(
   const isEpost = order.deliveryMode === "epost";
   const isSelfPickup = order.deliveryMode === "self" || order.address === "איסוף עצמי";
   const orderCode = order.id.slice(-6).toUpperCase();
+  const isPreorder = order.orderStage === PREORDER_STAGE;
 
   const stepTexts = {
     step1: cfg["orderSteps.step1"] || "ההזמנה התקבלה",
@@ -66,6 +68,11 @@ export default async function OrderPage(
           <p className="mt-3 font-mono text-sm px-4 py-2 rounded-full inline-block" style={{ background: "var(--cream-dark)", color: "var(--text-muted)" }}>
             הזמנה מס&apos; <strong style={{ color: "var(--text)" }}>{orderCode}</strong>
           </p>
+          {isPreorder && (
+            <p className="mt-3 text-sm px-4 py-2 rounded-xl font-medium" style={{ background: "#eaf0f7", color: "#1F3A5F" }}>
+              זוהי הזמנה מוקדמת — נעדכן ב-SMS ברגע שההזמנה תועבר למשלוח
+            </p>
+          )}
         </div>
 
         {/* Order items */}

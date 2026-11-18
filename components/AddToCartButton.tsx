@@ -104,7 +104,7 @@ export default function AddToCartButton({ product, sizes, colors = [] }: Props) 
               <button
                 key={c.id}
                 onClick={() => setSelectedColor(c)}
-                disabled={c.stock === 0}
+                disabled={c.stock <= 0}
                 title={c.nameHe}
                 className="relative flex flex-col items-center gap-1 transition-opacity disabled:opacity-40"
               >

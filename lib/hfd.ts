@@ -118,6 +118,8 @@ export async function createHFDShipment(order: {
       method: "POST",
       headers: headers(),
       body: JSON.stringify(payload),
+      // A hung call would hold the order's claim until the function is killed
+      signal: AbortSignal.timeout(30_000),
     });
     const text = await res.text();
     if (!res.ok) {

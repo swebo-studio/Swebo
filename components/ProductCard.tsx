@@ -13,12 +13,17 @@ interface Props {
   discountedPrice?: number;
   /** promotion tags, each in the corner its promotion chose */
   badges?: CardBadge[];
+  /** Sold as a preorder: never shown sold out */
+  preorder?: boolean;
 }
 
-export default function ProductCard({ id, nameHe, price, image, stock, discountedPrice, badges = [] }: Props) {
-  const lowStock: CardBadge[] = stock > 0 && stock <= 3
-    ? [{ text: "אחרונים במלאי", color: "var(--warn)", size: "sm", position: "top-right" }]
-    : [];
+export default function ProductCard({ id, nameHe, price, image, stock, discountedPrice, badges = [], preorder = false }: Props) {
+  const lowStock: CardBadge[] = preorder
+    ? [{ text: "הזמנה מוקדמת", color: "#1F3A5F", size: "sm", position: "top-right" }]
+    : stock > 0 && stock <= 3
+      ? [{ text: "אחרונים במלאי", color: "var(--warn)", size: "sm", position: "top-right" }]
+      : [];
+  const soldOut = stock <= 0 && !preorder;
   return (
     <Link href={`/product/${id}`} className="group block h-full">
       <div
@@ -37,14 +42,14 @@ export default function ProductCard({ id, nameHe, price, image, stock, discounte
           ) : (
             <div className="w-full h-full" style={{ background: "var(--cream-dark)" }} />
           )}
-          {stock === 0 && (
+          {soldOut && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
               <span className="text-white font-bold text-lg bg-black/75 px-4 py-2 rounded-lg">
                 אזל מהמלאי
               </span>
             </div>
           )}
-          {stock > 0 && <ProductBadges badges={[...lowStock, ...badges]} />}
+          {!soldOut && <ProductBadges badges={[...lowStock, ...badges]} />}
         </div>
         <div className="p-4 flex-1 flex flex-col">
           <h3 dir="auto" title={nameHe} className="font-bold text-base md:text-lg leading-6 md:leading-7 mb-1 text-start line-clamp-2 h-12 md:h-14" style={{ color: "var(--text)" }}>
