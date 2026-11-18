@@ -74,16 +74,11 @@ export default function SitePopups() {
   return <PopupDialog key={current.id} popup={current} onConfirm={confirm} />;
 }
 
-/** The SWEBO wordmark between two rules, as on the store's printed material */
-function Wordmark() {
+/** The store's logo, as in the site header */
+function Logo() {
   return (
-    <div className="flex items-center justify-center gap-4 mb-3" aria-hidden="true">
-      <span className="h-px w-12 sm:w-16" style={{ background: "var(--text)" }} />
-      <div className="text-center leading-none" dir="ltr">
-        <p className="text-2xl font-extrabold italic tracking-tight" style={{ color: "var(--text)" }}>SWEBO</p>
-        <p className="text-[9px] font-bold tracking-[0.3em] mt-1" style={{ color: "var(--text)" }}>BUILD ON UNIQUENESS</p>
-      </div>
-      <span className="h-px w-12 sm:w-16" style={{ background: "var(--text)" }} />
+    <div className="flex justify-center mb-2" aria-hidden="true">
+      <Image src="/logo.png" alt="" width={220} height={110} className="object-contain h-12 sm:h-14 w-auto" priority />
     </div>
   );
 }
@@ -120,15 +115,15 @@ export function PopupDialog({
         className="w-full max-w-md rounded-3xl shadow-2xl flex flex-col overflow-hidden"
         style={{ background: "var(--cream)", maxHeight: "calc(100dvh - 2rem)" }}
       >
-        <div ref={scrollRef} className="overflow-y-auto overscroll-contain flex-1 min-h-0 px-5 pt-6 pb-2 text-center">
-          <Wordmark />
+        <div ref={scrollRef} className="overflow-y-auto overscroll-contain flex-1 min-h-0 px-5 pt-5 pb-1 text-center">
+          <Logo />
           {popup.title && (
-            <h2 id={titleId} dir="auto" className="text-3xl sm:text-4xl font-extrabold leading-tight" style={{ color: "var(--text)" }}>
+            <h2 id={titleId} dir="auto" className="text-2xl sm:text-4xl font-extrabold leading-tight" style={{ color: "var(--text)" }}>
               {popup.title}
             </h2>
           )}
           {popup.subtitle && (
-            <p id={`${textId}-sub`} dir="auto" className="text-sm sm:text-base mt-1.5" style={{ color: "var(--text)" }}>
+            <p id={`${textId}-sub`} dir="auto" className="text-sm sm:text-base mt-1" style={{ color: "var(--text)" }}>
               {popup.subtitle}
             </p>
           )}
@@ -139,7 +134,11 @@ export function PopupDialog({
               width={900}
               height={1200}
               sizes="(max-width: 480px) 90vw, 408px"
-              className="w-full h-auto block rounded-2xl mt-4"
+              className="block w-auto h-auto max-w-full mx-auto rounded-2xl mt-3 object-contain"
+              // A tall (story-sized) image would push the button off a phone
+              // screen; cap it to the height left after the logo, title,
+              // subtitle and button so the whole message fits without scrolling.
+              style={{ maxHeight: "max(12rem, calc(100dvh - 19rem))" }}
               priority
             />
           )}
@@ -149,12 +148,12 @@ export function PopupDialog({
             </p>
           )}
         </div>
-        <div className="px-5 pb-5 pt-3 flex-shrink-0 text-center">
-          <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>יש לאשר קריאה כדי להמשיך באתר</p>
+        <div className="px-5 pb-4 pt-2 flex-shrink-0 text-center">
+          <p className="text-xs sm:text-sm mb-2" style={{ color: "var(--text-muted)" }}>יש לאשר קריאה כדי להמשיך באתר</p>
           <button
             type="button"
             onClick={onConfirm}
-            className="w-full py-3.5 rounded-xl text-lg font-bold transition-opacity hover:opacity-85"
+            className="w-full py-3 rounded-xl text-base sm:text-lg font-bold transition-opacity hover:opacity-85"
             style={{ background: "var(--text)", color: "var(--cream)" }}
           >
             {POPUP_CONFIRM_LABEL}
