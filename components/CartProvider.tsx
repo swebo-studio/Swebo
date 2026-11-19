@@ -14,8 +14,8 @@ export interface CartItem {
   maxQty?: number; // stock at time of adding — used to cap +/- in cart
   /** Bought as a preorder: the order waits in its column until released */
   preorder?: boolean;
-  /** The preorder's estimated delivery date, "YYYY-MM-DD", when it has one */
-  preorderDate?: string;
+  /** The preorder's estimated arrival as shown, "10.12–20.12", when it has one */
+  preorderEstimate?: string;
 }
 
 interface CartContextType {

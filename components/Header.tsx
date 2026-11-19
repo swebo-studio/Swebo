@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "./CartProvider";
+import { pagePath } from "@/lib/pages";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AnnouncementBar from "./AnnouncementBar";
 import CartPromoBar from "./CartPromoBar";
@@ -14,6 +15,7 @@ export default function Header() {
   const { totalItems } = useCart();
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [pages, setPages] = useState<{ slug: string; title: string }[]>([]);
   const [announcementItems, setAnnouncementItems] = useState<{ text: string; url?: string }[]>([]);
   const drawerRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -24,6 +26,7 @@ export default function Header() {
       if (cached) setAnnouncementItems(JSON.parse(cached));
     } catch {}
     fetch("/api/categories").then((r) => r.json()).then(setCategories).catch(() => {});
+    fetch("/api/pages").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setPages(d); }).catch(() => {});
     fetch("/api/config").then((r) => r.json()).then((cfg: Record<string, string>) => {
       const raw = cfg["announcement.items"] ?? "";
       const items = raw.split("\n").map((s) => s.trim()).filter(Boolean).map((s) => {
@@ -203,6 +206,12 @@ export default function Header() {
           <Link href="/accessibility" onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }}>
             הצהרת נגישות
           </Link>
+          {/* Text pages the admins added */}
+          {pages.map((page) => (
+            <Link key={page.slug} href={pagePath(page.slug)} onClick={() => setOpen(false)} className="py-3 px-2 font-medium text-base rounded-xl hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }}>
+              {page.title}
+            </Link>
+          ))}
         </nav>
       </div>
     </>

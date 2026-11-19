@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 import ConfirmModal from "@/components/ConfirmModal";
-import { PREORDER_STAGE } from "@/lib/preorder";
+import OrderEditor from "@/components/OrderEditor";
+import { PREORDER_STAGE, preorderEstimate } from "@/lib/preorder";
 import { orderItemName, orderItemImage } from "@/lib/orderItem";
 
 const STAGE_ICONS: Record<string, React.ReactNode> = {
@@ -60,6 +61,8 @@ function matchesQuery(order: Order, query: string): boolean {
 
 interface OrderItem {
   id: string;
+  productId: string | null;
+  preorder: boolean;
   quantity: number;
   size: string;
   color: string | null;
@@ -67,7 +70,7 @@ interface OrderItem {
   productName: string;
   productImage: string | null;
   /** null once the product was deleted */
-  product: { nameHe: string; image: string } | null;
+  product: { nameHe: string; image: string; preorder: boolean; preorderDate: string | null; preorderDateTo: string | null } | null;
 }
 
 interface Order {
@@ -81,6 +84,7 @@ interface Order {
   city: string;
   deliveryMode: string | null;
   pudoPointName: string | null;
+  pudoCodeDestination: string | null;
   subtotal: number;
   delivery: number;
   total: number;
@@ -104,6 +108,7 @@ export default function AdminOrdersPage() {
   const [advancing, setAdvancing] = useState<string | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Order | null>(null);
+  const [editing, setEditing] = useState<Order | null>(null);
   const [pendingPaid, setPendingPaid] = useState<Order | null>(null);
   const [pendingShip, setPendingShip] = useState<Order | null>(null);
   const [shipping, setShipping] = useState<string | null>(null);
@@ -295,6 +300,16 @@ export default function AdminOrdersPage() {
         onCancel={() => setPendingRelease(null)}
       />
     )}
+    {editing && (
+      <OrderEditor
+        order={editing}
+        onClose={() => setEditing(null)}
+        onSaved={(saved) => {
+          setOrders((prev) => prev.map((o) => (o.id === saved.id ? { ...o, ...(saved as unknown as Order) } : o)));
+          setEditing(null);
+        }}
+      />
+    )}
     {pendingDelete && (
       <ConfirmModal
         message={`למחוק את ההזמנה של ${pendingDelete.customerName}?`}
@@ -373,6 +388,15 @@ export default function AdminOrdersPage() {
                       שולם
                     </span>
                   )}
+                </button>
+                <button
+                  onClick={() => setEditing(order)}
+                  className="flex-shrink-0 px-2 py-2 rounded-xl text-xs font-bold transition-opacity hover:opacity-70"
+                  style={{ color: "var(--text)" }}
+                  title="ערוך הזמנה"
+                  aria-label={`ערוך את ההזמנה של ${order.customerName}`}
+                >
+                  <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
                 </button>
                 <button
                   onClick={() => setPendingDelete(order)}
@@ -656,6 +680,9 @@ export default function AdminOrdersPage() {
                                         {orderItemName(item)} ×{item.quantity}
                                         {item.color ? ` · ${item.color}` : ""}{item.size ? ` / מידה ${item.size}` : ""}
                                         {!item.product && <span className="block text-[10px]" style={{ color: "var(--text-muted)" }}>המוצר נמחק מהאתר</span>}
+                                        {item.preorder && item.product && preorderEstimate(item.product) && (
+                                          <span className="block text-[10px]" style={{ color: "#1F3A5F" }}>צפי הגעה משוער: <span dir="ltr">{preorderEstimate(item.product)}</span></span>
+                                        )}
                                       </span>
                                       {orderItemImage(item) ? (
                                         // eslint-disable-next-line @next/next/no-img-element
@@ -702,6 +729,15 @@ export default function AdminOrdersPage() {
                                   )}
                                 </div>
                               )}
+
+                              {/* Edit */}
+                              <button
+                                onClick={() => setEditing(order)}
+                                className="w-full py-2.5 rounded-xl text-sm font-bold border transition-opacity hover:opacity-70"
+                                style={{ borderColor: "var(--text)", color: "var(--text)", background: "transparent" }}
+                              >
+                                ערוך הזמנה
+                              </button>
 
                               {/* Delete */}
                               <button

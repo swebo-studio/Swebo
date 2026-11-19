@@ -8,7 +8,7 @@ import { parseSizePresets, sizeRowsAreValid, type SizePreset } from "@/lib/sizes
 import BadgeFields from "@/components/promotions/BadgeFields";
 import { Switch } from "@/components/promotions/controls";
 import { DEFAULT_PRODUCT_BADGE_COLOR, isBadgePosition, isBadgeSize, type BadgePosition, type BadgeSize } from "@/lib/promotionBadges";
-import { formatShipDate } from "@/lib/preorder";
+import { formatPreorderRange } from "@/lib/preorder";
 
 interface Category { id: string; nameHe: string }
 
@@ -44,12 +44,13 @@ interface Product {
   badgePosition: string;
   preorder: boolean;
   preorderDate: string | null;
+  preorderDateTo: string | null;
   categories: { id: string; nameHe: string }[];
   colors: ProductColor[];
 }
 
 const EMPTY_BADGE = { badgeOn: false, badgeText: "", badgeColor: DEFAULT_PRODUCT_BADGE_COLOR, badgeSize: "md" as BadgeSize, badgePosition: "top-left" as BadgePosition };
-const EMPTY_FORM = { nameHe: "", descriptionHe: "", detailsHe: "", price: 150, comparePrice: "" as number | "", stock: 0, active: true, preorder: false, preorderDate: "", ...EMPTY_BADGE };
+const EMPTY_FORM = { nameHe: "", descriptionHe: "", detailsHe: "", price: 150, comparePrice: "" as number | "", stock: 0, active: true, preorder: false, preorderDate: "", preorderDateTo: "", ...EMPTY_BADGE };
 
 /** The product's own card tag as the form edits it. */
 function badgeForm(p: Product) {
@@ -164,7 +165,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
   }
 
   function openEdit(p: Product) {
-    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, detailsHe: p.detailsHe, price: p.price, comparePrice: p.comparePrice ?? "", stock: p.stock, active: p.active, preorder: p.preorder, preorderDate: p.preorderDate ?? "", ...badgeForm(p) });
+    setForm({ nameHe: p.nameHe, descriptionHe: p.descriptionHe, detailsHe: p.detailsHe, price: p.price, comparePrice: p.comparePrice ?? "", stock: p.stock, active: p.active, preorder: p.preorder, preorderDate: p.preorderDate ?? "", preorderDateTo: p.preorderDateTo ?? "", ...badgeForm(p) });
     setSelectedCategoryIds(p.categories.map((c) => c.id));
     setEditing(p);
     setCreating(false);
@@ -416,6 +417,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
     const payload = {
       ...fields,
       preorderDate: form.preorderDate || null,
+      preorderDateTo: form.preorderDateTo || null,
       comparePrice: form.comparePrice === "" ? null : Number(form.comparePrice),
       // Switched off, or switched on with no text, means no tag
       badgeText: badgeOn && form.badgeText.trim() ? form.badgeText.trim() : null,
@@ -729,28 +731,47 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                     </div>
                     {form.preorder && (
                       <>
-                        <label htmlFor="preorder-date" className="text-sm text-right -mb-1" style={{ color: "var(--text-muted)" }}>אספקה משוערת (לא חובה)</label>
-                        <div className="flex items-center justify-end gap-3 text-sm">
-                          {/* Phone date pickers have no clear button of their own */}
-                          {form.preorderDate && (
-                            <button
-                              type="button"
-                              onClick={() => setForm((f) => ({ ...f, preorderDate: "" }))}
-                              className="text-xs underline flex-shrink-0 hover:opacity-70"
-                              style={{ color: "var(--maroon)" }}
-                            >
-                              נקה תאריך
-                            </button>
-                          )}
+                        <p className="text-sm text-right -mb-1" style={{ color: "var(--text-muted)" }}>צפי הגעה משוער (לא חובה)</p>
+                        <div className="flex items-center justify-start gap-2 flex-wrap text-sm">
+                          <label htmlFor="preorder-date" style={{ color: "var(--text-muted)" }}>מ-</label>
                           <input
                             id="preorder-date"
                             type="date"
+                            aria-label="צפי הגעה — מתאריך"
                             value={form.preorderDate}
+                            max={form.preorderDateTo || undefined}
                             onChange={(e) => setForm((f) => ({ ...f, preorderDate: e.target.value }))}
                             className="px-3 py-2 rounded-xl border outline-none"
                             style={inputStyle}
                           />
+                          <label htmlFor="preorder-date-to" style={{ color: "var(--text-muted)" }}>עד</label>
+                          <input
+                            id="preorder-date-to"
+                            type="date"
+                            aria-label="צפי הגעה — עד"
+                            value={form.preorderDateTo}
+                            min={form.preorderDate || undefined}
+                            onChange={(e) => setForm((f) => ({ ...f, preorderDateTo: e.target.value }))}
+                            className="px-3 py-2 rounded-xl border outline-none"
+                            style={inputStyle}
+                          />
+                          {/* Phone date pickers have no clear button of their own */}
+                          {(form.preorderDate || form.preorderDateTo) && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, preorderDate: "", preorderDateTo: "" }))}
+                              className="text-xs underline flex-shrink-0 hover:opacity-70"
+                              style={{ color: "var(--maroon)" }}
+                            >
+                              נקה תאריכים
+                            </button>
+                          )}
                         </div>
+                        {formatPreorderRange(form.preorderDate || null, form.preorderDateTo || null) && (
+                          <p className="text-xs text-right" style={{ color: "var(--text)" }}>
+                            הלקוחות יראו: צפי הגעה משוער <span dir="ltr">{formatPreorderRange(form.preorderDate || null, form.preorderDateTo || null)}</span> (מועד משוער, לא מובטח)
+                          </p>
+                        )}
                         <p className="text-xs text-right" style={{ color: "var(--text-muted)" }}>
                           מוכרים רק לפי המלאי שהוגדר — כשהמלאי נגמר המוצר אוזל, כמו מוצר רגיל. הלקוח משלם מיד, וההזמנה מחכה בעמודת ״הזמנות מוקדמות״ עד שמשחררים אותה. כיבוי המתג מחזיר את המוצר למכירה רגילה.
                         </p>
@@ -1258,7 +1279,7 @@ export default function ProductsManager({ initialProducts }: { initialProducts: 
                         {p.nameHe}
                         {p.preorder && (
                           <span className="block text-xs font-bold mt-0.5" style={{ color: "var(--warn)" }}>
-                            הזמנה מוקדמת{p.preorderDate ? ` · ${formatShipDate(p.preorderDate)}` : ""}
+                            הזמנה מוקדמת{formatPreorderRange(p.preorderDate, p.preorderDateTo) ? ` · צפי ${formatPreorderRange(p.preorderDate, p.preorderDateTo)}` : ""}
                           </span>
                         )}
                       </td>

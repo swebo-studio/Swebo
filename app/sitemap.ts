@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
+import { pagePath } from "@/lib/pages";
 import { getSiteLock } from "@/lib/siteLock.server";
 import { isLockActive } from "@/lib/siteLock";
 
@@ -16,15 +17,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // dark: exactly what the holding page's noindex is trying to prevent.
   if (isLockActive(await getSiteLock())) return [];
 
-  const products = await prisma.product.findMany({
-    where: { active: true },
-    select: { id: true, updatedAt: true },
-  });
+  const [products, pages] = await Promise.all([
+    prisma.product.findMany({ where: { active: true }, select: { id: true, updatedAt: true } }),
+    prisma.page.findMany({ where: { published: true }, select: { slug: true, updatedAt: true } }),
+  ]);
 
   return [
     { url: base, lastModified: new Date() },
     { url: `${base}/privacy`, lastModified: new Date() },
     { url: `${base}/terms`, lastModified: new Date() },
+    ...pages.map((p) => ({ url: `${base}${pagePath(p.slug)}`, lastModified: p.updatedAt })),
     ...products.map((p) => ({
       url: `${base}/product/${p.id}`,
       lastModified: p.updatedAt,

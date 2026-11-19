@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Link from "next/link";
 import CartClearer from "@/components/CartClearer";
-import { PREORDER_STAGE } from "@/lib/preorder";
+import { ESTIMATE_NOTE, PREORDER_STAGE, preorderEstimate } from "@/lib/preorder";
 import { orderItemName } from "@/lib/orderItem";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +72,9 @@ export default async function OrderPage(
           {isPreorder && (
             <p className="mt-3 text-sm px-4 py-2 rounded-xl font-medium" style={{ background: "#eaf0f7", color: "#1F3A5F" }}>
               זוהי הזמנה מוקדמת — נעדכן ב-SMS ברגע שההזמנה תועבר למשלוח
+              {order.items.some((i) => i.preorder && i.product && preorderEstimate(i.product)) && (
+                <span className="block text-xs mt-1 font-normal">צפי ההגעה ליד כל פריט הוא {ESTIMATE_NOTE}</span>
+              )}
             </p>
           )}
         </div>
@@ -97,6 +100,12 @@ export default async function OrderPage(
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     מידה {item.size}{item.color ? ` · ${item.color}` : ""}
                   </p>
+                  {/* The product's current range — admins move it as the stock's arrival firms up */}
+                  {isPreorder && item.preorder && item.product && preorderEstimate(item.product) && (
+                    <p className="text-xs mt-0.5 font-medium" style={{ color: "#1F3A5F" }}>
+                      צפי הגעה משוער: <span dir="ltr">{preorderEstimate(item.product)}</span>
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

@@ -55,8 +55,10 @@ model Product {
   /// Sold as a preorder: buyable at any stock (stock may go below 0, showing
   /// how many units are owed), and its orders wait for a manual release.
   preorder      Boolean        @default(false)
-  /// Optional "YYYY-MM-DD" estimated delivery date shown to customers.
+  /// Estimated arrival shown to customers, from preorderDate to preorderDateTo
+  /// ("YYYY-MM-DD", either optional). An estimate, never a promise.
   preorderDate  String?
+  preorderDateTo String?
   categories    Category[]     @relation("ProductCategories")
   categoryOrders CategoryProductOrder[]
   createdAt     DateTime       @default(now())
@@ -346,4 +348,20 @@ model SitePopup {
   version   Int       @default(1)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+/// A plain text page the admins write (e.g. "שאלות נפוצות"), served at
+/// /info/[slug] and listed under "עוד" in the site menu.
+model Page {
+  id        String   @id @default(cuid())
+  /// The URL part: lowercase Latin, Hebrew, digits and dashes
+  slug      String   @unique
+  title     String
+  /// Plain text; line breaks are kept
+  content   String   @default("")
+  /// Hidden pages are not in the menu and their URL is not found
+  published Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

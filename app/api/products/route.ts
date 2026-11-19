@@ -4,10 +4,14 @@ import { auth } from "@/lib/auth";
 import { productBadgeInput } from "@/lib/promotionBadges";
 import { preorderInput } from "@/lib/preorder";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ?withStock=1 adds each colour's sizes, for the admin's order editor
+  const withStock = req.nextUrl.searchParams.get("withStock") === "1";
   const products = await prisma.product.findMany({
     orderBy: { createdAt: "desc" },
-    include: { categories: true },
+    include: withStock
+      ? { categories: true, colors: { orderBy: { sortOrder: "asc" }, include: { sizes: { orderBy: { sortOrder: "asc" } } } } }
+      : { categories: true },
   });
   return Response.json(products);
 }

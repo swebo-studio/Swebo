@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { promotionPricing } from "@/lib/cartPricing";
-import { formatShipDate, isPreorder, preorderEstimate } from "@/lib/preorder";
+import { isPreorder, preorderEstimate } from "@/lib/preorder";
 
 export default function CartPage() {
   const { items, removeItem, updateQty, clearCart, promotions } = useCart();
@@ -46,7 +46,7 @@ export default function CartPage() {
 
   /** Whether the item is a preorder, and its estimate — the live product's once loaded */
   function preorderFor(item: (typeof items)[0]): { preorder: boolean; date: string | null } {
-    return livePreorder[item.productId] ?? { preorder: !!item.preorder, date: item.preorderDate ?? null };
+    return livePreorder[item.productId] ?? { preorder: !!item.preorder, date: item.preorderEstimate ?? null };
   }
 
   function availableFor(item: (typeof items)[0]): number {
@@ -164,7 +164,7 @@ export default function CartPage() {
                     )}
                     {preorderFor(item).preorder && (
                       <p className="text-xs mt-1 font-bold" style={{ color: "#1F3A5F" }}>
-                        הזמנה מוקדמת{preorderFor(item).date ? ` · אספקה משוערת ${formatShipDate(preorderFor(item).date!)}` : ""}
+                        הזמנה מוקדמת{preorderFor(item).date ? ` · צפי הגעה משוער ${preorderFor(item).date} (לא מובטח)` : ""}
                       </p>
                     )}
                     {overStock && (

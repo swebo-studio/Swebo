@@ -7,7 +7,7 @@ import SizeChartModal from "./SizeChartModal";
 import CareGuideModal from "./CareGuideModal";
 import { buildWhatsAppHref } from "@/lib/whatsapp";
 import { LEGACY_FALLBACK_SIZES } from "@/lib/sizes";
-import { formatShipDate } from "@/lib/preorder";
+import { ESTIMATE_NOTE } from "@/lib/preorder";
 
 interface ColorImage { id: string; url: string }
 interface SizeStock { size: string; stock: number }
@@ -33,8 +33,8 @@ interface Props {
     colors: ProductColor[];
     /** Sells as a preorder: within its stock, shipped when an admin releases it */
     preorder?: boolean;
-    /** The preorder's estimated delivery date, "YYYY-MM-DD", when it has one */
-    preorderDate?: string | null;
+    /** The preorder's estimated arrival as shown, "10.12–20.12", when it has one */
+    preorderEstimate?: string | null;
   };
   sizeChart: SizeRow[];
   showSizeChart?: boolean;
@@ -56,7 +56,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
 
   const hasColors = product.colors.length > 0;
   const preorder = !!product.preorder;
-  const preorderDate = preorder ? product.preorderDate ?? null : null;
+  const preorderEstimate = preorder ? product.preorderEstimate ?? null : null;
 
   // Init selected color from URL param
   const initialColorId = searchParams.get("color");
@@ -148,7 +148,7 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
       image: mainImg || product.image,
       maxQty: effectiveStock,
       preorder: preorder || undefined,
-      preorderDate: preorderDate ?? undefined,
+      preorderEstimate: preorderEstimate ?? undefined,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -255,7 +255,12 @@ export default function ProductDetail({ product, sizeChart, showSizeChart = true
           <div role="status" className="text-sm px-4 py-3 rounded-xl text-right" style={{ background: "#eaf0f7", color: "#1F3A5F", border: "1.5px solid #1F3A5F" }}>
             <p className="font-bold">הזמנה מוקדמת</p>
             <p>התשלום עכשיו, וההזמנה תישלח ברגע שהמלאי יגיע.</p>
-            {preorderDate && <p>אספקה משוערת: {formatShipDate(preorderDate)}</p>}
+            {preorderEstimate && (
+              <>
+                <p className="mt-1">צפי הגעה משוער: <strong dir="ltr">{preorderEstimate}</strong></p>
+                <p className="text-xs mt-0.5">* {ESTIMATE_NOTE}</p>
+              </>
+            )}
           </div>
         )}
         {effectiveStock <= 0 && (

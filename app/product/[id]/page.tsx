@@ -149,7 +149,7 @@ export default async function ProductPage(
               stock: product.stock,
               colors: product.colors,
               preorder: isPreorder(product),
-              preorderDate: preorderEstimate(product),
+              preorderEstimate: preorderEstimate(product),
             }}
             sizeChart={sizeChart}
             showSizeChart={showSizeChart}
