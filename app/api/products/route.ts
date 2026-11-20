@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const products = await prisma.product.findMany({
     orderBy: { createdAt: "desc" },
     include: withStock
-      ? { categories: true, colors: { orderBy: { sortOrder: "asc" }, include: { sizes: { orderBy: { sortOrder: "asc" } } } } }
+      ? { categories: true, colors: { orderBy: { sortOrder: "asc" }, include: { sizes: { orderBy: { sortOrder: "asc" } }, images: { orderBy: { sortOrder: "asc" } } } } }
       : { categories: true },
   });
   return Response.json(products);

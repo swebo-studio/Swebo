@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import CartClearer from "@/components/CartClearer";
 import { ESTIMATE_NOTE, PREORDER_STAGE, preorderEstimate } from "@/lib/preorder";
-import { orderItemName } from "@/lib/orderItem";
+import { orderItemImage, orderItemName } from "@/lib/orderItem";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +93,8 @@ export default async function OrderPage(
                 <span className="font-bold text-sm" style={{ color: "var(--text)" }}>
                   ₪{item.price * item.quantity}
                 </span>
-                <div className="text-right">
+                <div className="flex items-center gap-3 min-w-0">
+                <div className="text-right min-w-0">
                   <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
                     {orderItemName(item)} × {item.quantity}
                   </p>
@@ -106,6 +107,13 @@ export default async function OrderPage(
                       צפי הגעה משוער: <span dir="ltr">{preorderEstimate(item.product)}</span>
                     </p>
                   )}
+                </div>
+                {orderItemImage(item) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={orderItemImage(item)!} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                ) : (
+                  <span className="w-12 h-12 rounded-lg flex-shrink-0" style={{ background: "var(--cream-dark)" }} />
+                )}
                 </div>
               </div>
             ))}

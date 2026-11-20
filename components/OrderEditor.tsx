@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { DELETED_PRODUCT_NAME } from "@/lib/orderItem";
+import { DELETED_PRODUCT_NAME, snapshotImage } from "@/lib/orderItem";
 
 /**
  * The admin's edit of a placed order: customer, delivery, and every line.
@@ -16,6 +16,9 @@ interface EditableItem {
   size: string;
   color: string | null;
   price: number;
+  /** The photo saved with the line, or the live product's */
+  productImage?: string | null;
+  product?: { image?: string | null } | null;
 }
 
 export interface EditableOrder {
@@ -44,7 +47,14 @@ interface ProductOption {
   price: number;
   active: boolean;
   stock: number;
-  colors: { nameHe: string; stock: number; sizes: { size: string; stock: number }[] }[];
+  image: string;
+  colors: {
+    nameHe: string;
+    stock: number;
+    imageUrl: string | null;
+    images: { url: string; sortOrder: number }[];
+    sizes: { size: string; stock: number }[];
+  }[];
 }
 
 interface Line {
@@ -58,6 +68,10 @@ interface Line {
   size: string;
   quantity: number;
   price: number;
+  /** The line's photo as saved, and the product and colour it belongs to */
+  savedImage: string | null;
+  savedProductId: string | null;
+  savedColor: string;
 }
 
 type Mode = "home" | "epost" | "self";
@@ -106,6 +120,7 @@ export default function OrderEditor({ order, onClose, onSaved }: {
   const [lines, setLines] = useState<Line[]>(() => order.items.map((i) => ({
     key: i.id, id: i.id, productId: i.productId, name: i.productName || DELETED_PRODUCT_NAME,
     color: i.color ?? "", size: i.size, quantity: i.quantity, price: i.price,
+    savedImage: i.productImage || i.product?.image || null, savedProductId: i.productId, savedColor: i.color ?? "",
   })));
 
   useEffect(() => {
@@ -156,7 +171,7 @@ export default function OrderEditor({ order, onClose, onSaved }: {
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { key: `new-${Date.now()}`, productId: null, name: "", color: "", size: "", quantity: 1, price: 0 }]);
+    setLines((prev) => [...prev, { key: `new-${Date.now()}`, productId: null, name: "", color: "", size: "", quantity: 1, price: 0, savedImage: null, savedProductId: null, savedColor: "" }]);
   }
 
   async function save() {
@@ -267,9 +282,19 @@ export default function OrderEditor({ order, onClose, onSaved }: {
               const deleted = !!line.id && !line.productId;
               const color = product?.colors.find((c) => c.nameHe === line.color);
               const sizes = color?.sizes ?? [];
+              // Same product and colour keeps its saved photo; otherwise the one saving will take
+              const image = line.productId === line.savedProductId && line.color === line.savedColor
+                ? line.savedImage
+                : product ? snapshotImage(product, line.color) : null;
               return (
                 <div key={line.key} className="flex flex-col gap-2 p-3 rounded-xl border" style={{ borderColor: "var(--border)", background: "var(--cream-dark)" }}>
                   <div className="flex items-end gap-2">
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={image} alt="" className="w-[38px] h-[38px] rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                    ) : (
+                      <span className="w-[38px] h-[38px] rounded-lg flex-shrink-0" style={{ background: "var(--cream)" }} />
+                    )}
                     <div className="flex-1 min-w-0">
                       {deleted ? (
                         <Field label="מוצר">
